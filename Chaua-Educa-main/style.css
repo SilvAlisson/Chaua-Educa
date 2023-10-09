@@ -34,76 +34,38 @@
   
 }
 
-.fruit-goiaba-verde {
+.fruit {
 	position: fixed;
 	top: 40vh;
 	left: 100vw;
 	height: 6vh;
 	width: 9vw;
+	background-size: contain;
+	border: none;
+	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
+}
+.goiaba-verde {
     background: url('images/goiaba-verde.png') no-repeat center center;
-	background-size: contain;
-	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
 
-.fruit-banana-verde {
-	position: fixed;
-	top: 40vh;
-	left: 100vw;
-	height: 6vh;
-	width: 9vw;
+.banana-verde {
     background: url('images/banana-verde.png') no-repeat center center;
-	background-size: contain;
-	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
 
-.fruit-coquinho-verde {
-	position: fixed;
-	top: 40vh;
-	left: 100vw;
-	height: 6vh;
-	width: 9vw;
+.coquinho-verde {
     background: url('images/coquinho-verde.png') no-repeat center center;
-	background-size: contain;
-	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
 
-.fruit-mamao-verde {
-	position: fixed;
-	top: 40vh;
-	left: 100vw;
-	height: 6vh;
-	width: 9vw;
+.mamao-verde {
     background: url('images/mamao-verde.png') no-repeat center center;
-	background-size: contain;
-	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
 
-.fruit-semente-de-girassol {
-	position: fixed;
-	top: 40vh;
-	left: 100vw;
-	height: 6vh;
-	width: 9vw;
+.semente-de-girassol {
     background: url('images/semente-de-girassol.png') no-repeat center center;
-	background-size: contain;
-	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
 
-.fruit-manga-verde {
-	position: fixed;
-	top: 40vh;
-	left: 100vw;
-	height: 6vh;
-	width: 9vw;
+.manga-verde {
     background: url('images/manga-verde.png') no-repeat center center;
-	background-size: contain;
-	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
 
 .tree-inverted {
