@@ -94,7 +94,7 @@ function play() {
                         return;
                     } else {
                         element.remove();
-                        score_val.innerHTML = parseInt(score_val.innerHTML) + additionalScore; // Adicione pontos extras
+                        score_val.innerHTML = parseInt(score_val.innerHTML) + additionalScore; 
                     }
                 } else {
                     if (fruit_props.right < parrot_props.left && fruit_props.right + move_speed >= parrot_props.left && element.increase_score == '1') {
@@ -182,7 +182,7 @@ function play() {
         'images/mamão-verde.png',
         'images/coquinho-verde.png',
         'images/banana-verde.png',
-        // Adicione mais URLs de imagens de frutos, se necessário
+        // Adicione mais imagens de frutos, se necessário
     ];
     
     let fruit_separation = 0;
