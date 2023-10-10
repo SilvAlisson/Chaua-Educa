@@ -213,14 +213,14 @@ function play() {
             let randomFruitImage = fruitImages[Math.floor(Math.random() * fruitImages.length)];
     
             let fruit_sprite1 = document.createElement('img');
-            fruit_sprite1.className = 'fruit';
+            fruit_sprite1.classList.add("fruit")
             fruit_sprite1.src = randomFruitImage;
             if (randomFruitImage === 'images/goiaba-verde.png') {
-                fruit_sprite1.classList.add('fruit-goiaba-verde');
+                fruit_sprite1.classList.add('goiaba-verde');
             } else if (randomFruitImage === 'images/semente-de-girassol.png') {
-                fruit_sprite1.classList.add('fruit-semente-de-girassol');
+                fruit_sprite1.classList.add('semente-de-girassol');
             } else if (randomFruitImage === 'images/manga-verde.png') {
-                fruit_sprite1.classList.add('fruit-manga-verde');
+                fruit_sprite1.classList.add('manga-verde');
             }
     
             fruit_sprite1.style.left = fruit_x + 'px';
