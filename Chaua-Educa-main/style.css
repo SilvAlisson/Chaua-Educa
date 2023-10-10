@@ -1,8 +1,13 @@
+@font-face {
+	font-family: 'Fonte-Pixelada';
+	src: url(Fonts/Pixelify_Sans/PixelifySans-VariableFont_wght.ttf);
+}
+
 * {
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
-	font-family: Arial, Helvetica, sans-serif;
+	font-family: 'Fonte-Pixelada', Arial, Helvetica, sans-serif;
 }
 .background {
 	height: 100vh;
@@ -38,34 +43,49 @@
 	position: fixed;
 	top: 40vh;
 	left: 100vw;
-	height: 6vh;
-	width: 9vw;
-	background-size: contain;
 	border: none;
 	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
 .goiaba-verde {
     background: url('images/goiaba-verde.png') no-repeat center center;
+	height: 8vh;
+    width: 8vw;
+	background-size: contain;
 }
 
 .banana-verde {
     background: url('images/banana-verde.png') no-repeat center center;
+	height: 8vh;
+    width: 8vw;
+	background-size: contain;
 }
 
 .coquinho-verde {
     background: url('images/coquinho-verde.png') no-repeat center center;
+	height: 8vh;
+    width: 8vw;
+	background-size: contain;
 }
 
 .mamao-verde {
     background: url('images/mamao-verde.png') no-repeat center center;
+	height: 8vh;
+    width: 8vw;
+	background-size: contain;
 }
 
 .semente-de-girassol {
     background: url('images/semente-de-girassol.png') no-repeat center center;
+	height: 8vh;
+    width: 8vw;
+	background-size: contain;
 }
 
 .manga-verde {
     background: url('images/manga-verde.png') no-repeat center center;
+	height: 8vh;
+    width: 8vw;
+	background-size: contain;
 }
 
 .tree-inverted {
@@ -108,7 +128,7 @@
 }
 @media only screen and (max-width: 1080px) {
     .message{
-		font-size: 50px;
+		font-size: 30px;
 		top: 50%;
 		white-space: nowrap;
 	}
