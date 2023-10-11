@@ -34,6 +34,28 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+let parrot_dy = 0;
+let controls_registered = false;
+
+function register_keyboard_controls() {
+    if (controls_registered) return;
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key == 'ArrowUp' || e.key == ' ') {
+            img.src = 'images/parrot-b.png';
+            parrot_dy = -7.6;
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if (e.key =='ArrowUp' || e.key == ' ') {
+            img.src = 'images/parrot-a.png';
+        }
+    });
+
+    controls_registered = true;
+}
+
 function play() {
     function move() {
         if (game_state != 'Play') return;
@@ -115,22 +137,12 @@ function play() {
     }
     requestAnimationFrame(move);
 
-    let parrot_dy = 0;
+    parrot_dy = 0;
     function apply_gravity() {
         if (game_state != 'Play') return;
         parrot_dy = parrot_dy + gravity;
-        document.addEventListener('keydown', (e) => {
-            if (e.key == 'ArrowUp' || e.key == ' ') {
-                img.src = 'images/parrot-b.png';
-                parrot_dy = -7.6;
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (e.key =='ArrowUp' || e.key == ' ') {
-                img.src = 'images/parrot-a.png';
-            }
-        });
+        
+        register_keyboard_controls();
 
         if (parrot_props.top <= 0 || parrot_props.bottom >= background.bottom) {
             game_state = 'End';
