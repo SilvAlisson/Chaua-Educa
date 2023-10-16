@@ -46,45 +46,58 @@
 	border: none;
 	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
 }
-.goiaba-verde {
-    background: url('images/goiaba-verde.png') no-repeat center center;
+.Goiaba {
+    background: url('images/Goiaba.png') no-repeat center center;
 	height: 8vh;
     width: 8vw;
 	background-size: contain;
+
 }
 
-.banana-verde {
-    background: url('images/banana-verde.png') no-repeat center center;
+.Banana {
+    background: url('images/Banana.png') no-repeat center center;
 	height: 8vh;
     width: 8vw;
 	background-size: contain;
+
 }
 
-.coquinho-verde {
-    background: url('images/coquinho-verde.png') no-repeat center center;
+.Coquinho {
+    background: url('images/Coquinho.png') no-repeat center center;
 	height: 8vh;
     width: 8vw;
 	background-size: contain;
+
 }
 
-.mamao-verde {
-    background: url('images/mamao-verde.png') no-repeat center center;
+.Mamao {
+    background: url('images/Mamao.png') no-repeat center center;
 	height: 8vh;
     width: 8vw;
 	background-size: contain;
+
 }
 
-.semente-de-girassol {
-    background: url('images/semente-de-girassol.png') no-repeat center center;
+.Semente {
+    background: url('images/Semente.png') no-repeat center center;
 	height: 8vh;
     width: 8vw;
 	background-size: contain;
+
 }
 
-.manga-verde {
-    background: url('images/manga-verde.png') no-repeat center center;
+.Manga {
+    background: url('images/Manga.png') no-repeat center center;
 	height: 8vh;
     width: 8vw;
+	background-size: contain;
+
+}
+
+.Milho {
+	background: url(images/Milho.png) no-repeat center center;
+	height: 10vh;
+    width: 10vw;
 	background-size: contain;
 }
 
