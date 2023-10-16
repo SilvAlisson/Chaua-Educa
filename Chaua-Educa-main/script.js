@@ -16,6 +16,25 @@ let collidedFruitName = '';
 img.style.display = 'none';
 message.classList.add('messageStyle');
 
+const QUESTIONS = [
+    { prompt: "Os papagaio-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
+    { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
+    { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
+    { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
+    { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
+    { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
+    { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outrs países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
+    { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
+    { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
+    { prompt: "O desmatamento da mata atlântica, capitura de ovos e filhotes são fatores para o desaparecimento da espécie da natureza? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" }
+];
+
+function get_fresh_questions() {
+    return QUESTIONS.slice();
+}
+
+let in_game_questions;
+
 document.addEventListener('keydown', (e) => {
     if (e.key == 'Enter' && game_state != 'Play') {
         document.querySelectorAll('.tree').forEach((e) => {
@@ -31,6 +50,7 @@ document.addEventListener('keydown', (e) => {
         score_title.innerHTML = 'Score : ';
         score_val.innerHTML = '0';
         message.classList.remove('messageStyle');
+        in_game_questions = get_fresh_questions();
         play();
     }
 });
@@ -103,21 +123,10 @@ function play() {
 
                     let collidedFruitName = element.getAttribute('src').replace('images/', '').replace('.png', '');
                     
-                    let questions = [
-                        { prompt: "Os papagaios-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                        { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                        { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                        { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                        { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                        { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                        { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outros países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                        { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                        { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                        { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
-                    ];
+                    if (in_game_questions.length === 0) in_game_questions = get_fresh_questions();
 
-                    let randomIndex = Math.floor(Math.random() * questions.length);
-                    let question = questions[randomIndex];
+                    let randomIndex = Math.floor(Math.random() * in_game_questions.length);
+                    let question = in_game_questions.splice(randomIndex, 1)[0]; // gets question at index and remove it from array
                     let answer = prompt(`Para comer ${collidedFruitName}, responda:
 ${question.prompt}`);
 
@@ -228,7 +237,7 @@ ${question.prompt}`);
     function create_fruits() {
         if (game_state != 'Play') return;
     
-        if (fruit_separation > 350) {
+        if (fruit_separation > 115) {
             fruit_separation = 0;
     
             let tree_sprites = document.querySelectorAll('.tree');
