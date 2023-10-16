@@ -6,6 +6,6 @@
 - **Bug Fixes:**  [CodeLPrime](https://github.com/CodeLPrime)
 
   Each contribution that CodelPrime made to the project:
-  - Fixed fruit styles [#1](https://github.com/SilvAlisson/Chaua-Educa/pull/1)
+ - Fixed fruit styles [#1](https://github.com/SilvAlisson/Chaua-Educa/pull/1)
   - Ensured keyboard controls are only registered once [#2](https://github.com/SilvAlisson/Chaua-Educa/pull/4)
 
