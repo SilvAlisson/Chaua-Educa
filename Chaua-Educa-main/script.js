@@ -11,6 +11,7 @@ let game_state = 'Start';
 let additionalScore = 5;
 let sound_fruit = new Audio('Sounds/get-fruit.wav');
 let sound_die = new Audio('Sounds/die.wav');
+let collidedFruitName = '';
 
 img.style.display = 'none';
 message.classList.add('messageStyle');
@@ -94,22 +95,31 @@ function play() {
                 element.remove();
             } else {
                 if (parrot_props.left <= fruit_props.left + fruit_props.width && parrot_props.left + parrot_props.width >= fruit_props.left && parrot_props.top <= fruit_props.top + fruit_props.height && parrot_props.top + parrot_props.height >= fruit_props.top) {
+                    const randomChance = Math.random();
+
+                    const probability = 0.5;
+                
+                    if (randomChance <= probability) {
+
+                    let collidedFruitName = element.getAttribute('src').replace('images/', '').replace('.png', '');
+                    
                     let questions = [
-                        { prompt: "Os papagaio-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-                        { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-                        { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-                        { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-                        { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-                        { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-                        { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outrs países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-                        { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-                        { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-                        { prompt: "O desmatamento da mata atlântica, capitura de ovos e filhotes são fatores para o desaparecimento da espécie da natureza? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" }
+                        { prompt: "Os papagaios-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outros países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
                     ];
 
                     let randomIndex = Math.floor(Math.random() * questions.length);
                     let question = questions[randomIndex];
-                    let answer = prompt(question.prompt);
+                    let answer = prompt(`Para comer ${collidedFruitName}, responda:
+${question.prompt}`);
 
                     if (answer === null) {
                     } else if (answer.toLowerCase() !== question.answer.toLowerCase()) { 
@@ -125,6 +135,11 @@ function play() {
                     }
                     sound_fruit.play();
                 } else {
+                    element.remove();
+                    score_val.innerHTML = parseInt(score_val.innerHTML) + additionalScore -2;
+                    sound_fruit.play();
+                }
+                } else {
                     if (fruit_props.right < parrot_props.left && fruit_props.right + move_speed >= parrot_props.left && element.increase_score == '1') {
                         score_val.innerHTML = parseInt(score_val.innerHTML) + 1;
                         sound_fruit.play();
@@ -132,7 +147,8 @@ function play() {
                     element.style.left = fruit_props.left - move_speed + 'px';
                 }
             }
-        });
+        }
+        );
         requestAnimationFrame(move);
     }
     requestAnimationFrame(move);
@@ -198,13 +214,13 @@ function play() {
     requestAnimationFrame(create_tree_pair);
 
     let fruitImages = [
-        'images/goiaba-verde.png',
-        'images/semente-de-girassol.png',
-        'images/manga-verde.png',
-        'images/mamao-verde.png',
-        'images/coquinho-verde.png',
-        'images/banana-verde.png',
-        // Adicione mais URLs de imagens de frutos, se necessário
+        'images/Goiaba.png',
+        'images/Semente.png',
+        'images/Manga.png',
+        'images/Mamao.png',
+        'images/Coquinho.png',
+        'images/Banana.png',
+        'images/Milho.png',
     ];
     
     let fruit_separation = 0;
@@ -212,7 +228,7 @@ function play() {
     function create_fruits() {
         if (game_state != 'Play') return;
     
-        if (fruit_separation > 180) {
+        if (fruit_separation > 350) {
             fruit_separation = 0;
     
             let tree_sprites = document.querySelectorAll('.tree');
@@ -236,19 +252,21 @@ function play() {
             let fruit_sprite1 = document.createElement('img');
             fruit_sprite1.classList.add("fruit")
             fruit_sprite1.src = randomFruitImage;
-            if (randomFruitImage === 'images/goiaba-verde.png') {
-                fruit_sprite1.classList.add('goiaba-verde');
-            } else if (randomFruitImage === 'images/semente-de-girassol.png') {
-                fruit_sprite1.classList.add('semente-de-girassol');
-            } else if (randomFruitImage === 'images/manga-verde.png') {
-                fruit_sprite1.classList.add('manga-verde');
-            } else if (randomFruitImage === 'images/banana-verde.png') {
-                fruit_sprite1.classList.add('banana-verde');
-            } else if (randomFruitImage === 'images/coquinho-verde.png') {
-                fruit_sprite1.classList.add('coquinho-verde');
-            } else if (randomFruitImage === 'images/mamao-verde.png') {
-                fruit_sprite1.classList.add('mamao-verde');
-            }
+            if (randomFruitImage === 'images/Goiaba.png') {
+                fruit_sprite1.classList.add('Goiaba');
+            } else if (randomFruitImage === 'images/Semente.png') {
+                fruit_sprite1.classList.add('Semente');
+            } else if (randomFruitImage === 'images/Manga.png') {
+                fruit_sprite1.classList.add('Manga');
+            } else if (randomFruitImage === 'images/Banana.png') {
+                fruit_sprite1.classList.add('Banana');
+            } else if (randomFruitImage === 'images/Coquinho.png') {
+                fruit_sprite1.classList.add('Coquinho');
+            } else if (randomFruitImage === 'images/Mamao.png') {
+                fruit_sprite1.classList.add('Mamao');
+            }  else if (randomFruitImage === 'images/Milho.png') {
+                fruit_sprite1.classList.add('Milho');
+            } 
     
             fruit_sprite1.style.left = fruit_x + 'px';
             let screenHeight = window.innerHeight;
