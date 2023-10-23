@@ -1,39 +1,61 @@
+import * as database from './database.js';
 let move_speed = 3;
 let gravity = 0.5;
 let parrot = document.querySelector('.parrot');
 let img = document.getElementById('parrot-1');
 let parrot_props = parrot.getBoundingClientRect();
 let background = document.querySelector('.background').getBoundingClientRect();
-let score_val = document.querySelector('.score_val');
 let message = document.querySelector('.message');
 let score_title = document.querySelector('.score_title');
 let game_state = 'Start';
 let additionalScore = 5;
+let playerName;
+let score_val = document.querySelector('.score_val');
 let sound_fruit = new Audio('Sounds/get-fruit.wav');
 let sound_die = new Audio('Sounds/die.wav');
-let collidedFruitName = '';
+
+const inputPlayer = document.querySelector('#inputPlayer')
+const btnStart = document.querySelector('#btnStart');
+const btnRestart = document.querySelectorAll('#btnRestart');
+const btnRanking = document.querySelector('#btnRanking');
+const modal = document.querySelector('#modal');
+const modalLogin = document.querySelector('#modalLogin');
+const modalGameOver = document.querySelector('#modalGameOver');
+const modalRanking = document.querySelector('#modalRanking');
+const table = document.querySelector('#table');
+
+const validatePlayer = ({target}) =>{
+    if (target.value.length > 2) {
+        btnStart.removeAttribute('disabled');
+        playerName = target.value.trim().toUpperCase();
+
+        btnStart.addEventListener('click', start)
+        document.addEventListener('keydown', ({ key }) => {
+            if (key === 'Enter' && target.value.length > 2) {
+                start();
+            }
+        });
+    } else {
+        btnStart.setAttribute('disabled', '');
+    }
+};
+inputPlayer.addEventListener('input', validatePlayer);
+
+const cleanText = () => {
+    inputPlayer.value = '';
+    btnStart.setAttribute('disabled', '');
+};
+
+const start = () => {
+    cleanText();
+
+    modal.classList.remove('enable');
+    modalLogin.classList.remove('active');
+}
+
 
 img.style.display = 'none';
 message.classList.add('messageStyle');
-
-const QUESTIONS = [
-    { prompt: "Os papagaio-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-    { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-    { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-    { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-    { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-    { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" },
-    { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outrs países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-    { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-    { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso", answer: "F" },
-    { prompt: "O desmatamento da mata atlântica, capitura de ovos e filhotes são fatores para o desaparecimento da espécie da natureza? Escolha (V) para verdadeiro ou (F) para falso", answer: "V" }
-];
-
-function get_fresh_questions() {
-    return QUESTIONS.slice();
-}
-
-let in_game_questions;
 
 document.addEventListener('keydown', (e) => {
     if (e.key == 'Enter' && game_state != 'Play') {
@@ -50,7 +72,6 @@ document.addEventListener('keydown', (e) => {
         score_title.innerHTML = 'Score : ';
         score_val.innerHTML = '0';
         message.classList.remove('messageStyle');
-        in_game_questions = get_fresh_questions();
         play();
     }
 });
@@ -77,6 +98,7 @@ function register_keyboard_controls() {
     controls_registered = true;
 }
 
+
 function play() {
     function move() {
         if (game_state != 'Play') return;
@@ -91,10 +113,11 @@ function play() {
             } else {
                 if (parrot_props.left < tree_props.left + tree_props.width && parrot_props.left + parrot_props.width > tree_props.left && parrot_props.top < tree_props.top + tree_props.height && parrot_props.top + parrot_props.height > tree_props.top) {
                     game_state = 'End';
-                    message.innerHTML = '<strong>Fim de jogo!</strong>'.fontcolor('red') + '<br>Pressione <strong>Enter</strong> para recomeçar';
-                    message.classList.add('messageStyle');
-                    img.style.display = 'none';
                     sound_die.play();
+                    database.DBTemp(playerName, score_val);
+
+                    modal.classList.add('enable');
+                    modalGameOver.classList.add('active');
                     return;
                 } else {
                     if (tree_props.right < parrot_props.left && tree_props.right + move_speed >= parrot_props.left && element.increase_score == '1') {
@@ -117,26 +140,36 @@ function play() {
                 if (parrot_props.left <= fruit_props.left + fruit_props.width && parrot_props.left + parrot_props.width >= fruit_props.left && parrot_props.top <= fruit_props.top + fruit_props.height && parrot_props.top + parrot_props.height >= fruit_props.top) {
                     const randomChance = Math.random();
 
-                    const probability = 0.5;
+                    const probability = 0.65;
                 
                     if (randomChance <= probability) {
 
                     let collidedFruitName = element.getAttribute('src').replace('images/', '').replace('.png', '');
                     
-                    if (in_game_questions.length === 0) in_game_questions = get_fresh_questions();
+                    let questions = [
+                        { prompt: "Os papagaios-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+                        { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outros países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+                        { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
+                    ];
 
-                    let randomIndex = Math.floor(Math.random() * in_game_questions.length);
-                    let question = in_game_questions.splice(randomIndex, 1)[0]; // gets question at index and remove it from array
+                    let randomIndex = Math.floor(Math.random() * questions.length);
+                    let question = questions[randomIndex];
                     let answer = prompt(`Para comer ${collidedFruitName}, responda:
 ${question.prompt}`);
 
                     if (answer === null) {
                     } else if (answer.toLowerCase() !== question.answer.toLowerCase()) { 
                         game_state = 'End';
-                        message.innerHTML = '<strong>Fim de jogo!</strong>'.fontcolor('red') + '<p> <Resposta incorreta!!<p> Pressione <strong>Enter</strong> para reiniciar';
-                        message.classList.add('messageStyle');
-                        img.style.display = 'none';
                         sound_die.play();
+                        modal.classList.add('enable');
+                        modalGameOver.classList.add('active');
                         return;
                     } else {
                         element.remove();
@@ -162,6 +195,47 @@ ${question.prompt}`);
     }
     requestAnimationFrame(move);
 
+    function restartGame() {
+        location.reload(true);
+    }
+    btnRestart.forEach((btn)=> {
+        btn.addEventListener('click', restartGame);
+    });
+
+    const rankingScreen = () => {
+        modalGameOver.classList.remove('active');
+
+        modalRanking.classList.add('active');
+        
+        rankingTable();
+    };
+    btnRanking.addEventListener('click', rankingScreen);
+
+    const rankingTable = () => {
+        const classification = database.getDB();
+
+        classification.forEach((item, index) => {
+            let position = index +1;
+            let name = item.playerName;
+            let score_val = item.score_val;
+
+            createTable(position, name, score_val);
+        });
+    };
+
+    const createTable = (position, name, score) => {
+        const elementHTML = document.createElement('tr');
+        elementHTML.classList.add('ranking-line');
+
+        elementHTML.innerHTML = `
+            <td class="ranking-column">${position}</td>
+            <td class="ranking-column">A${name}</td>
+            <td class="ranking-column">${score_val}</td>
+        `;
+
+        table.appendChild(elementHTML);
+    };
+
     parrot_dy = 0;
     function apply_gravity() {
         if (game_state != 'Play') return;
@@ -171,9 +245,7 @@ ${question.prompt}`);
 
         if (parrot_props.top <= 0 || parrot_props.bottom >= background.bottom) {
             game_state = 'End';
-            message.style.left = '28vw';
             window.location.reload();
-            message.classList.remove('messageStyle');
             return;
         }
         parrot.style.top = parrot_props.top + parrot_dy + 'px';
@@ -181,6 +253,7 @@ ${question.prompt}`);
         requestAnimationFrame(apply_gravity);
     }
     requestAnimationFrame(apply_gravity);
+
 
     let tree_separation = 0;
     let maxTopTreeHeight = 75;
@@ -237,7 +310,7 @@ ${question.prompt}`);
     function create_fruits() {
         if (game_state != 'Play') return;
     
-        if (fruit_separation > 115) {
+        if (fruit_separation > 350) {
             fruit_separation = 0;
     
             let tree_sprites = document.querySelectorAll('.tree');
@@ -291,4 +364,6 @@ ${question.prompt}`);
     }
     
     requestAnimationFrame(create_fruits);
+
+
 }
