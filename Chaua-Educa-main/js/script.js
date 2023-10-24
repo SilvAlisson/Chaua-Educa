@@ -55,7 +55,6 @@ const start = () => {
 
 
 img.style.display = 'none';
-message.classList.add('messageStyle');
 
 let isPaused = false;
 
@@ -120,7 +119,7 @@ function gameOver() {
     game_state = 'End';
     cancelAllAnimations();
     sound_die.play();
-    DB.upsertPlayerScore(playerName, score_val.innerHTML);
+    DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
 
     modal.classList.add('enable');
     modalGameOver.classList.add('active');
@@ -160,7 +159,7 @@ function move() {
             if (parrot_props.left <= fruit_props.left + fruit_props.width && parrot_props.left + parrot_props.width >= fruit_props.left && parrot_props.top <= fruit_props.top + fruit_props.height && parrot_props.top + parrot_props.height >= fruit_props.top) {
                 const randomChance = Math.random();
 
-                const probability = 0.65;
+                const probability = 0.68;
             
                 if (randomChance <= probability) {
 
