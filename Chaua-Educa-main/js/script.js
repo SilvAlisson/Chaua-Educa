@@ -9,10 +9,30 @@ let message = document.querySelector('.message');
 let score_title = document.querySelector('.score_title');
 let game_state = 'Start';
 let additionalScore = 5;
+let parrot_dy = 0;
+let isPaused = false;
+let controls_registered = false;
+let tree_separation = 0;
+let maxTopTreeHeight = 75;
+let fruit_separation = 0;
 let playerName;
 let score_val = document.querySelector('.score_val');
 let sound_fruit = new Audio('Sounds/get-fruit.wav');
 let sound_die = new Audio('Sounds/die.wav');
+let moveRequestId;
+let applyGravityRequestId;
+let createTreePairRequestId;
+let createFruitsRequestId;
+
+const fruitImages = [
+    'images/Goiaba.png',
+    'images/Semente.png',
+    'images/Manga.png',
+    'images/Mamao.png',
+    'images/Coquinho.png',
+    'images/Banana.png',
+    'images/Milho.png',
+];
 
 const inputPlayer = document.querySelector('#inputPlayer')
 const btnStart = document.querySelector('#btnStart');
@@ -28,13 +48,7 @@ const validatePlayer = ({target}) =>{
     if (target.value.length > 2) {
         btnStart.removeAttribute('disabled');
         playerName = target.value.trim().toUpperCase();
-
-        btnStart.addEventListener('click', start)
-        document.addEventListener('keydown', ({ key }) => {
-            if (key === 'Enter' && target.value.length > 2) {
-                start();
-            }
-        });
+        register_controls();
     } else {
         btnStart.setAttribute('disabled', '');
     }
@@ -46,37 +60,53 @@ const cleanText = () => {
     btnStart.setAttribute('disabled', '');
 };
 
-const start = () => {
-    cleanText();
-
-    modal.classList.remove('enable');
-    modalLogin.classList.remove('active');
-}
-
-
 img.style.display = 'none';
 
-let isPaused = false;
+function intialize() {
+    move_speed = 3;
+    gravity = 0.5;
+    parrot_dy = 0
+    additionalScore = 5;
+    isPaused = false;
+    tree_separation = 0;
+    maxTopTreeHeight = 75;
+    fruit_separation = 0;
 
-document.addEventListener('keydown', (e) => {
-    if (e.key == 'Enter' && game_state != 'Play') {
+    img.style.display = 'block';
+    parrot.style.top = '40vh';
+    game_state = 'Play';
+    message.innerHTML = '';
+    score_title.innerHTML = 'Score : ';
+    score_val.innerHTML = '0';
+    message.classList.remove('messageStyle');
+
+    parrot_props = parrot.getBoundingClientRect();
+}
+
+function handle_start_game(key_or_mouse_event) {
+    const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
+
+    if ((is_mouse_event || key_or_mouse_event.key == 'Enter') && game_state != 'Play') {
+        cleanText();
+
+        modal.classList.remove('enable');
+        modalLogin.classList.remove('active');
+        
         document.querySelectorAll('.tree').forEach((e) => {
             e.remove();
         });
         document.querySelectorAll('.fruit').forEach((e) => {
             e.remove();
         });
-        img.style.display = 'block';
-        parrot.style.top = '40vh';
-        game_state = 'Play';
-        message.innerHTML = '';
-        score_title.innerHTML = 'Score : ';
-        score_val.innerHTML = '0';
-        message.classList.remove('messageStyle');
+
+        intialize();
+
         play();
     }
+}
 
-    if (e.key == 'Escape' && game_state == 'Play') {
+function handle_pause_game(key_event) {
+    if (key_event.key == 'Escape' && game_state == 'Play') {
         if (!isPaused) {
             cancelAllAnimations();
             isPaused = true;
@@ -85,35 +115,56 @@ document.addEventListener('keydown', (e) => {
             isPaused = false;
         }
     }
-});
+}
 
-let parrot_dy = 0;
-let controls_registered = false;
+function handle_arrow_keydown(key_event) {
+    if (!isPaused && (key_event.key == 'ArrowUp' || key_event.key == ' ')) {
+        img.src = 'images/parrot-b.png';
+        parrot_dy = -7.6;
+    }
+}
 
-function register_keyboard_controls() {
+function handle_arrow_keyup(key_event) {
+    if (!isPaused && (key_event.key =='ArrowUp' || key_event.key == ' ')) {
+        img.src = 'images/parrot-a.png';
+    }
+}
+
+function handle_restart_game(mouse_event) {
+    game_state = 'Start';
+
+    modalGameOver.classList.remove('active');
+    modalRanking.classList.remove('active');
+
+    modal.classList.add('enable');
+    modalLogin.classList.add('active');
+}
+
+function handle_show_ranking(mouse_event) {
+    showRankingScreen(modalGameOver, modalRanking)
+}
+
+function register_controls() {
     if (controls_registered) return;
 
-    document.addEventListener('keydown', (e) => {
-        if (!isPaused && (e.key == 'ArrowUp' || e.key == ' ')) {
-            img.src = 'images/parrot-b.png';
-            parrot_dy = -7.6;
-        }
+    btnStart.addEventListener('click', handle_start_game)
+
+    document.addEventListener('keydown', (key_event) => {
+        handle_start_game(key_event);
+        handle_pause_game(key_event);
+    });
+
+    document.addEventListener('keydown', handle_arrow_keydown);
+    document.addEventListener('keyup', handle_arrow_keyup);
+
+    btnRestart.forEach((btn) => {
+        btn.addEventListener('click', handle_restart_game);
     });
     
-    document.addEventListener('keyup', (e) => {
-        if (!isPaused && (e.key =='ArrowUp' || e.key == ' ')) {
-            img.src = 'images/parrot-a.png';
-        }
-    });
+    btnRanking.addEventListener('click', handle_show_ranking);
 
     controls_registered = true;
 }
-
-
-let moveRequestId;
-let applyGravityRequestId;
-let createTreePairRequestId;
-let createFruitsRequestId;
 
 function gameOver() {
     game_state = 'End';
@@ -209,17 +260,20 @@ ${question.prompt}`);
     moveRequestId = requestAnimationFrame(move);
 }
 
-function restartGame() {
-    location.reload(true);
-}
-
-function rankingScreen(modalGameOver, modalRanking, rankingTable) {
+function showRankingScreen(modalGameOver, modalRanking) {
     modalGameOver.classList.remove('active');
     modalRanking.classList.add('active');
-    rankingTable();
+
+    resetRankingRows();
+    createRankingTable();
 }
 
-function rankingTable(createTable) {
+function resetRankingRows() {
+    // clear ranking table and preserve only the top header row
+    table.innerHTML = document.querySelector('.ranking-line1').outerHTML;
+}
+
+function createRankingTable() {
     const classification = DB.get();
 
     // sort by scores in descening order
@@ -247,12 +301,11 @@ function createTable(position, name, score_val) {
 function apply_gravity() {
     if (game_state != 'Play') return;
     parrot_dy = parrot_dy + gravity;
-    
-    register_keyboard_controls();
 
     if (parrot_props.top <= 0 || parrot_props.bottom >= background.bottom) {
         return gameOver();
     }
+
     parrot.style.top = parrot_props.top + parrot_dy + 'px';
     parrot_props = parrot.getBoundingClientRect();
     applyGravityRequestId = requestAnimationFrame(apply_gravity);
@@ -349,23 +402,7 @@ function create_fruits() {
     createFruitsRequestId = requestAnimationFrame(create_fruits);
 }
 
-let tree_separation = 0;
-let maxTopTreeHeight = 75;
-
-let fruitImages = [
-    'images/Goiaba.png',
-    'images/Semente.png',
-    'images/Manga.png',
-    'images/Mamao.png',
-    'images/Coquinho.png',
-    'images/Banana.png',
-    'images/Milho.png',
-];
-
-let fruit_separation = 0;
-
 function play() {
-    parrot_dy = 0;
     moveRequestId = requestAnimationFrame(move);
     applyGravityRequestId = requestAnimationFrame(apply_gravity);
     createTreePairRequestId = requestAnimationFrame(create_tree_pair);
@@ -378,9 +415,3 @@ function cancelAllAnimations() {
     cancelAnimationFrame(createTreePairRequestId);
     cancelAnimationFrame(createFruitsRequestId);
 }
-
-btnRestart.forEach((btn) => {
-    btn.addEventListener('click', restartGame);
-});
-
-btnRanking.addEventListener('click', () => rankingScreen(modalGameOver, modalRanking, () => rankingTable(createTable)));
