@@ -403,7 +403,6 @@ function create_fruits() {
 }
 
 function play() {
-    intialize();
     moveRequestId = requestAnimationFrame(move);
     applyGravityRequestId = requestAnimationFrame(apply_gravity);
     createTreePairRequestId = requestAnimationFrame(create_tree_pair);
