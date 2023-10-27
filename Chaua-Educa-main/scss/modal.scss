@@ -298,14 +298,8 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            overflow: hidden;
         }
-    
-        .credits-title {
-            font-size: 60px;
-            position: relative;
-            top: 0px;
-        }
-    
         .credits-content {
             top: 0;
             left: 0;
@@ -317,25 +311,78 @@
             align-items: center;
             flex-direction: column;
             color: #fff;
+            margin: 20px;
     
             p {
-                font-size: 25px;
+                font-size: 20px;
                 margin: 10px 0;
             }
     
             text-align: center;
         }
+        .credits-animation {
+            animation: roll-credits 30s linear forwards;
+            transform: translateY(100%);
+        }
+        .stop-animation {
+            animation: none;
+        }
     }
     .logo-1 {
-        position: absolute;
-        left: 300px;
-        top: 40px;
-        object-fit: cover;
-    }
-    
-    .logo-2 {
         position: absolute;
         left: 200px;
         top: 40px;
         object-fit: cover;
+        display: none;
     }
+    
+    .logo-2 {
+        position: absolute;
+        left: 100px;
+        top: 40px;
+        object-fit: cover;
+        display: none;
+    }
+    .references {
+        padding: 10px;
+        margin-top: 0px;
+        font-size: 20px;
+      }
+      
+      .references ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      
+      .references-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    
+    .references-list li {
+        margin: 0;
+        padding: 0;
+    }
+    
+    .references-list li:before {
+        content: "•"; 
+        margin-right: 5px;
+        color: #ff5733;
+    }
+    
+    .references-list a {
+        text-decoration: none;
+        color: #0077b5;
+    }
+    
+    .references-list a:hover {
+        text-decoration: underline; 
+    }
+    
+    .references-list li {
+        margin: 0;
+        padding: 0;
+    }
+    
+      
