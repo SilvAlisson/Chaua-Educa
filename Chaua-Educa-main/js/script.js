@@ -19,11 +19,11 @@ let playerName;
 let score_val = document.querySelector('.score_val');
 let sound_fruit = new Audio('Sounds/get-fruit.wav');
 let sound_die = new Audio('Sounds/die.wav');
+let sound_winner = new Audio('Sounds/winner.wav');
 let moveRequestId;
 let applyGravityRequestId;
 let createTreePairRequestId;
 let createFruitsRequestId;
-let currentQuestionIndex = 0;
 
 const fruitImages = [
     'images/Goiaba.png',
@@ -45,7 +45,13 @@ const questions = [
     { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outros países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
     { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
     { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
+    { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "A Mata atlântica tem grande importância econômica e ecológica. As formações florestais ajudam a regular o clima e proteger o solo? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "Desde a colonização do Brasil que ocorre exploração da mata atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "A mata atlântica é encontrada na região central do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "A expansão da indústria, da agricultura, do turismo e da urbanização não causam impacto na biodiversidade da mata atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "A riqueza da biodiversidade da mata atlântica tem números impressionantes como: 1020 espécies de aves, 350 espécies de peixes, 340 espécies de anfíbios e 197 repteis? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+
 ];
 
 const inputPlayer = document.querySelector('#inputPlayer')
@@ -56,6 +62,7 @@ const modal = document.querySelector('#modal');
 const modalLogin = document.querySelector('#modalLogin');
 const modalGameOver = document.querySelector('#modalGameOver');
 const modalRanking = document.querySelector('#modalRanking');
+const modalCredits = document.querySelector('#modalCredits');
 const table = document.querySelector('#table');
 
 const validatePlayer = ({target}) =>{
@@ -149,6 +156,7 @@ function handle_restart_game(mouse_event) {
 
     modalGameOver.classList.remove('active');
     modalRanking.classList.remove('active');
+    modalCredits.classList.remove('active');
 
     modal.classList.add('enable');
     modalLogin.classList.add('active');
@@ -194,6 +202,8 @@ function move() {
     if (game_state != 'Play') return;
 
     let tree_sprites = document.querySelectorAll('.tree');
+    let gameEnded = false;
+
     tree_sprites.forEach((element) => {
         let tree_props = element.getBoundingClientRect();
         parrot_props = parrot.getBoundingClientRect();
@@ -210,8 +220,25 @@ function move() {
                 element.style.left = tree_props.left - move_speed + 'px';
             }
         }
-        
+
+        if (parseInt(score_val.innerHTML) >= 200) {
+            gameEnded = true;
+        }
     });
+
+    if (gameEnded) {
+        game_state = 'End';
+        cancelAllAnimations();
+        sound_winner.play(); //alterar assim que possivel!!!!!!!
+        DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
+        img.style.display = 'none';
+        modal.classList.add('enable');
+        modalCredits.classList.add('active');
+    } else {
+        moveRequestId = requestAnimationFrame(move);
+    }
+}
+
 
     let fruit_sprites = document.querySelectorAll('.fruit');
     fruit_sprites.forEach((element) => {
@@ -260,7 +287,6 @@ ${question.prompt}`);
     }
     );
     moveRequestId = requestAnimationFrame(move);
-}
 
 function showRankingScreen(modalGameOver, modalRanking) {
     modalGameOver.classList.remove('active');
@@ -417,3 +443,14 @@ function cancelAllAnimations() {
     cancelAnimationFrame(createTreePairRequestId);
     cancelAnimationFrame(createFruitsRequestId);
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const creditsAnimation = document.querySelector('.credits-animation');
+    const logo1 = document.querySelector('.logo-1');
+    const logo2 = document.querySelector('.logo-2');
+
+    creditsAnimation.addEventListener('animationend', () => {
+        logo1.style.display = 'block';
+        logo2.style.display = 'block';
+    });
+});

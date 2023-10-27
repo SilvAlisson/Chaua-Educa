@@ -37,7 +37,7 @@
 	background: url('images/tree.png') no-repeat center center;
 	background-size: contain;
 	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
+	transform: scaleX(-1);
   
 }
 
@@ -46,7 +46,7 @@
 	top: 40vh;
 	left: 100vw;
 	border: none;
-	transform: scaleX(-1); /* Inverte horizontalmente para que o tronco fique na direção correta */
+	transform: scaleX(-1);
 }
 .Goiaba {
     background: url('images/Goiaba.png') no-repeat center center;
@@ -178,3 +178,12 @@
 	  opacity: 0;
 	}
   }
+@keyframes roll-credits {
+    0% {
+        transform: translateY(100%);
+    }
+    100% {
+        transform: translateY(-20%);
+    }
+}
+
