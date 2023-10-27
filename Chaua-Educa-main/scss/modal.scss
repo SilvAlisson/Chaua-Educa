@@ -1,3 +1,4 @@
+
 .modal {
     position: absolute;
     top: 0;
@@ -277,9 +278,64 @@
         animation: blink 1s alternate infinite ease-in-out;
     }
     .ranking-table {
-        width: 100%; /* Defina a largura como 100% da largura do contêiner pai */
-        max-width: 500px; /* Ou você pode definir um valor máximo de largura fixa */
-        /* Outros estilos personalizados, se necessário */
+        width: 100%;
+        max-width: 500px;
+    }
+
+
+    .modal-credits {
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        background-position: top center;
+        background-size: cover;
+        background-repeat: no-repeat;
+        display: none;
+        color: white;
+    
+        &.active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+    
+        .credits-title {
+            font-size: 60px;
+            position: relative;
+            top: 0px;
+        }
+    
+        .credits-content {
+            top: 0;
+            left: 0;
+            width: 100%;
+            max-height: 80%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #fff;
+    
+            p {
+                font-size: 25px;
+                margin: 10px 0;
+            }
+    
+            text-align: center;
+        }
+    }
+    .logo-1 {
+        position: absolute;
+        left: 300px;
+        top: 40px;
+        object-fit: cover;
     }
     
-    
+    .logo-2 {
+        position: absolute;
+        left: 200px;
+        top: 40px;
+        object-fit: cover;
+    }
