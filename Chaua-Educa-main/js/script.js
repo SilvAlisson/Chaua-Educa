@@ -23,6 +23,7 @@ let moveRequestId;
 let applyGravityRequestId;
 let createTreePairRequestId;
 let createFruitsRequestId;
+let currentQuestionIndex = 0;
 
 const fruitImages = [
     'images/Goiaba.png',
@@ -32,6 +33,19 @@ const fruitImages = [
     'images/Coquinho.png',
     'images/Banana.png',
     'images/Milho.png',
+];
+
+const questions = [
+    { prompt: "Os papagaios-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outros países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
 ];
 
 const inputPlayer = document.querySelector('#inputPlayer')
@@ -216,18 +230,6 @@ function move() {
 
                 let collidedFruitName = element.getAttribute('src').replace('images/', '').replace('.png', '');
                 
-                let questions = [
-                    { prompt: "Os papagaios-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                    { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                    { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                    { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                    { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                    { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-                    { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outros países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                    { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                    { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-                    { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
-                ];
 
                 let randomIndex = Math.floor(Math.random() * questions.length);
                 let question = questions[randomIndex];
