@@ -198,11 +198,20 @@ function gameOver() {
     modalGameOver.classList.add('active');
 }
 
+function gameWon() {
+    game_state = 'End';
+    cancelAllAnimations();
+    sound_winner.play(); //alterar assim que possivel!!!!!!!
+    DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
+    img.style.display = 'none';
+    modal.classList.add('enable');
+    modalCredits.classList.add('active');
+}
+
 function move() {
     if (game_state != 'Play') return;
 
     let tree_sprites = document.querySelectorAll('.tree');
-    let gameEnded = false;
 
     tree_sprites.forEach((element) => {
         let tree_props = element.getBoundingClientRect();
@@ -222,23 +231,9 @@ function move() {
         }
 
         if (parseInt(score_val.innerHTML) >= 200) {
-            gameEnded = true;
+            return gameWon();
         }
     });
-
-    if (gameEnded) {
-        game_state = 'End';
-        cancelAllAnimations();
-        sound_winner.play(); //alterar assim que possivel!!!!!!!
-        DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
-        img.style.display = 'none';
-        modal.classList.add('enable');
-        modalCredits.classList.add('active');
-    } else {
-        moveRequestId = requestAnimationFrame(move);
-    }
-}
-
 
     let fruit_sprites = document.querySelectorAll('.fruit');
     fruit_sprites.forEach((element) => {
@@ -260,8 +255,7 @@ function move() {
 
                 let randomIndex = Math.floor(Math.random() * questions.length);
                 let question = questions[randomIndex];
-                let answer = prompt(`Para comer ${collidedFruitName}, responda:
-${question.prompt}`);
+                let answer = prompt(`Para comer ${collidedFruitName}, responda:\n${question.prompt}`);
 
                 if (answer === null) {
                 } else if (answer.toLowerCase() !== question.answer.toLowerCase()) { 
@@ -287,6 +281,7 @@ ${question.prompt}`);
     }
     );
     moveRequestId = requestAnimationFrame(move);
+}
 
 function showRankingScreen(modalGameOver, modalRanking) {
     modalGameOver.classList.remove('active');
@@ -446,11 +441,20 @@ function cancelAllAnimations() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const creditsAnimation = document.querySelector('.credits-animation');
+
     const logo1 = document.querySelector('.logo-1');
     const logo2 = document.querySelector('.logo-2');
+    const button = document.querySelector('.btn-restart-2');
+
+    creditsAnimation.addEventListener('animationstart', () => {
+        logo1.style.display = 'none';
+        logo2.style.display = 'none';
+        button.style.display = 'none';
+    });
 
     creditsAnimation.addEventListener('animationend', () => {
         logo1.style.display = 'block';
         logo2.style.display = 'block';
+        button.style.display = 'block';
     });
 });
