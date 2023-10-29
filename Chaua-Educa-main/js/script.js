@@ -5,7 +5,6 @@ let parrot = document.querySelector('.parrot');
 let img = document.getElementById('parrot-1');
 let parrot_props = parrot.getBoundingClientRect();
 let background = document.querySelector('.background').getBoundingClientRect();
-let message = document.querySelector('.message');
 let score_title = document.querySelector('.score_title');
 let game_state = 'Start';
 let additionalScore = 5;
@@ -24,6 +23,8 @@ let moveRequestId;
 let applyGravityRequestId;
 let createTreePairRequestId;
 let createFruitsRequestId;
+const sleep = document.querySelector('#sleep');
+const txtSleep = document.querySelector('#txtSleep');
 
 const fruitImages = [
     'images/Goiaba.png',
@@ -35,24 +36,30 @@ const fruitImages = [
     'images/Milho.png',
 ];
 
-const questions = [
-    { prompt: "Os papagaios-chauá habitam o pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+const QUESTIONS = [
+    { prompt: "Os papagaios-chauá habitam o Pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
     { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "O periodo de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Os papagaio-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O papagaio-chauá é conhecido popularmente por papagaio da cabeça vermelha, papagaio de crista rosada ou papagaio com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "O papagaio-chauá se alimenta de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "O papagaio-chauá é uma ave que pode ser encontrada em outros países a não ser no Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O papagaio-chauá tem hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O papagaio-chauá existe em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "O período de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "Os papagaios-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "O papagaios-chauá são conhecidos popularmente por papagaios da cabeça vermelha, papagaios de crista rosada ou papagaios com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "Os papagaios-chauá se alimentam de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "Os papagaios-chauá são aves que podem ser encontradas em outros países além do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "Os papagaios-chauá têm hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "Os papagaios-chauá existem em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
     { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "A Mata atlântica tem grande importância econômica e ecológica. As formações florestais ajudam a regular o clima e proteger o solo? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Desde a colonização do Brasil que ocorre exploração da mata atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "A mata atlântica é encontrada na região central do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A expansão da indústria, da agricultura, do turismo e da urbanização não causam impacto na biodiversidade da mata atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A riqueza da biodiversidade da mata atlântica tem números impressionantes como: 1020 espécies de aves, 350 espécies de peixes, 340 espécies de anfíbios e 197 repteis? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "A Mata Atlântica tem grande importância econômica e ecológica. As formações florestais ajudam a regular o clima e proteger o solo? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "Desde a colonização do Brasil, ocorre exploração da Mata Atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
+    { prompt: "A Mata Atlântica é encontrada na região central do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "A expansão da indústria, da agricultura, do turismo e da urbanização não causa impacto na biodiversidade da Mata Atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
+    { prompt: "A riqueza da biodiversidade da Mata Atlântica tem números impressionantes, como: 1020 espécies de aves, 350 espécies de peixes, 340 espécies de anfíbios e 197 répteis? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
 
 ];
+
+function get_fresh_questions() {
+    return QUESTIONS.slice();
+}
+
+let in_game_questions;
 
 const inputPlayer = document.querySelector('#inputPlayer')
 const btnStart = document.querySelector('#btnStart');
@@ -90,41 +97,57 @@ function intialize() {
     additionalScore = 5;
     isPaused = false;
     tree_separation = 0;
-    maxTopTreeHeight = 75;
+    maxTopTreeHeight = 70;
     fruit_separation = 0;
 
     img.style.display = 'block';
     parrot.style.top = '40vh';
     game_state = 'Play';
-    message.innerHTML = '';
     score_title.innerHTML = 'Score : ';
     score_val.innerHTML = '0';
-    message.classList.remove('messageStyle');
 
     parrot_props = parrot.getBoundingClientRect();
+    in_game_questions = get_fresh_questions();
 }
 
-function handle_start_game(key_or_mouse_event) {
-    const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
 
-    if ((is_mouse_event || key_or_mouse_event.key == 'Enter') && game_state != 'Play') {
-        cleanText();
 
-        modal.classList.remove('enable');
-        modalLogin.classList.remove('active');
-        
-        document.querySelectorAll('.tree').forEach((e) => {
-            e.remove();
-        });
-        document.querySelectorAll('.fruit').forEach((e) => {
-            e.remove();
-        });
-
-        intialize();
-
-        play();
+function sleepAsync(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  
+  const startGameAfterSleep = async () => {
+    sleep.classList.add('active');
+    const sleepDuration = 5000; 
+    for (let i = sleepDuration / 1000; i >= 0; i--) {
+      txtSleep.innerHTML = i;
+      await sleepAsync(1000);
     }
-}
+
+    sleep.classList.remove('active');
+    intialize();
+    play();
+  };
+  
+  function handle_start_game(key_or_mouse_event) {
+    const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
+  
+    if ((is_mouse_event || key_or_mouse_event.key == 'Enter') && game_state != 'Play') {
+      cleanText();
+  
+      modal.classList.remove('enable');
+      modalLogin.classList.remove('active');
+  
+      document.querySelectorAll('.tree').forEach((e) => {
+        e.remove();
+      });
+      document.querySelectorAll('.fruit').forEach((e) => {
+        e.remove();
+      });
+  
+      startGameAfterSleep();
+    }
+  }
 
 function handle_pause_game(key_event) {
     if (key_event.key == 'Escape' && game_state == 'Play') {
@@ -246,15 +269,16 @@ function move() {
             if (parrot_props.left <= fruit_props.left + fruit_props.width && parrot_props.left + parrot_props.width >= fruit_props.left && parrot_props.top <= fruit_props.top + fruit_props.height && parrot_props.top + parrot_props.height >= fruit_props.top) {
                 const randomChance = Math.random();
 
-                const probability = 0.68;
+                const probability = 0.60;
             
                 if (randomChance <= probability) {
 
                 let collidedFruitName = element.getAttribute('src').replace('images/', '').replace('.png', '');
-                
 
-                let randomIndex = Math.floor(Math.random() * questions.length);
-                let question = questions[randomIndex];
+                if (in_game_questions.length === 0) in_game_questions = get_fresh_questions();
+
+                let randomIndex = Math.floor(Math.random() * in_game_questions.length);
+                let question = in_game_questions.splice(randomIndex, 1)[0]; 
                 let answer = prompt(`Para comer ${collidedFruitName}, responda:\n${question.prompt}`);
 
                 if (answer === null) {
@@ -340,7 +364,7 @@ function create_tree_pair() {
     if (tree_separation > 115) {
         tree_separation = 0;
 
-        let gap_position = 45;
+        let gap_position = 40;
 
         let tree_posi = Math.floor(Math.random() * (maxTopTreeHeight - 2 * gap_position)) + gap_position;
 
