@@ -5,7 +5,6 @@ let parrot = document.querySelector('.parrot');
 let img = document.getElementById('parrot-1');
 let parrot_props = parrot.getBoundingClientRect();
 let background = document.querySelector('.background').getBoundingClientRect();
-let message = document.querySelector('.message');
 let score_title = document.querySelector('.score_title');
 let game_state = 'Start';
 let additionalScore = 5;
@@ -24,6 +23,8 @@ let moveRequestId;
 let applyGravityRequestId;
 let createTreePairRequestId;
 let createFruitsRequestId;
+const sleep = document.querySelector('#sleep');
+const txtSleep = document.querySelector('#txtSleep');
 
 const fruitImages = [
     'images/Goiaba.png',
@@ -102,36 +103,51 @@ function intialize() {
     img.style.display = 'block';
     parrot.style.top = '40vh';
     game_state = 'Play';
-    message.innerHTML = '';
     score_title.innerHTML = 'Score : ';
     score_val.innerHTML = '0';
-    message.classList.remove('messageStyle');
 
     parrot_props = parrot.getBoundingClientRect();
     in_game_questions = get_fresh_questions();
 }
 
-function handle_start_game(key_or_mouse_event) {
-    const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
 
-    if ((is_mouse_event || key_or_mouse_event.key == 'Enter') && game_state != 'Play') {
-        cleanText();
 
-        modal.classList.remove('enable');
-        modalLogin.classList.remove('active');
-        
-        document.querySelectorAll('.tree').forEach((e) => {
-            e.remove();
-        });
-        document.querySelectorAll('.fruit').forEach((e) => {
-            e.remove();
-        });
-
-        intialize();
-
-        play();
+function sleepAsync(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  
+  const startGameAfterSleep = async () => {
+    sleep.classList.add('active');
+    const sleepDuration = 5000; 
+    for (let i = sleepDuration / 1000; i >= 0; i--) {
+      txtSleep.innerHTML = i;
+      await sleepAsync(1000);
     }
-}
+
+    sleep.classList.remove('active');
+    intialize();
+    play();
+  };
+  
+  function handle_start_game(key_or_mouse_event) {
+    const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
+  
+    if ((is_mouse_event || key_or_mouse_event.key == 'Enter') && game_state != 'Play') {
+      cleanText();
+  
+      modal.classList.remove('enable');
+      modalLogin.classList.remove('active');
+  
+      document.querySelectorAll('.tree').forEach((e) => {
+        e.remove();
+      });
+      document.querySelectorAll('.fruit').forEach((e) => {
+        e.remove();
+      });
+  
+      startGameAfterSleep();
+    }
+  }
 
 function handle_pause_game(key_event) {
     if (key_event.key == 'Escape' && game_state == 'Play') {
