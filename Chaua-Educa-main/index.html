@@ -4,56 +4,43 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="images/favicon.png"/>
+    <link rel="icon" type="image/png" href="images/favicon.png" />
     <title>Chauá Educa</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="js/script.js" type="module" defer></script>
 </head>
 <body>
     <main>
-      <div class="background"></div>
-      <img src="images/parrot-a.png" alt="parrot-img" class="parrot" id="parrot-1">
-
-      <div class="score">
-          <span class="score_title"></span>
-          <span class="score_val"></span>
-
-          <section class="sleep" id="sleep">
-            <div class="contdown">
-              <span class="txt-sleep" id="txtSleep">5</span>
-          </div>
-
+        <div class="background">
+            <img src="images/parrot-a.png" alt="parrot-img" class="parrot" id="parrot-1">
+            <div class="score">
+                <span class="score_title"></span>
+                <span class="score_val"></span>
+            </div>
+            <section class="sleep" id="sleep">
+                <div class="contdown">
+                    <span class="txt-sleep" id="txtSleep">5</span>
+                </div>
+            </section>
         </div>
-          </section>
-
-      </div>
-
     </main>
     <section class="modal enable" id="modal">
         <section class="modal-login active" id="modalLogin">
             <img src="images/papagaio-chaua.png" class="img-parrot">
-
             <input type="text" class="input-player" id="inputPlayer" placeholder="jogador..." onfocus="true">
-
             <button class="btn-modal btn-start btn-red-tr" id="btnStart" disabled>Iniciar jogo!</button>
-
             <p class="rules">Use a teclas <strong>&#x2191;</strong> ou <strong>Espaço</strong> para voar.</p>
-
         </section>
         <section class="modal-game-over" id="modalGameOver">
             <h1 class="title-gameOver">Ops, você perdeu!</h1>
-
             <div class="wrapper-btn">
                 <button class="btn-modal btn-red-tr btn-ranking" id="btnRanking">Ranking</button>
                 <button class="btn-modal btn-red-tr btn-restart" id="btnRestart">Reiniciar</button>
             </div>
-
             <img src="images/chaua-gameOver.png" class="img-chaua-gameOver">
-
         </section>
         <section class="modal-ranking" id="modalRanking">
             <h1 class="ranking-title">Ranking</h1>
-
             <div class="wrapper-table">
                 <table class="ranking-table" border="1" id="table">
                     <tr class="ranking-line1">
@@ -61,41 +48,28 @@
                         <td class="ranking-column">Jogador</td>
                         <td class="ranking-column">Pontuação</td>
                     </tr>
-
-                   <!-- <tr class="ranking-line2">
-                        <td class="ranking-column">1</td>
-                        <td class="ranking-column">Alisson</td>
-                        <td class="ranking-column">50</td>
-                    </tr> -->
-
                 </table>
             </div>
-
-            <p class="ranking-rules">REGRAS: Cada obstáculo passado vale 1 ponto, cada fruto coletado vale 3 pontos e cada resposta correta vale 2 pontos. </p>
-
+            <p class="ranking-rules">REGRAS: Cada obstáculo passado vale 1 ponto, cada fruto coletado vale 3 pontos e cada resposta correta vale 2 pontos.</p>
             <button class="btn-modal btn-red-tr btn-restart-1" id="btnRestart">Reiniciar</button>
-
-            
-
         </section>
         <section class="modal-credits" id="modalCredits">
-            <div class="credits-content  credits-animation">
-                <p credits-animation><strong>Parabéns, Herói do Chauá!</strong>Você conseguiu alcançar a pontuação máxima no jogo "Chauá-educa" e se destacou como um verdadeiro defensor das aves e da vida selvagem. Ao fazer isso, você não apenas dominou os céus como Chauá, mas também fez a diferença na conscientização e na preservação da espécie ameaçada de extinção conhecida como papagaio-chauá.
+            <div class="credits-content credits-animation">
+                <p credits-animation><strong>Parabéns, Herói do Chauá!</strong> Você conseguiu alcançar a pontuação máxima no jogo "Chauá-educa" e se destacou como um verdadeiro defensor das aves e da vida selvagem. Ao fazer isso, você não apenas dominou os céus como Chauá, mas também fez a diferença na conscientização e na preservação da espécie ameaçada de extinção conhecida como papagaio-chauá.
 
                 Seu comprometimento em superar os desafios do jogo e aprender sobre a importância da conservação do habitat do Chauá é notável. Continue compartilhando essa mensagem com os outros e inspirando-os a se juntar a essa causa crucial.
-                    
+
                 Lembre-se, a natureza agradece a sua dedicação e esforço para proteger nossos amigos emplumados. O Chauá parrot e todas as espécies que compartilham seu habitat estão um passo mais próximos de um futuro mais brilhante, graças a você!
                 Continue jogando, aprendendo e fazendo a diferença!</p>
 
                 <p><strong>Desenvolvedor:</strong> <a href="https://github.com/SilvAlisson" target="_blank">https://github.com/SilvAlisson</a></p>
-                <p><strong>Contribuidor:</strong> <a href="https://github.com/CodeLPrime" target="_blank">https://github.com/CodeLPrime</a></p>                
+                <p><strong>Contribuidor:</strong> <a href="https://github.com/CodeLPrime" target="_blank">https://github.com/CodeLPrime</a></p>
                 <p><strong>Créditos de Imagens e Audio:</strong> Lívia Teodosio e Alisson Silva</p>
                 <p><strong>Créditos de Perguntas:</strong> Marilia Teodosio Costa e Flávia Gomes Ramos Araújo</p>
                 <p>Instituto Federal de Alagoas - IFAL</p>
                 <p><strong>Alunas:</strong> Marilia Teodosio Costa e Flávia Gomes Ramos Araújo</p>
                 <p>Programa de Pós-Graduação em Tecnologias Ambientais - PPGTEC</p>
                 <p>Mestrado Profissional em Tecnologias Ambientais</p>
-
                 <div class="references">
                     <p><strong>Referências:</strong></p>
                     <ul class="references-list">
@@ -103,16 +77,13 @@
                         <li><a href="https://oeco.org.br/noticias/27911-chaua-o-papagaio-de-muitos-apelidos" target="_blank">oeco.org.br</a></li>
                         <li><a href="https://www.wikiaves.com.br/wiki/chaua" target="_blank">wikiaves.com.br</a></li>
                     </ul>
-                    
                 </div>
             </div>
             <img src="images/Logo-1.png" class="logo-1">
             <img src="images/Logo-2.png" class="logo-2">
             <button class="btn-modal btn-red-tr btn-restart-2" id="btnRestart">Reiniciar</button>
         </section>
-
     </section>
-
     <audio id="sound-die" src="Sounds/die.wav"></audio>
     <audio id="get-fruit" src="Sounds/get-fruit.wav"></audio>
 </body>

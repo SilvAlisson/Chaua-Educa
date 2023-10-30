@@ -1,4 +1,6 @@
 import DB from './database.js';
+
+// Variáveis Globais
 let move_speed = 3;
 let gravity = 0.5;
 let parrot = document.querySelector('.parrot');
@@ -35,7 +37,7 @@ const fruitImages = [
     'images/Banana.png',
     'images/Milho.png',
 ];
-
+// Perguntas
 const QUESTIONS = [
     { prompt: "Os papagaios-chauá habitam o Pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
     { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
@@ -72,6 +74,7 @@ const modalRanking = document.querySelector('#modalRanking');
 const modalCredits = document.querySelector('#modalCredits');
 const table = document.querySelector('#table');
 
+// Validar Jogador
 const validatePlayer = ({target}) =>{
     if (target.value.length > 2) {
         btnStart.removeAttribute('disabled');
@@ -90,6 +93,9 @@ const cleanText = () => {
 
 img.style.display = 'none';
 
+// Funções
+
+// Inicializa o jogo
 function intialize() {
     move_speed = 3;
     gravity = 0.5;
@@ -111,7 +117,7 @@ function intialize() {
 }
 
 
-
+// Tela de Sleep
 function sleepAsync(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -129,6 +135,7 @@ function sleepAsync(ms) {
     play();
   };
   
+  // Lida com a inicialização do jogo
   function handle_start_game(key_or_mouse_event) {
     const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
   
@@ -149,6 +156,7 @@ function sleepAsync(ms) {
     }
   }
 
+  // Lida com a pausa do jogo
 function handle_pause_game(key_event) {
     if (key_event.key == 'Escape' && game_state == 'Play') {
         if (!isPaused) {
@@ -174,6 +182,7 @@ function handle_arrow_keyup(key_event) {
     }
 }
 
+// Reiniciar Jogo
 function handle_restart_game(mouse_event) {
     game_state = 'Start';
 
@@ -185,10 +194,12 @@ function handle_restart_game(mouse_event) {
     modalLogin.classList.add('active');
 }
 
+// Ranking
 function handle_show_ranking(mouse_event) {
     showRankingScreen(modalGameOver, modalRanking)
 }
 
+//Controles
 function register_controls() {
     if (controls_registered) return;
 
@@ -210,7 +221,7 @@ function register_controls() {
 
     controls_registered = true;
 }
-
+// Lida com o fim de jogo
 function gameOver() {
     game_state = 'End';
     cancelAllAnimations();
@@ -220,17 +231,17 @@ function gameOver() {
     modal.classList.add('enable');
     modalGameOver.classList.add('active');
 }
-
+// Lida com a vitória no jogo
 function gameWon() {
     game_state = 'End';
     cancelAllAnimations();
-    sound_winner.play(); //alterar assim que possivel!!!!!!!
+    sound_winner.play();
     DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
     img.style.display = 'none';
     modal.classList.add('enable');
     modalCredits.classList.add('active');
 }
-
+// Move o papagaio e verifica colisões
 function move() {
     if (game_state != 'Play') return;
 
@@ -306,7 +317,7 @@ function move() {
     );
     moveRequestId = requestAnimationFrame(move);
 }
-
+// Mostrando a tela de classificação
 function showRankingScreen(modalGameOver, modalRanking) {
     modalGameOver.classList.remove('active');
     modalRanking.classList.add('active');
@@ -315,15 +326,17 @@ function showRankingScreen(modalGameOver, modalRanking) {
     createRankingTable();
 }
 
+// Reinicia as linhas da tabela de classificação
 function resetRankingRows() {
-    // clear ranking table and preserve only the top header row
+
     table.innerHTML = document.querySelector('.ranking-line1').outerHTML;
 }
 
+// Cria a tabela de classificação
 function createRankingTable() {
     const classification = DB.get();
 
-    // sort by scores in descening order
+
     classification.sort((a, b) => b.score_val - a.score_val);
 
     classification.forEach((item, index) => {
@@ -333,7 +346,7 @@ function createRankingTable() {
         createTable(position, name, score_val);
     });
 }
-
+// Cria linhas na tabela de classificação
 function createTable(position, name, score_val) {
     const elementHTML = document.createElement('tr');
     elementHTML.classList.add('ranking-line');
@@ -345,6 +358,7 @@ function createTable(position, name, score_val) {
     table.appendChild(elementHTML);
 }
 
+// Aplica a gravidade ao papagaio
 function apply_gravity() {
     if (game_state != 'Play') return;
     parrot_dy = parrot_dy + gravity;
@@ -358,6 +372,7 @@ function apply_gravity() {
     applyGravityRequestId = requestAnimationFrame(apply_gravity);
 }
 
+// Cria um par de troncos de árvores
 function create_tree_pair() {
     if (game_state != 'Play') return;
     
@@ -393,6 +408,7 @@ function create_tree_pair() {
     createTreePairRequestId = requestAnimationFrame(create_tree_pair);
 }
 
+// Cria frutas
 function create_fruits() {
     if (game_state != 'Play') return;
     
@@ -449,6 +465,7 @@ function create_fruits() {
     createFruitsRequestId = requestAnimationFrame(create_fruits);
 }
 
+// Iniciando o jogo
 function play() {
     moveRequestId = requestAnimationFrame(move);
     applyGravityRequestId = requestAnimationFrame(apply_gravity);
@@ -456,6 +473,7 @@ function play() {
     createFruitsRequestId = requestAnimationFrame(create_fruits);
 }
 
+// Cancela todas as animações
 function cancelAllAnimations() {
     cancelAnimationFrame(moveRequestId);
     cancelAnimationFrame(applyGravityRequestId);
@@ -463,6 +481,7 @@ function cancelAllAnimations() {
     cancelAnimationFrame(createFruitsRequestId);
 }
 
+// Event listeners e inicialização
 document.addEventListener('DOMContentLoaded', () => {
     const creditsAnimation = document.querySelector('.credits-animation');
 
