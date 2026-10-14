@@ -1,0 +1,40 @@
+{
+  "version": "art-direction-01",
+  "native_format": "SVG",
+  "bird": {
+    "frames": 8,
+    "frameSize": [
+      320,
+      320
+    ],
+    "sheetSize": [
+      1280,
+      640
+    ],
+    "fps": 12,
+    "atlas": "chaua-flight-atlas.json"
+  },
+  "collection": [
+    "Goiaba",
+    "Semente",
+    "Manga",
+    "Mamao",
+    "Coquinho",
+    "Banana",
+    "Milho"
+  ],
+  "parallax": {
+    "size": [
+      1920,
+      1080
+    ],
+    "layers": 4,
+    "transparentLayers": [
+      2,
+      3,
+      4
+    ]
+  },
+  "sourceReference": "https://parrots.org/encyclopedia/red-browed-amazon/",
+  "status": "For visual review; not yet integrated"
+}

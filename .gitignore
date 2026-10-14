@@ -2,3 +2,7 @@ node_modules/
 dist/
 coverage/
 *.local
+
+# Reproducible art exports; the review ZIP includes these outputs.
+art/v2/png/
+art/v2/review/
