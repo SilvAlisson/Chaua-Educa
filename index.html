@@ -82,7 +82,7 @@
           <div class="welcome-copy">
             <span class="tag">O SEU VOO COMEÇA AQUI</span>
             <h2>A floresta<br />espera por você.</h2>
-            <p>Um chauá, sete descobertas e muitas histórias para aprender.</p>
+            <p>Abra as asas. Descubra a mata. Proteja seu voo.</p>
             <form id="startForm">
               <label for="player">Como podemos chamar você?</label>
               <input
@@ -126,7 +126,7 @@
             <span class="orbit orbit-one"></span>
             <span class="orbit orbit-two"></span>
             <img
-              src="assets/v3/chaua-hero.webp"
+              src="assets/v4/perch.webp"
               alt="Ilustração do papagaio-chauá"
             />
             <span class="species-tag">
@@ -135,6 +135,10 @@
           </div>
         </div>
 
+        <div class="power-hud" id="powerHud" hidden>
+          <span id="chapterLabel"></span><span id="shieldStatus" hidden></span
+          ><span id="featherStatus" hidden></span>
+        </div>
         <div class="countdown" id="countdown" hidden>
           <span id="countdownLabel">Prepare as asas</span>
           <strong id="count">3</strong>
@@ -144,7 +148,8 @@
 
       <footer class="game-footer">
         <span>
-          <kbd>Espaço</kbd> ou <kbd>↑</kbd> para voar · Toque na tela no celular
+          <kbd>Espaço</kbd> ou <kbd>↑</kbd> · Segure para subir, solte para
+          planar
         </span>
         <span id="collectionCount">0 / 7 descobertas</span>
         <button class="footer-link-btn" data-open="credits">

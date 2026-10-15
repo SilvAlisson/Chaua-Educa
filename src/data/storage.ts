@@ -1,6 +1,8 @@
 import { FRUITS, QUESTIONS, type FruitId } from "./content";
 import type { Mode } from "../core/Simulation";
+export const RULESET = "forest-powers-1";
 export interface Score {
+  ruleset?: string;
   name: string;
   score: number;
   mode: Mode | "legacy";
@@ -48,7 +50,7 @@ export class Store {
                 Number.isFinite(s.score) &&
                 s.score >= 0 &&
                 (s.mode === "legacy" ||
-                  (Number.isInteger(s.score) && s.score <= 205)) &&
+                  (Number.isInteger(s.score) && s.score <= 209)) &&
                 ["learn", "challenge", "legacy"].includes(s.mode) &&
                 typeof s.date === "string",
             )
@@ -111,7 +113,8 @@ export class Store {
     const existing = this.data.scores.find(
       (s) =>
         s.name.toLocaleUpperCase("pt-BR") === name.toLocaleUpperCase("pt-BR") &&
-        s.mode === mode,
+        s.mode === mode &&
+        s.ruleset === RULESET,
     );
     if (existing) {
       if (score > existing.score) {
@@ -121,6 +124,7 @@ export class Store {
     } else
       this.data.scores.push({
         name,
+        ruleset: RULESET,
         score,
         mode,
         date: new Date().toISOString(),

@@ -24,9 +24,10 @@ O build estático fica em `dist/`. Pode ser servido em domínio ou subdiretório
 ## Jogar
 
 - Informe um nome/apelido de 3 a 24 caracteres e escolha **Aprender** ou **Desafio**.
-- Use **Espaço**, **↑**, toque na floresta ou o botão de voo no celular.
+- Use **Espaço**, **↑**, toque na floresta ou o botão de voo no celular. Segure para bater as asas em cadência; solte para planar descendo.
 - **Esc** pausa; retornar à aba nunca retoma a partida automaticamente.
 - Atravessar um par de obstáculos: **+1**. Coletar: **+3**. Acertar o quiz: **+2**.
+- O escudo salva de uma colisão; a pena dourada dobra os pontos por 10 segundos de voo. Pausas e quizzes congelam os poderes.
 - Frutas perdidas não pontuam. A vitória ocorre ao alcançar **200 pontos**, inclusive por coleta ou resposta.
 - Os quizzes congelam a simulação. Há no mínimo 15 segundos de voo simulado entre quizzes; não repetem perguntas até esgotar o banco.
 - Em **Aprender**, uma resposta errada mostra a explicação e permite continuar. Em **Desafio**, mostra a explicação antes de encerrar. Colisões encerram ambos os modos.
@@ -51,11 +52,15 @@ O mundo lógico mede 960 × 540. A renderização interpola posições anteriore
 
 Movimento dos obstáculos e dificuldade aumentam gradualmente com a distância, sem saltos por bônus de quiz. Aprender começa em 220 px/s com abertura de 190 px; Desafio, em 275 px/s com abertura de 150 px. Pausas e quizzes retomam com 1,5 segundo de preparação. A geração limita a variação vertical entre aberturas; as coletas ficam no centro delas. As hitboxes do pássaro são menores que o sprite. Ajustes finais de dificuldade e de alinhamento visual requerem testes com jogadores.
 
+## Expansão da floresta
+
+Cobras em troncos e galhos, troncos ocos, gaviões com aproximação anunciada, escudo e pena dourada. Novas telas animadas usam Baloo 2 e Nunito locais. Recordes com poderes são separados dos anteriores, preservando os dados. Veja [mecânicas e limites da verificação](docs/FOREST_POWERS.md).
+
 ## Artes de massinha (2D)
 
 A cena usa exclusivamente Phaser. Three.js, seus tipos e a cena 3D experimental foram removidos. O volume vem das ilustrações, sem modelos ou renderizador 3D.
 
-Os arquivos ativos ficam em `public/assets/v3`: quatro poses com âncoras de peito, sete itens proporcionais, três variações de troncos (samambaia, bromélia e cogumelos), extensões de casca e floresta em WebP. As poses seguem o tempo da simulação e congelam durante o quiz. A ilustração de fundo tem movimento limitado, evitando repetir uma imagem sem emenda. A coleção e a tela inicial usam a mesma direção de arte.
+A base visual fica em `public/assets/v3`, com a expansão em `public/assets/v4`: quatro poses com âncoras de peito, sete itens proporcionais, três variações de troncos (samambaia, bromélia e cogumelos), extensões de casca e floresta em WebP. As poses seguem o tempo da simulação e congelam durante o quiz. A ilustração de fundo tem movimento limitado, evitando repetir uma imagem sem emenda. A coleção e a tela inicial usam a mesma direção de arte.
 
 Veja [direção de arte e parâmetros](docs/CLAY_REFINEMENT.md). As artes anteriores e seus geradores permanecem disponíveis; `art:build` exporta a coleção vetorial anterior, não substitui as novas artes.
 

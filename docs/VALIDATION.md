@@ -5,10 +5,11 @@
 - Servidor Vite de desenvolvimento: cena e metadados respondem HTTP 200 sem aviso de importação de `public`.
 - Auditoria npm após atualizar Vitest para 4.1.11 e Sharp para 0.35.5: zero vulnerabilidades reportadas em 15/10/2026.
 - Compilação estrita de TypeScript e build de produção Vite.
-- 25 testes do motor, persistência e contratos dos sprites.
+- 37 testes do motor, persistência e contratos dos sprites.
 - Mesma partida de 24 segundos, entradas por tick e aleatoriedade fixa em 60, 120, 144, 180 e 240 frames/s: mesmo estado lógico, obstáculos, frutas e pontuação.
 - Pausas, contagem, limite de recuperação de tempo, coleta, bônus, ausência de pontos por coleta perdida, término único por colisão, vitória por coleta, modos de quiz e reinício.
 - Retomada de 1,5 segundo sem mover o mundo, pausa durante a retomada, descarte de impulsos antecipados, dificuldade por distância e animação após reinício.
+- Escudo, cabeça de cobra, galho projetado, gaviões, planeio, comando segurado, duração de 600 ticks e classificação por versão de regras.
 - Rankings separados, manutenção da chave legada e tratamento de armazenamento inválido/indisponível.
 
 ## Pendente antes de considerar pronto para produção

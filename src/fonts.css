@@ -1,0 +1,16 @@
+@font-face {
+  font-family: "Baloo 2 Variable";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("@fontsource-variable/baloo-2/files/baloo-2-latin-wght-normal.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Nunito Variable";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2")
+    format("woff2");
+}

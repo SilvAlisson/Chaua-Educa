@@ -1,9 +1,10 @@
 import Phaser from "phaser";
+import "./fonts.css";
 import "./style.css";
 import { Simulation, type Mode, type State } from "./core/Simulation";
 import { ForestScene } from "./game/ForestScene";
 import { FRUITS, QUESTIONS, SOURCES, type Question } from "./data/content";
-import { Store, validName } from "./data/storage";
+import { Store, validName, RULESET } from "./data/storage";
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 let local: Storage | null = null;
@@ -24,6 +25,9 @@ let scene: ForestScene | null = null;
 let game: Phaser.Game | null = null;
 let lastState: State | null = null;
 let extra: string | null = null;
+let rankingEra = RULESET;
+let newRecord = false;
+let resultTimer: ReturnType<typeof setInterval> | null = null;
 let rankingMode: Mode | "legacy" = "learn";
 player.value = name;
 const prefersReduced = window.matchMedia(
@@ -52,10 +56,16 @@ function focusGame() {
   $("game").focus({ preventScroll: true });
 }
 function close() {
+  if (resultTimer) clearInterval(resultTimer);
+  resultTimer = null;
+  dialog.classList.remove("result-dialog", "won-dialog");
   if (dialog.open) dialog.close();
   extra = null;
 }
 function modal(title: string, html: string, closable = false) {
+  dialog.classList.remove("result-dialog", "won-dialog");
+  if (resultTimer) clearInterval(resultTimer);
+  resultTimer = null;
   $("dialogTitle").textContent = title;
   content.innerHTML = html;
   $("closeDialog").hidden = !closable;
@@ -84,10 +94,42 @@ function begin() {
 }
 function endDialog() {
   const won = sim.state === "won";
+  const causes = {
+    wood: "O caminho encontrou um tronco.",
+    snake: "Você encostou na cobra do tronco.",
+    hawk: "Um gavião cruzou seu voo.",
+    ground: "O chauá chegou ao chão.",
+    ceiling: "Você voou além da copa.",
+    quiz: "Esta resposta encerrou o Desafio.",
+  };
   modal(
-    won ? "Um voo para celebrar!" : "Cada voo é um recomeço.",
-    `<p>${escape(name)}, ${won ? "você chegou aos 200 pontos. Continue levando essas descobertas para além da floresta!" : "a floresta ainda tem muito para contar. Que tal tentar mais uma vez?"}</p><div class="big-score">${sim.score}<span style="font-size:18px"> pontos</span></div><div class="stats"><span><b>${sim.collected}</b>coletas</span><span><b>${sim.correct}</b>respostas certas</span><span><b>${modeName(sim.mode)}</b>modo</span></div><div class="dialog-actions"><button class="primary" data-action="retry">Voar novamente</button><button class="secondary" data-open="ranking">Ver ranking</button><button class="secondary" data-action="home">Início</button></div>${store.data.mistakes.length ? "<p>Suas perguntas para revisar estão na Chauapédia.</p>" : ""}`,
+    won ? "A floresta celebra você!" : "Vamos tentar outro voo?",
+    `<div class="result-hero"><img src="assets/v4/perch.webp" alt="Chauá pousado num galho"><span class="result-sparkles" aria-hidden="true">✦ · ✧ · ✦</span></div>
+    <p>${escape(name)}, ${won ? "você completou esta aventura!" : sim.endCause ? causes[sim.endCause] : "cada voo traz uma descoberta."}</p>
+    ${newRecord ? '<p class="record-badge">✦ Seu novo recorde nesta aventura</p>' : ""}
+    <div class="big-score" aria-label="${sim.score} pontos"><span id="resultScore" aria-hidden="true">${sim.score}</span><small> pontos</small></div>
+    <div class="stats"><span><b>${sim.collected}</b>coletas</span><span><b>${sim.correct}</b>acertos</span><span><b>${modeName(sim.mode)}</b>modo</span></div>
+    <div class="dialog-actions"><button class="primary" data-action="retry">Voar novamente →</button><button class="secondary" data-open="ranking">Ranking</button><button class="secondary" data-action="home">Início</button></div>`,
   );
+  dialog.classList.add("result-dialog");
+  dialog.classList.toggle("won-dialog", won);
+  if (!store.data.reducedMotion) {
+    const began = performance.now();
+    resultTimer = setInterval(() => {
+      const el = document.getElementById("resultScore");
+      if (!el) {
+        if (resultTimer) clearInterval(resultTimer);
+        resultTimer = null;
+        return;
+      }
+      const t = Math.min(1, (performance.now() - began) / 650);
+      el.textContent = String(Math.round(sim.score * (1 - (1 - t) ** 3)));
+      if (t === 1 && resultTimer) {
+        clearInterval(resultTimer);
+        resultTimer = null;
+      }
+    }, 30);
+  }
 }
 function quizDialog() {
   const q = sim.question;
@@ -96,16 +138,32 @@ function quizDialog() {
   if (sim.state === "quiz")
     modal(
       "Uma descoberta pelo caminho",
-      `<div class="quiz-fruit"><img src="assets/v3/fruit-${fruit.id}.webp" alt="">${fruit.name} coletada · +3 pontos</div><p class="eyebrow" style="margin-top:20px">${q.topic}</p><p class="quiz-text">${q.text}</p><p>Verdadeiro ou falso? O voo está pausado.</p><div class="answer-buttons"><button data-answer="true">V · Verdadeiro</button><button data-answer="false">F · Falso</button></div>`,
+      `<div class="quiz-fruit"><img src="assets/v3/fruit-${fruit.id}.webp" alt="">${fruit.name} coletada · +${3 * sim.quizMultiplier} pontos</div><p class="eyebrow" style="margin-top:20px">${q.topic}</p><p class="quiz-text">${q.text}</p><p>Verdadeiro ou falso? O voo está pausado.</p><div class="answer-buttons"><button data-answer="true">V · Verdadeiro</button><button data-answer="false">F · Falso</button></div>`,
     );
   else
     modal(
-      sim.answerCorrect ? "Isso mesmo! +2 pontos" : "Vamos descobrir juntos",
+      sim.answerCorrect
+        ? `Isso mesmo! +${2 * sim.quizMultiplier} pontos`
+        : "Vamos descobrir juntos",
       `<div class="feedback ${sim.answerCorrect ? "" : "wrong"}"><p><b>A afirmação é ${q.answer ? "verdadeira" : "falsa"}.</b></p><p>${q.explanation}</p></div>${source(q)}<p>${!sim.answerCorrect && sim.mode === "challenge" ? "No modo Desafio, a resposta errada encerra o voo." : "Leve essa descoberta com você e continue a aventura."}</p><button class="primary" data-action="continue">${!sim.answerCorrect && sim.mode === "challenge" ? "Ver resultado" : sim.score >= 200 ? "Celebrar o voo" : "Continuar o voo"}</button>`,
     );
 }
 function sync() {
   $("score").textContent = String(sim.score);
+  $("powerHud").hidden = sim.state === "menu";
+  $("shieldStatus").hidden = !sim.shield && !sim.protectionTicks;
+  $("shieldStatus").textContent = sim.shield
+    ? "Escudo ativo"
+    : "Proteção breve";
+  $("featherStatus").hidden = !sim.featherTicks;
+  $("featherStatus").textContent = `×2 · ${Math.ceil(sim.featherTicks / 60)}s`;
+  $("chapterLabel").textContent =
+    sim.distance < 4500
+      ? "Clareira dourada"
+      : sim.distance < 10000
+        ? "Entre as copas"
+        : "Coração da mata";
+  document.body.dataset.gameState = sim.state;
   $("collectionCount").textContent =
     `${store.data.unlocked.length} / 7 descobertas`;
   $("modeLabel").textContent =
@@ -148,11 +206,17 @@ function encyclopedia() {
 function ranking() {
   modal(
     "Voos que ficaram na história",
-    `<p>Melhor pontuação de cada jogador neste navegador. Os modos têm classificações separadas.</p><div class="ranking-tabs">${(["learn", "challenge", "legacy"] as const).map((m) => `<button data-rank="${m}" aria-pressed="${m === rankingMode}">${modeName(m)}</button>`).join("")}</div><table><thead><tr><th>Posição</th><th>Jogador</th><th>Pontos</th></tr></thead><tbody id="rankingBody"></tbody></table><p id="emptyRanking"></p>${rankingMode === "legacy" ? '<p class="source">Histórico preservado da versão original, com regras de pontuação diferentes.</p>' : ""}`,
+    `<p>Melhor pontuação de cada jogador neste navegador. Os modos têm classificações separadas.</p><div class="ranking-tabs"><button data-era="${RULESET}" aria-pressed="${rankingEra === RULESET}">Aventura com poderes</button><button data-era="previous" aria-pressed="${rankingEra !== RULESET}">Voos anteriores</button></div><div class="ranking-tabs">${(["learn", "challenge", "legacy"] as const).map((m) => `<button data-rank="${m}" aria-pressed="${m === rankingMode}">${modeName(m)}</button>`).join("")}</div><table><thead><tr><th>Posição</th><th>Jogador</th><th>Pontos</th></tr></thead><tbody id="rankingBody"></tbody></table><p id="emptyRanking"></p>${rankingMode === "legacy" ? '<p class="source">Histórico preservado da versão original, com regras de pontuação diferentes.</p>' : ""}`,
     true,
   );
   const scores = store.data.scores
-    .filter((s) => s.mode === rankingMode)
+    .filter(
+      (s) =>
+        s.mode === rankingMode &&
+        (rankingEra === RULESET
+          ? s.ruleset === RULESET
+          : s.ruleset !== RULESET),
+    )
     .sort((a, b) => b.score - a.score);
   for (const [i, s] of scores.entries()) {
     const row = document.createElement("tr");
@@ -177,7 +241,7 @@ function openExtra(which: string) {
   if (which === "settings")
     modal(
       "Do seu jeito",
-      `<label class="setting"><input type="checkbox" id="muteSetting" ${store.data.muted ? "checked" : ""}> Silenciar os efeitos sonoros</label><label class="setting"><input type="checkbox" id="motionSetting" ${store.data.reducedMotion ? "checked" : ""}> Reduzir efeitos e movimento do cenário</label><p>Use Espaço ou ↑ para voar; Esc para pausar. No celular, toque na floresta ou no botão “Bater as asas”.</p><p>Meta: 200 pontos. Obstáculo: +1. Coleta: +3. Resposta correta: +2. No modo Aprender, erros no quiz permitem continuar; colisões encerram o voo nos dois modos.</p>`,
+      `<label class="setting"><input type="checkbox" id="muteSetting" ${store.data.muted ? "checked" : ""}> Silenciar os efeitos sonoros</label><label class="setting"><input type="checkbox" id="motionSetting" ${store.data.reducedMotion ? "checked" : ""}> Reduzir efeitos e movimento do cenário</label><p>Use Espaço ou ↑ para voar; Esc para pausar. No celular, toque na floresta ou no botão “Bater as asas”.</p><p>Meta: 200 pontos. Obstáculo: +1. Coleta: +3. Resposta correta: +2. No modo Aprender, erros no quiz permitem continuar; colisões sem escudo encerram o voo nos dois modos. Segure para bater asas continuamente e solte para planar. A pena dobra os pontos por 10 segundos de voo.</p>`,
       true,
     );
   if (which === "credits")
@@ -199,10 +263,10 @@ function openExtra(which: string) {
     modal(
       "Como voar e descobrir",
       `<div class="guide-modal">
-        <p><b>Controles:</b> Pressione <kbd>Espaço</kbd>, <kbd>↑</kbd> ou toque na tela para bater as asas e subir. Cada toque dá um impulso; entre os toques, a gravidade faz o chauá descer.</p>
+        <p><b>Controles:</b> Pressione <kbd>Espaço</kbd>, <kbd>↑</kbd> ou toque na tela para bater as asas e subir. Toque para um impulso, segure para bater as asas em ritmo contínuo e solte para planar descendo.</p>
         <p><b>Atalhos:</b> <kbd>Esc</kbd> para pausar · <kbd>F</kbd> para alternar tela cheia.</p>
         <p><b>Objetivo:</b> Voe pela floresta, desvie dos troncos e colete os 7 itens da coleção (+3 pts cada) para atingir 200 pontos.</p>
-        <p><b>Quiz Educativo:</b> O voo pausa em perguntas sobre o papagaio-chauá e a Mata Atlântica (+2 pts por acerto).</p>
+        <p><b>Poderes:</b> O escudo salva de uma colisão. A pena dourada dobra seus pontos por 10 segundos de voo. Os tempos congelam no quiz.</p><p><b>Perigos:</b> Troncos, cobras e gaviões. Um aviso na borda anuncia a chegada das aves; procure o corredor livre.</p><p><b>Quiz Educativo:</b> O voo pausa em perguntas sobre o papagaio-chauá e a Mata Atlântica (+2 pts por acerto).</p>
       </div>`,
       true,
     );
@@ -240,7 +304,17 @@ try {
     event: (e) => {
       if (e.type === "fruit") store.unlock(e.kind);
       if (e.type === "answer") store.answer(e.id, e.correct);
-      if (e.type === "end") store.score(name, sim.score, sim.mode);
+      if (e.type === "end") {
+        const previous = store.data.scores.find(
+          (s) =>
+            s.name.toLocaleUpperCase("pt-BR") ===
+              name.toLocaleUpperCase("pt-BR") &&
+            s.mode === sim.mode &&
+            s.ruleset === RULESET,
+        );
+        newRecord = sim.score > (previous?.score ?? 0);
+        store.score(name, sim.score, sim.mode);
+      }
       storageStatus();
     },
   });
@@ -272,7 +346,14 @@ $("pause").addEventListener("click", () => {
 });
 $("flap").addEventListener("pointerdown", (e) => {
   e.preventDefault();
-  sim.flap();
+  sim.hold();
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+});
+$("flap").addEventListener("pointerup", () => sim.release());
+$("flap").addEventListener("pointercancel", () => sim.release());
+$("flap").addEventListener("lostpointercapture", () => sim.release());
+document.addEventListener("keyup", (e) => {
+  if (e.code === "Space" || e.key === "ArrowUp") sim.release();
 });
 $("fullscreenBtn")?.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", () => {
@@ -297,13 +378,17 @@ dialog.addEventListener("cancel", (e) => {
 });
 document.addEventListener("click", (e) => {
   const target = (e.target as HTMLElement).closest<HTMLElement>(
-    "[data-open],[data-answer],[data-action],[data-rank]",
+    "[data-open],[data-answer],[data-action],[data-rank],[data-era]",
   );
   if (!target) return;
   if (target.dataset.open) openExtra(target.dataset.open);
   if (target.dataset.answer) {
     sim.answer(target.dataset.answer === "true");
     sync();
+  }
+  if (target.dataset.era) {
+    rankingEra = target.dataset.era;
+    ranking();
   }
   if (target.dataset.rank) {
     rankingMode = target.dataset.rank as Mode | "legacy";
@@ -369,7 +454,7 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Space" || e.key === "ArrowUp") {
     if (sim.state === "playing") {
       e.preventDefault();
-      sim.flap();
+      sim.hold();
     }
   }
 });
@@ -381,6 +466,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 window.addEventListener("blur", () => {
+  sim.release();
   sim.pause();
   scene?.resetClock();
   sync();

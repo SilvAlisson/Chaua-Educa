@@ -41,6 +41,22 @@ it("serves the game scene and imported presets in development without public-imp
     const presets = await fetch(`${base}/src/game/assets/trunks.json?import`);
     expect(presets.status).toBe(200);
     expect(await presets.text()).toContain("originX");
+    const main = await fetch(`${base}/src/main.ts`);
+    expect(main.status).toBe(200);
+    for (const key of [
+      "snake",
+      "hollow",
+      "branch",
+      "hawk-0",
+      "hawk-1",
+      "perch",
+      "shield",
+      "feather",
+    ]) {
+      const asset = await fetch(`${base}/assets/v4/${key}.webp`);
+      expect(asset.status).toBe(200);
+      expect(asset.headers.get("content-type")).toContain("image/webp");
+    }
     expect(warnings).toEqual([]);
   } finally {
     await server.close();
