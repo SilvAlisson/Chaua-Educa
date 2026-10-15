@@ -25,6 +25,27 @@ export const WORLD = {
   treeWidth: 54,
   target: 200,
 };
+/** Tunable difficulty, expressed in virtual pixels and simulation seconds. */
+export const FLIGHT = {
+  learn: {
+    speed: 220,
+    speedGain: 45,
+    gap: 190,
+    gapLoss: 25,
+    gravity: 850,
+    impulse: -300,
+    spawnTicks: 100,
+  },
+  challenge: {
+    speed: 275,
+    speedGain: 55,
+    gap: 150,
+    gapLoss: 20,
+    gravity: 960,
+    impulse: -330,
+    spawnTicks: 90,
+  },
+} as const;
 export interface Obstacle {
   id: number;
   x: number;
@@ -55,6 +76,7 @@ export class Simulation {
   distance = 0;
   prevDistance = 0;
   countdown = 3;
+  resuming = false;
   collected = 0;
   correct = 0;
   obstacles: Obstacle[] = [];
@@ -86,6 +108,7 @@ export class Simulation {
       this.correct =
         0;
     this.countdown = 3;
+    this.resuming = false;
     this.obstacles = [];
     this.fruits = [];
     this.events = [];
@@ -104,7 +127,6 @@ export class Simulation {
   flap() {
     if (this.state === "playing") {
       this.flapQueued = true;
-      this.lastFlapTick = this.ticks;
     }
   }
   pause() {
@@ -115,7 +137,8 @@ export class Simulation {
   }
   resume() {
     if (this.state === "paused") {
-      this.state = this.previousState;
+      if (this.previousState === "countdown") this.state = "countdown";
+      else this.prepareResume();
       this.snap();
     }
   }
@@ -133,7 +156,8 @@ export class Simulation {
       this.countdown = Math.max(0, this.countdown - dt);
       if (this.countdown < 1e-8) {
         this.state = "playing";
-        this.vy = -240;
+        if (!this.resuming) this.vy = -240;
+        this.resuming = false;
       }
       return;
     }
@@ -142,16 +166,17 @@ export class Simulation {
     this.prevY = this.y;
     this.prevDistance = this.distance;
     if (this.flapQueued) {
-      this.vy = -330;
+      this.vy = FLIGHT[this.mode].impulse;
       this.flapQueued = false;
       this.lastFlapTick = this.ticks;
     }
-    this.vy = Math.min(520, this.vy + 960 * dt);
+    const profile = FLIGHT[this.mode];
+    this.vy = Math.min(460, this.vy + profile.gravity * dt);
     this.y += this.vy * dt;
-    const progress = Math.min(1, this.score / WORLD.target);
-    const speed = 280 + progress * 80;
+    const progress = Math.min(1, this.distance / 18000);
+    const speed = profile.speed + progress * profile.speedGain;
     this.distance += speed * dt;
-    if (++this.spawnTicks >= 90) {
+    if (++this.spawnTicks >= profile.spawnTicks) {
       this.spawnTicks = 0;
       this.spawn(progress);
     }
@@ -245,7 +270,14 @@ export class Simulation {
       this.end(true);
       return;
     }
-    this.state = "playing";
+    // A reading break must not resume into an immediate high-speed fall.
+    this.vy = Math.min(this.vy, 100);
+    this.prepareResume();
+  }
+  private prepareResume() {
+    this.state = "countdown";
+    this.countdown = 1.5;
+    this.resuming = true;
     this.flapQueued = false;
     this.snap();
   }
@@ -259,7 +291,8 @@ export class Simulation {
       330,
       Math.max(205, this.center + (this.random() * 2 - 1) * 55),
     );
-    const gap = (this.mode === "learn" ? 135 : 118) - progress * 15;
+    const profile = FLIGHT[this.mode];
+    const gap = profile.gap - progress * profile.gapLoss;
     this.obstacles.push({
       id: this.nextId++,
       x: 1020,

@@ -49,7 +49,15 @@ public/assets/            Imagens, fontes e sons originais
 
 O mundo lógico mede 960 × 540. A renderização interpola posições anteriores e atuais; colisões só usam o estado lógico. O enquadramento mantém a mesma área visível nos diferentes dispositivos. Não existe loop RAF concorrente nem física ligada ao DOM. O acumulador aceita no máximo seis passos de recuperação por frame; máquinas que não sustentem o processamento podem desacelerar, sem promessa de desempenho universal.
 
-Movimento dos obstáculos e dificuldade aumentam gradualmente. A geração limita a variação vertical entre aberturas; as coletas ficam no centro delas. As hitboxes do pássaro são menores que o sprite. Ajustes finais de dificuldade e de alinhamento visual requerem testes com jogadores.
+Movimento dos obstáculos e dificuldade aumentam gradualmente com a distância, sem saltos por bônus de quiz. Aprender começa em 220 px/s com abertura de 190 px; Desafio, em 275 px/s com abertura de 150 px. Pausas e quizzes retomam com 1,5 segundo de preparação. A geração limita a variação vertical entre aberturas; as coletas ficam no centro delas. As hitboxes do pássaro são menores que o sprite. Ajustes finais de dificuldade e de alinhamento visual requerem testes com jogadores.
+
+## Artes de massinha (2D)
+
+A cena usa exclusivamente Phaser. Three.js, seus tipos e a cena 3D experimental foram removidos. O volume vem das ilustrações, sem modelos ou renderizador 3D.
+
+Os arquivos ativos ficam em `public/assets/v3`: quatro poses com âncoras de peito, sete itens proporcionais, três variações de troncos (samambaia, bromélia e cogumelos), extensões de casca e floresta em WebP. As poses seguem o tempo da simulação e congelam durante o quiz. A ilustração de fundo tem movimento limitado, evitando repetir uma imagem sem emenda. A coleção e a tela inicial usam a mesma direção de arte.
+
+Veja [direção de arte e parâmetros](docs/CLAY_REFINEMENT.md). As artes anteriores e seus geradores permanecem disponíveis; `art:build` exporta a coleção vetorial anterior, não substitui as novas artes.
 
 ## Dados e compatibilidade
 

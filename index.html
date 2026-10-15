@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#132f24" />
     <meta
       name="description"
@@ -30,22 +30,41 @@
         </div>
 
         <div class="hud-right">
-          <button class="hud-btn" data-open="encyclopedia" title="Abrir Chauapédia">
+          <button
+            class="hud-btn"
+            data-open="encyclopedia"
+            title="Abrir Chauapédia"
+          >
             📖 <span class="btn-text">Chauapédia</span>
           </button>
           <button class="hud-btn" data-open="ranking" title="Ver Ranking">
             🏆 <span class="btn-text">Ranking</span>
           </button>
-          <button class="hud-btn" data-open="settings" aria-label="Configurações" title="Ajustes do jogo">
+          <button
+            class="hud-btn"
+            data-open="settings"
+            aria-label="Configurações"
+            title="Ajustes do jogo"
+          >
             ⚙ <span class="btn-text">Ajustes</span>
           </button>
           <button class="hud-btn" data-open="guide" title="Como Jogar">
             ❓ <span class="btn-text">Ajuda</span>
           </button>
-          <button class="hud-btn hud-pause" id="pause" aria-label="Pausar partida" disabled>
+          <button
+            class="hud-btn hud-pause"
+            id="pause"
+            aria-label="Pausar partida"
+            disabled
+          >
             ⏸ <span class="btn-text">Pausar</span> <kbd>Esc</kbd>
           </button>
-          <button class="hud-btn hud-fullscreen" id="fullscreenBtn" aria-label="Alternar tela cheia" title="Tela cheia (F)">
+          <button
+            class="hud-btn hud-fullscreen"
+            id="fullscreenBtn"
+            aria-label="Alternar tela cheia"
+            title="Tela cheia (F)"
+          >
             ⛶ <span class="btn-text">Tela Cheia</span>
           </button>
         </div>
@@ -63,9 +82,7 @@
           <div class="welcome-copy">
             <span class="tag">O SEU VOO COMEÇA AQUI</span>
             <h2>A floresta<br />espera por você.</h2>
-            <p>
-              Um chauá, sete descobertas e muitas histórias para aprender.
-            </p>
+            <p>Um chauá, sete descobertas e muitas histórias para aprender.</p>
             <form id="startForm">
               <label for="player">Como podemos chamar você?</label>
               <input
@@ -81,14 +98,25 @@
                 <legend>Escolha sua aventura</legend>
                 <label class="mode-option">
                   <input type="radio" name="mode" value="learn" checked />
-                  <span><b>Aprender</b><small>Errou o quiz? Aprenda e continue.</small></span>
+                  <span
+                    ><b>Aprender</b
+                    ><small>Errou o quiz? Aprenda e continue.</small></span
+                  >
                 </label>
                 <label class="mode-option">
                   <input type="radio" name="mode" value="challenge" />
-                  <span><b>Desafio</b><small>Cada resposta faz a diferença.</small></span>
+                  <span
+                    ><b>Desafio</b
+                    ><small>Cada resposta faz a diferença.</small></span
+                  >
                 </label>
               </fieldset>
-              <button class="primary start-button" id="start" type="submit" disabled>
+              <button
+                class="primary start-button"
+                id="start"
+                type="submit"
+                disabled
+              >
                 Carregando a floresta…
               </button>
               <p id="loadStatus" role="status"></p>
@@ -97,7 +125,10 @@
           <div class="hero-bird">
             <span class="orbit orbit-one"></span>
             <span class="orbit orbit-two"></span>
-            <img src="assets/v2/chaua-hero.png" alt="Ilustração do papagaio-chauá" />
+            <img
+              src="assets/v3/chaua-hero.webp"
+              alt="Ilustração do papagaio-chauá"
+            />
             <span class="species-tag">
               Amazona rhodocorytha<br /><b>Nosso pequeno protagonista</b>
             </span>
@@ -105,7 +136,7 @@
         </div>
 
         <div class="countdown" id="countdown" hidden>
-          <span>Prepare as asas</span>
+          <span id="countdownLabel">Prepare as asas</span>
           <strong id="count">3</strong>
           <span>Espaço, ↑ ou toque para voar</span>
         </div>
@@ -116,7 +147,9 @@
           <kbd>Espaço</kbd> ou <kbd>↑</kbd> para voar · Toque na tela no celular
         </span>
         <span id="collectionCount">0 / 7 descobertas</span>
-        <button class="footer-link-btn" data-open="credits">Sobre e créditos ↗</button>
+        <button class="footer-link-btn" data-open="credits">
+          Sobre e créditos ↗
+        </button>
       </footer>
 
       <button class="touch-flap" id="flap" disabled>Bater as asas ↑</button>

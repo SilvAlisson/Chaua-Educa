@@ -31,7 +31,9 @@ function flight(hz: number) {
 describe("simulation and rendering cadence", () => {
   it("replays the same inputs and random values identically at 60/120/144/180/240 Hz", () => {
     const reference = flight(60);
-    expect(reference.ticks).toBe(1440);
+    // Reading-break countdowns consume simulation steps but never flight distance.
+    expect(reference.ticks).toBeGreaterThan(1100);
+    expect(["playing", "countdown"]).toContain(reference.state);
     expect(reference.score).toBeGreaterThan(0);
     for (const hz of [120, 144, 180, 240])
       expect(flight(hz)).toEqual(reference);
@@ -114,7 +116,7 @@ describe("scoring, collision and quiz flow", () => {
     s.answer(s.question!.answer);
     expect(s.score).toBe(5);
     s.continueQuiz();
-    expect(s.state).toBe("playing");
+    expect(s.state).toBe("countdown");
   });
   it("continues after wrong answers in Learn and ends Challenge only after feedback", () => {
     for (const mode of ["learn", "challenge"] as const) {
@@ -125,7 +127,7 @@ describe("scoring, collision and quiz flow", () => {
       s.answer(false);
       expect(s.state).toBe("feedback");
       s.continueQuiz();
-      expect(s.state).toBe(mode === "learn" ? "playing" : "over");
+      expect(s.state).toBe(mode === "learn" ? "countdown" : "over");
     }
   });
   it("requires fifteen simulation seconds between quizzes", () => {
@@ -134,6 +136,7 @@ describe("scoring, collision and quiz flow", () => {
     s.step(1 / 60);
     s.answer(true);
     s.continueQuiz();
+    for (let i = 0; i < 90; i++) s.step(1 / 60);
     s.fruits = [{ id: 2, x: 220, prevX: 220, y: 260, kind: "Manga" }];
     s.step(1 / 60);
     expect(s.state).toBe("playing");
@@ -241,5 +244,66 @@ describe("save compatibility and validation", () => {
     s.answer("habitat", false);
     s.answer("habitat", true);
     expect(s.data.mistakes).toEqual([]);
+  });
+});
+
+describe("flight refinements", () => {
+  it("freezes the entire world during quiz recovery and discards countdown flaps", () => {
+    const s = playing();
+    s.vy = 400;
+    s.fruits = [{ id: 1, x: 220, prevX: 220, y: 260, kind: "Manga" }];
+    s.step(1 / 60);
+    s.answer(s.question!.answer);
+    s.continueQuiz();
+    const before = { y: s.y, distance: s.distance, ticks: s.ticks };
+    for (let i = 0; i < 89; i++) {
+      s.flap();
+      s.step(1 / 60);
+    }
+    expect(s.state).toBe("countdown");
+    expect({ y: s.y, distance: s.distance, ticks: s.ticks }).toEqual(before);
+    s.step(1 / 60);
+    expect(s.state).toBe("playing");
+    expect(s.vy).toBe(100);
+    s.step(1 / 60);
+    expect(s.vy).toBeGreaterThan(100);
+  });
+  it("keeps interrupted recovery countdowns and flight velocity across pause", () => {
+    const s = playing();
+    s.vy = -150;
+    s.pause();
+    s.resume();
+    expect(s.resuming).toBe(true);
+    for (let i = 0; i < 30; i++) s.step(1 / 60);
+    const remaining = s.countdown;
+    s.pause();
+    s.step(1 / 60);
+    s.resume();
+    expect(s.countdown).toBe(remaining);
+    for (let i = 0; i < 60; i++) s.step(1 / 60);
+    expect(s.state).toBe("playing");
+    expect(s.vy).toBe(-150);
+  });
+  it("does not accelerate the world when a quiz awards points", () => {
+    const a = playing(),
+      b = playing();
+    b.score = 150;
+    a.step(1 / 60);
+    b.step(1 / 60);
+    expect(a.distance).toBe(b.distance);
+  });
+  it("gives Learn wider openings and a slower approach than Challenge", () => {
+    const a = playing(),
+      b = playing();
+    b.mode = "challenge";
+    for (let i = 0; i < 100; i++) {
+      for (const s of [a, b]) {
+        s.y = 265;
+        s.vy = 0;
+        s.step(1 / 60);
+      }
+    }
+    expect(a.distance).toBeLessThan(b.distance);
+    expect(a.obstacles[0].gap).toBeGreaterThan(b.obstacles[0].gap);
   });
 });

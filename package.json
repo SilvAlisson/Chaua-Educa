@@ -9,14 +9,13 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
     "format": "prettier --write src tests index.html vite.config.ts tsconfig.json README.md docs",
-    "art:build": "python scripts/generate_art.py && node scripts/export_art.cjs && python scripts/validate_art.py"
+    "art:build": "python scripts/generate_art.py && node scripts/export_art.cjs && python scripts/validate_art.py",
+    "art:pack": "node scripts/pack_clay_assets.cjs"
   },
   "dependencies": {
-    "phaser": "3.90.0",
-    "three": "^0.186.1"
+    "phaser": "3.90.0"
   },
   "devDependencies": {
-    "@types/three": "^0.186.0",
     "prettier": "3.6.2",
     "sharp": "0.34.5",
     "typescript": "~5.9.3",
