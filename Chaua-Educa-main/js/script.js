@@ -1,503 +1,250 @@
 import DB from './database.js';
+import { Game, FlightClock, HEIGHT, STAGES, VICTORY_SCORE } from './engine.mjs';
+import { Renderer, drawBird } from './render.mjs';
 
-// Variáveis Globais
-let move_speed = 3;
-let gravity = 0.5;
-let parrot = document.querySelector('.parrot');
-let img = document.getElementById('parrot-1');
-let parrot_props = parrot.getBoundingClientRect();
-let background = document.querySelector('.background').getBoundingClientRect();
-let score_title = document.querySelector('.score_title');
-let game_state = 'Start';
-let additionalScore = 5;
-let parrot_dy = 0;
-let isPaused = false;
-let controls_registered = false;
-let tree_separation = 0;
-let maxTopTreeHeight = 75;
-let fruit_separation = 0;
-let playerName;
-let score_val = document.querySelector('.score_val');
-let sound_fruit = new Audio('Sounds/get-fruit.wav');
-let sound_die = new Audio('Sounds/die.wav');
-let sound_winner = new Audio('Sounds/winner.wav');
-let moveRequestId;
-let applyGravityRequestId;
-let createTreePairRequestId;
-let createFruitsRequestId;
-const sleep = document.querySelector('#sleep');
-const txtSleep = document.querySelector('#txtSleep');
+const $ = selector => document.querySelector(selector);
+const app = $('#app');
+const renderer = new Renderer($('#forest'));
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const dialogs = [...document.querySelectorAll('dialog')];
+const flightInputs = new Set();
+let player = '', selectedMode = 'aventura', previousState = '', board = 'aventura';
+let returnToResult = false, lastTime = 0, toastUntil = 0, pointsUntil = 0;
+let resultAnimation = null, soundOn = false, audioContext;
+try { soundOn = localStorage.getItem('chaua-sound') === 'true'; } catch { /* Optional preference. */ }
 
-const fruitImages = [
-    'images/Goiaba.png',
-    'images/Semente.png',
-    'images/Manga.png',
-    'images/Mamao.png',
-    'images/Coquinho.png',
-    'images/Banana.png',
-    'images/Milho.png',
-];
-// Perguntas
-const QUESTIONS = [
-    { prompt: "Os papagaios-chauá habitam o Pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "O período de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Os papagaios-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O papagaios-chauá são conhecidos popularmente por papagaios da cabeça vermelha, papagaios de crista rosada ou papagaios com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Os papagaios-chauá se alimentam de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Os papagaios-chauá são aves que podem ser encontradas em outros países além do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "Os papagaios-chauá têm hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "Os papagaios-chauá existem em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "A Mata Atlântica tem grande importância econômica e ecológica. As formações florestais ajudam a regular o clima e proteger o solo? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Desde a colonização do Brasil, ocorre exploração da Mata Atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "A Mata Atlântica é encontrada na região central do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A expansão da indústria, da agricultura, do turismo e da urbanização não causa impacto na biodiversidade da Mata Atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A riqueza da biodiversidade da Mata Atlântica tem números impressionantes, como: 1020 espécies de aves, 350 espécies de peixes, 340 espécies de anfíbios e 197 répteis? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
-
-];
-
-function get_fresh_questions() {
-    return QUESTIONS.slice();
+function sound(type) {
+    if (!soundOn) return;
+    try {
+        audioContext ??= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+        const notes = {
+            fruit: [660, 880], shield: [330, 494, 660], 'shield-break': [220, 147],
+            feather: [523, 659, 784, 1046], correct: [660, 880, 990],
+            incorrect: [260, 196], lose: [392, 330, 220], win: [523, 659, 784, 1046, 1318],
+        }[type];
+        if (!notes) return;
+        notes.forEach((frequency, i) => {
+            const start = audioContext.currentTime + i * .085;
+            const oscillator = audioContext.createOscillator(), gain = audioContext.createGain();
+            oscillator.type = type === 'shield-break' ? 'triangle' : 'sine';
+            oscillator.frequency.value = frequency;
+            gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(.065, start + .012); gain.gain.exponentialRampToValueAtTime(.001, start + .2);
+            oscillator.connect(gain).connect(audioContext.destination); oscillator.start(start); oscillator.stop(start + .22);
+        });
+    } catch { /* Audio is optional, including on silent mobile devices. */ }
 }
 
-let in_game_questions;
-
-const inputPlayer = document.querySelector('#inputPlayer')
-const btnStart = document.querySelector('#btnStart');
-const btnRestart = document.querySelectorAll('#btnRestart');
-const btnRanking = document.querySelector('#btnRanking');
-const modal = document.querySelector('#modal');
-const modalLogin = document.querySelector('#modalLogin');
-const modalGameOver = document.querySelector('#modalGameOver');
-const modalRanking = document.querySelector('#modalRanking');
-const modalCredits = document.querySelector('#modalCredits');
-const table = document.querySelector('#table');
-
-// Validar Jogador
-const validatePlayer = ({target}) =>{
-    if (target.value.length > 2) {
-        btnStart.removeAttribute('disabled');
-        playerName = target.value.trim().toUpperCase();
-        register_controls();
-    } else {
-        btnStart.setAttribute('disabled', '');
-    }
-};
-inputPlayer.addEventListener('input', validatePlayer);
-
-const cleanText = () => {
-    inputPlayer.value = '';
-    btnStart.setAttribute('disabled', '');
-};
-
-img.style.display = 'none';
-
-// Funções
-
-// Inicializa o jogo
-function intialize() {
-    move_speed = 3;
-    gravity = 0.5;
-    parrot_dy = 0
-    additionalScore = 5;
-    isPaused = false;
-    tree_separation = 0;
-    maxTopTreeHeight = 70;
-    fruit_separation = 0;
-
-    img.style.display = 'block';
-    parrot.style.top = '40vh';
-    game_state = 'Play';
-    score_title.innerHTML = 'Score : ';
-    score_val.innerHTML = '0';
-
-    parrot_props = parrot.getBoundingClientRect();
-    in_game_questions = get_fresh_questions();
+function toast(text) {
+    $('#toast').textContent = text;
+    $('#toast').classList.add('visible');
+    toastUntil = game.elapsed + 3;
+    $('#screen-reader-status').textContent = text;
 }
 
+export const game = new Game({ width: renderer.w / renderer.h * HEIGHT, onEvent(event) {
+    sound(event.type);
+    const messages = { shield: 'Escudo de folhas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · um respiro para continuar', quiet: 'Uma clareira. Recupere o fôlego.' };
+    if (messages[event.type]) toast(messages[event.type]);
+    if (event.type === 'points') { $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1; }
+} });
+const clock = new FlightClock(game);
 
-// Tela de Sleep
-function sleepAsync(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-  
-  const startGameAfterSleep = async () => {
-    sleep.classList.add('active');
-    const sleepDuration = 5000; 
-    for (let i = sleepDuration / 1000; i >= 0; i--) {
-      txtSleep.innerHTML = i;
-      await sleepAsync(1000);
-    }
+function resize() {
+    renderer.resize();
+    game.width = renderer.w / renderer.h * HEIGHT;
+}
+new ResizeObserver(resize).observe(app);
+window.addEventListener('resize', resize);
 
-    sleep.classList.remove('active');
-    intialize();
-    play();
-  };
-  
-  // Lida com a inicialização do jogo
-  function handle_start_game(key_or_mouse_event) {
-    const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
-  
-    if ((is_mouse_event || key_or_mouse_event.key == 'Enter') && game_state != 'Play') {
-      cleanText();
-  
-      modal.classList.remove('enable');
-      modalLogin.classList.remove('active');
-  
-      document.querySelectorAll('.tree').forEach((e) => {
-        e.remove();
-      });
-      document.querySelectorAll('.fruit').forEach((e) => {
-        e.remove();
-      });
-  
-      startGameAfterSleep();
-    }
-  }
+function clearInputs() { flightInputs.clear(); game.release(); $('#flap-button').classList.remove('is-held'); }
+function hold(source) {
+    if (game.state !== 'playing') return;
+    flightInputs.add(source); game.press(); $('#flap-button').classList.add('is-held');
+}
+function release(source) {
+    flightInputs.delete(source);
+    if (!flightInputs.size) { game.release(); $('#flap-button').classList.remove('is-held'); }
+}
+function closeDialogs() { dialogs.forEach(dialog => { if (dialog.open) dialog.close(); }); }
+function openDialog(id) { const dialog = $(id); if (!dialog.open) dialog.showModal(); }
 
-  // Lida com a pausa do jogo
-function handle_pause_game(key_event) {
-    if (key_event.key == 'Escape' && game_state == 'Play') {
-        if (!isPaused) {
-            cancelAllAnimations();
-            isPaused = true;
-        } else {
-            play();
-            isPaused = false;
-        }
-    }
+function start() {
+    closeDialogs(); clearInputs();
+    cancelAnimationFrame(resultAnimation);
+    app.classList.add('in-flight'); $('#home').hidden = true; $('#hud').hidden = false;
+    resize(); game.start(selectedMode); previousState = ''; clock.reset(); lastTime = 0;
+    $('#score-bonus').textContent = ''; $('#toast').classList.remove('visible'); toastUntil = 0;
+    $('#screen-reader-status').textContent = 'O voo vai começar. Toque, seta para cima ou espaço para bater asas. Solte para planar.';
+    // Remove focus from the submitting/restarting button, avoiding Space clicks.
+    document.activeElement?.blur();
+    syncUI();
+}
+function home() {
+    closeDialogs(); clearInputs(); cancelAnimationFrame(resultAnimation);
+    game.reset(); previousState = ''; clock.reset(); lastTime = 0;
+    $('#hud').hidden = true; $('#countdown').hidden = true; $('#home').hidden = false;
+    app.classList.remove('in-flight'); resize(); $('#inputPlayer').focus({ preventScroll: true });
 }
 
-function handle_arrow_keydown(key_event) {
-    if (!isPaused && (key_event.key == 'ArrowUp' || key_event.key == ' ')) {
-        img.src = 'images/parrot-b.png';
-        parrot_dy = -7.6;
-    }
-}
-
-function handle_arrow_keyup(key_event) {
-    if (!isPaused && (key_event.key =='ArrowUp' || key_event.key == ' ')) {
-        img.src = 'images/parrot-a.png';
-    }
-}
-
-// Reiniciar Jogo
-function handle_restart_game(mouse_event) {
-    game_state = 'Start';
-
-    modalGameOver.classList.remove('active');
-    modalRanking.classList.remove('active');
-    modalCredits.classList.remove('active');
-
-    modal.classList.add('enable');
-    modalLogin.classList.add('active');
-}
-
-// Ranking
-function handle_show_ranking(mouse_event) {
-    showRankingScreen(modalGameOver, modalRanking)
-}
-
-//Controles
-function register_controls() {
-    if (controls_registered) return;
-
-    btnStart.addEventListener('click', handle_start_game)
-
-    document.addEventListener('keydown', (key_event) => {
-        handle_start_game(key_event);
-        handle_pause_game(key_event);
-    });
-
-    document.addEventListener('keydown', handle_arrow_keydown);
-    document.addEventListener('keyup', handle_arrow_keyup);
-
-    btnRestart.forEach((btn) => {
-        btn.addEventListener('click', handle_restart_game);
-    });
-    
-    btnRanking.addEventListener('click', handle_show_ranking);
-
-    controls_registered = true;
-}
-// Lida com o fim de jogo
-function gameOver() {
-    game_state = 'End';
-    cancelAllAnimations();
-    sound_die.play();
-    DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
-
-    modal.classList.add('enable');
-    modalGameOver.classList.add('active');
-}
-// Lida com a vitória no jogo
-function gameWon() {
-    game_state = 'End';
-    cancelAllAnimations();
-    sound_winner.play();
-    DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
-    img.style.display = 'none';
-    modal.classList.add('enable');
-    modalCredits.classList.add('active');
-}
-// Move o papagaio e verifica colisões
-function move() {
-    if (game_state != 'Play') return;
-
-    let tree_sprites = document.querySelectorAll('.tree');
-
-    tree_sprites.forEach((element) => {
-        let tree_props = element.getBoundingClientRect();
-        parrot_props = parrot.getBoundingClientRect();
-
-        if (tree_props.right <= 0) {
-            element.remove();
-        } else {
-            if (parrot_props.left < tree_props.left + tree_props.width && parrot_props.left + parrot_props.width > tree_props.left && parrot_props.top < tree_props.top + tree_props.height && parrot_props.top + parrot_props.height > tree_props.top) {
-                return gameOver();
-            } else {
-                if (tree_props.right < parrot_props.left && tree_props.right + move_speed >= parrot_props.left && element.increase_score == '1') {
-                    score_val.innerHTML = parseInt(score_val.innerHTML) + 1;
-                }
-                element.style.left = tree_props.left - move_speed + 'px';
-            }
-        }
-
-        if (parseInt(score_val.innerHTML) >= 200) {
-            return gameWon();
-        }
-    });
-
-    let fruit_sprites = document.querySelectorAll('.fruit');
-    fruit_sprites.forEach((element) => {
-        let fruit_props = element.getBoundingClientRect();
-        parrot_props = parrot.getBoundingClientRect();
-
-        if (fruit_props.right <= 0) {
-            element.remove();
-        } else {
-            if (parrot_props.left <= fruit_props.left + fruit_props.width && parrot_props.left + parrot_props.width >= fruit_props.left && parrot_props.top <= fruit_props.top + fruit_props.height && parrot_props.top + parrot_props.height >= fruit_props.top) {
-                const randomChance = Math.random();
-
-                const probability = 0.60;
-            
-                if (randomChance <= probability) {
-
-                let collidedFruitName = element.getAttribute('src').replace('images/', '').replace('.png', '');
-
-                if (in_game_questions.length === 0) in_game_questions = get_fresh_questions();
-
-                let randomIndex = Math.floor(Math.random() * in_game_questions.length);
-                let question = in_game_questions.splice(randomIndex, 1)[0]; 
-                let answer = prompt(`Para comer ${collidedFruitName}, responda:\n${question.prompt}`);
-
-                if (answer === null) {
-                } else if (answer.toLowerCase() !== question.answer.toLowerCase()) { 
-                    return gameOver();
-                } else {
-                    element.remove();
-                    score_val.innerHTML = parseInt(score_val.innerHTML) + additionalScore;
-                }
-                sound_fruit.play();
-            } else {
-                element.remove();
-                score_val.innerHTML = parseInt(score_val.innerHTML) + additionalScore -2;
-                sound_fruit.play();
-            }
-            } else {
-                if (fruit_props.right < parrot_props.left && fruit_props.right + move_speed >= parrot_props.left && element.increase_score == '1') {
-                    score_val.innerHTML = parseInt(score_val.innerHTML) + 1;
-                    sound_fruit.play();
-                }
-                element.style.left = fruit_props.left - move_speed + 'px';
-            }
-        }
-    }
-    );
-    moveRequestId = requestAnimationFrame(move);
-}
-// Mostrando a tela de classificação
-function showRankingScreen(modalGameOver, modalRanking) {
-    modalGameOver.classList.remove('active');
-    modalRanking.classList.add('active');
-
-    resetRankingRows();
-    createRankingTable();
-}
-
-// Reinicia as linhas da tabela de classificação
-function resetRankingRows() {
-
-    table.innerHTML = document.querySelector('.ranking-line1').outerHTML;
-}
-
-// Cria a tabela de classificação
-function createRankingTable() {
-    const classification = DB.get();
-
-
-    classification.sort((a, b) => b.score_val - a.score_val);
-
-    classification.forEach((item, index) => {
-        let position = index + 1;
-        let name = item.playerName;
-        let score_val = item.score_val;
-        createTable(position, name, score_val);
-    });
-}
-// Cria linhas na tabela de classificação
-function createTable(position, name, score_val) {
-    const elementHTML = document.createElement('tr');
-    elementHTML.classList.add('ranking-line');
-    elementHTML.innerHTML = `
-        <td class="ranking-column">${position}</td>
-        <td class="ranking-column">${name}</td>
-        <td class="ranking-column">${score_val}</td>
-    `;
-    table.appendChild(elementHTML);
-}
-
-// Aplica a gravidade ao papagaio
-function apply_gravity() {
-    if (game_state != 'Play') return;
-    parrot_dy = parrot_dy + gravity;
-
-    if (parrot_props.top <= 0 || parrot_props.bottom >= background.bottom) {
-        return gameOver();
-    }
-
-    parrot.style.top = parrot_props.top + parrot_dy + 'px';
-    parrot_props = parrot.getBoundingClientRect();
-    applyGravityRequestId = requestAnimationFrame(apply_gravity);
-}
-
-// Cria um par de troncos de árvores
-function create_tree_pair() {
-    if (game_state != 'Play') return;
-    
-    if (tree_separation > 115) {
-        tree_separation = 0;
-
-        let gap_position = 40;
-
-        let tree_posi = Math.floor(Math.random() * (maxTopTreeHeight - 2 * gap_position)) + gap_position;
-
-        if (tree_posi > maxTopTreeHeight) {
-            tree_posi = maxTopTreeHeight;
-        }
-
-        let tree_sprite1 = document.createElement('img');
-        tree_sprite1.className = 'tree';
-        tree_sprite1.src = 'images/tree.png';
-        tree_sprite1.style.top = tree_posi - maxTopTreeHeight + 'vh';
-        tree_sprite1.style.left = '100vw';
-        tree_sprite1.increase_score = '1';
-
-        document.body.appendChild(tree_sprite1);
-
-        let tree_sprite2 = document.createElement('img');
-        tree_sprite2.className = 'tree tree-inverted';
-        tree_sprite2.src = 'images/tree.png';
-        tree_sprite2.style.top = tree_posi + gap_position + 'vh';
-        tree_sprite2.style.left = '100vw';
-
-        document.body.appendChild(tree_sprite2);
-    }
-    tree_separation++;
-    createTreePairRequestId = requestAnimationFrame(create_tree_pair);
-}
-
-// Cria frutas
-function create_fruits() {
-    if (game_state != 'Play') return;
-    
-    if (fruit_separation > 350) {
-        fruit_separation = 0;
-
-        let tree_sprites = document.querySelectorAll('.tree');
-        if (tree_sprites.length < 2) {
-            return;
-        }
-
-        let tree1 = tree_sprites[tree_sprites.length - 2];
-        let tree2 = tree_sprites[tree_sprites.length - 1];
-        let tree1_props = tree1.getBoundingClientRect();
-        let tree2_props = tree2.getBoundingClientRect();
-
-        let fruit_x = (tree1_props.right + tree2_props.left) / 2;
-
-        if (fruit_x > 10) {
-            fruit_x -= 60; 
-        }
-
-        let randomFruitImage = fruitImages[Math.floor(Math.random() * fruitImages.length)];
-
-        let fruit_sprite1 = document.createElement('img');
-        fruit_sprite1.classList.add("fruit")
-        fruit_sprite1.src = randomFruitImage;
-        if (randomFruitImage === 'images/Goiaba.png') {
-            fruit_sprite1.classList.add('Goiaba');
-        } else if (randomFruitImage === 'images/Semente.png') {
-            fruit_sprite1.classList.add('Semente');
-        } else if (randomFruitImage === 'images/Manga.png') {
-            fruit_sprite1.classList.add('Manga');
-        } else if (randomFruitImage === 'images/Banana.png') {
-            fruit_sprite1.classList.add('Banana');
-        } else if (randomFruitImage === 'images/Coquinho.png') {
-            fruit_sprite1.classList.add('Coquinho');
-        } else if (randomFruitImage === 'images/Mamao.png') {
-            fruit_sprite1.classList.add('Mamao');
-        }  else if (randomFruitImage === 'images/Milho.png') {
-            fruit_sprite1.classList.add('Milho');
-        } 
-
-        fruit_sprite1.style.left = fruit_x + 'px';
-        let screenHeight = window.innerHeight;
-        let fruit_y = (tree1_props.bottom + tree2_props.top) / 2 - screenHeight / 2;
-        fruit_sprite1.style.top = screenHeight / 2 + fruit_y + 'px';
-
-        fruit_sprite1.increase_score = '1';
-
-        document.body.appendChild(fruit_sprite1);
-    }
-    fruit_separation++;
-    createFruitsRequestId = requestAnimationFrame(create_fruits);
-}
-
-// Iniciando o jogo
-function play() {
-    moveRequestId = requestAnimationFrame(move);
-    applyGravityRequestId = requestAnimationFrame(apply_gravity);
-    createTreePairRequestId = requestAnimationFrame(create_tree_pair);
-    createFruitsRequestId = requestAnimationFrame(create_fruits);
-}
-
-// Cancela todas as animações
-function cancelAllAnimations() {
-    cancelAnimationFrame(moveRequestId);
-    cancelAnimationFrame(applyGravityRequestId);
-    cancelAnimationFrame(createTreePairRequestId);
-    cancelAnimationFrame(createFruitsRequestId);
-}
-
-// Event listeners e inicialização
-document.addEventListener('DOMContentLoaded', () => {
-    const creditsAnimation = document.querySelector('.credits-animation');
-
-    const logo1 = document.querySelector('.logo-1');
-    const logo2 = document.querySelector('.logo-2');
-    const button = document.querySelector('.btn-restart-2');
-
-    creditsAnimation.addEventListener('animationstart', () => {
-        logo1.style.display = 'none';
-        logo2.style.display = 'none';
-        button.style.display = 'none';
-    });
-
-    creditsAnimation.addEventListener('animationend', () => {
-        logo1.style.display = 'block';
-        logo2.style.display = 'block';
-        button.style.display = 'block';
-    });
+$('#inputPlayer').addEventListener('input', event => {
+    const value = event.target.value;
+    $('#btnStart').disabled = value.trim().length < 3;
+    $('#name-count').textContent = `${value.length}/24`;
+    event.target.setCustomValidity('');
 });
+$('#start-form').addEventListener('submit', event => {
+    event.preventDefault();
+    player = $('#inputPlayer').value.trim();
+    if (player.length < 3) { $('#inputPlayer').setCustomValidity('Use pelo menos 3 letras no seu nome.'); $('#inputPlayer').reportValidity(); return; }
+    selectedMode = $('input[name=mode]:checked').value;
+    sound('fruit'); start();
+});
+$('#restart-button').addEventListener('click', start);
+$('.brand').addEventListener('click', event => { event.preventDefault(); home(); });
+document.querySelectorAll('.back-home').forEach(button => button.addEventListener('click', home));
+$('#pause-button').addEventListener('click', () => { clearInputs(); game.pause(); syncUI(); });
+$('#resume-button').addEventListener('click', () => { $('#pause-dialog').close(); clearInputs(); game.resume(); syncUI(); });
+$('#pause-dialog').addEventListener('cancel', event => { event.preventDefault(); $('#resume-button').click(); });
+$('#quiz-dialog').addEventListener('cancel', event => event.preventDefault());
+$('#result-dialog').addEventListener('cancel', event => { event.preventDefault(); home(); });
+
+$('#flap-button').addEventListener('pointerdown', event => {
+    event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); hold(`pointer-${event.pointerId}`);
+});
+$('#forest').addEventListener('pointerdown', event => {
+    if (!app.classList.contains('in-flight')) return;
+    event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); hold(`pointer-${event.pointerId}`);
+});
+window.addEventListener('pointerup', event => release(`pointer-${event.pointerId}`));
+window.addEventListener('pointercancel', event => release(`pointer-${event.pointerId}`));
+$('#flap-button').addEventListener('lostpointercapture', event => release(`pointer-${event.pointerId}`));
+$('#forest').addEventListener('lostpointercapture', event => release(`pointer-${event.pointerId}`));
+$('#flap-button').addEventListener('click', event => { if (event.detail === 0) { game.press(); game.release(); } });
+window.addEventListener('keydown', event => {
+    if (game.state === 'quiz') {
+        if (['v', 'f'].includes(event.key.toLowerCase()) && !event.repeat) { event.preventDefault(); answer(event.key.toLowerCase() === 'v'); }
+        return;
+    }
+    if (!['playing', 'countdown'].includes(game.state)) return;
+    if (['Escape', 'p', 'P'].includes(event.key) && !event.repeat) { event.preventDefault(); clearInputs(); game.pause(); syncUI(); return; }
+    if (['ArrowUp', 'Space'].includes(event.code)) { event.preventDefault(); if (!event.repeat) hold(event.code); }
+});
+window.addEventListener('keyup', event => { if (['ArrowUp', 'Space'].includes(event.code)) release(event.code); });
+function autoPause() { clearInputs(); game.pause(); syncUI(); }
+window.addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+
+function updateSoundButton() {
+    const button = $('.sound-toggle');
+    button.setAttribute('aria-pressed', String(soundOn));
+    button.setAttribute('aria-label', soundOn ? 'Silenciar sons' : 'Ativar sons');
+    $('.sound-slash').hidden = soundOn;
+}
+$('.sound-toggle').addEventListener('click', () => { soundOn = !soundOn; try { localStorage.setItem('chaua-sound', String(soundOn)); } catch { /* Optional. */ } updateSoundButton(); sound('fruit'); });
+updateSoundButton();
+
+function answer(value) {
+    game.answer(value);
+    const result = game.answerResult;
+    if (result === null) return;
+    $('#answer-true').disabled = true; $('#answer-false').disabled = true;
+    const feedback = $('#answer-feedback');
+    feedback.textContent = result ? `Boa descoberta! +${2 * game.quizMultiplier} pontos.` : `A afirmação é ${game.question.answer ? 'verdadeira' : 'falsa'}. Guarde essa descoberta para o próximo voo.`;
+    feedback.classList.toggle('incorrect', !result);
+    $('#quiz-continue').hidden = false;
+    $('#quiz-continue').textContent = result ? 'Continuar o voo →' : 'Ver meu voo →';
+    $('#quiz-continue').focus();
+}
+$('#answer-true').addEventListener('click', () => answer(true));
+$('#answer-false').addEventListener('click', () => answer(false));
+$('#quiz-continue').addEventListener('click', () => { $('#quiz-dialog').close(); clearInputs(); game.continueQuiz(); syncUI(); });
+
+function result() {
+    clearInputs();
+    const record = DB.upsertPlayerScore(player, game.score, selectedMode);
+    const panel = $('#result-dialog .result'); panel.classList.toggle('victory', game.won);
+    $('#result-title').textContent = game.won ? 'A floresta celebra você!' : 'Opa! Vamos de novo?';
+    $('#result-eyebrow').textContent = game.won ? 'UM VOO PARA GUARDAR' : 'CADA VOO É UM COMEÇO';
+    $('#result-reason').textContent = game.reason;
+    $('#new-record').hidden = !record || game.score === 0;
+    $('#result-fruits').textContent = game.fruits; $('#result-correct').textContent = game.correct;
+    $('#storage-note').textContent = DB.storageAvailable ? 'Seu recorde fica salvo neste navegador.' : 'Armazenamento indisponível: recorde mantido apenas nesta sessão.';
+    const birdCanvas = document.createElement('canvas'); birdCanvas.width = 300; birdCanvas.height = 210;
+    const bc = birdCanvas.getContext('2d'); bc.scale(2, 2); drawBird(bc, { x: 68, y: 53, scale: 1.05, perched: true, surprise: !game.won, reduced: true });
+    $('#result-bird').replaceChildren(birdCanvas);
+    openDialog('#result-dialog'); $('#restart-button').focus();
+    $('#screen-reader-status').textContent = `${game.won ? 'Vitória' : 'Fim de voo'}. ${game.score} pontos, ${game.fruits} frutos, ${game.correct} respostas corretas. ${game.reason}`;
+    const begin = performance.now(), target = game.score;
+    function count(now) {
+        const fraction = reducedMotion.matches ? 1 : Math.min(1, (now - begin) / 650);
+        $('#result-score').textContent = Math.round(target * (1 - (1 - fraction) ** 3));
+        if (fraction < 1) resultAnimation = requestAnimationFrame(count);
+    }
+    resultAnimation = requestAnimationFrame(count);
+}
+
+function showRanking(fromResult = false) {
+    returnToResult = fromResult;
+    if (fromResult) $('#result-dialog').close();
+    board = fromResult ? selectedMode : 'aventura'; renderRanking(); openDialog('#ranking-dialog');
+}
+function renderRanking() {
+    document.querySelectorAll('[data-board]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.board === board)));
+    const rows = DB.get(board === 'legacy').filter(p => board === 'legacy' || p.mode === board).sort((a, b) => b.score_val - a.score_val);
+    $('#ranking-empty').hidden = rows.length !== 0;
+    $('#ranking-body').replaceChildren(...rows.map((row, index) => {
+        const tr = document.createElement('tr');
+        for (const text of [String(index + 1).padStart(2, '0'), row.playerName, row.score_val]) { const td = document.createElement('td'); td.textContent = text; tr.append(td); }
+        return tr;
+    }));
+}
+$('#open-ranking').addEventListener('click', () => showRanking());
+$('#result-ranking').addEventListener('click', () => showRanking(true));
+document.querySelectorAll('[data-board]').forEach(button => button.addEventListener('click', () => { board = button.dataset.board; renderRanking(); }));
+$('#ranking-dialog').addEventListener('close', () => { if (returnToResult && game.state === 'ended') openDialog('#result-dialog'); returnToResult = false; });
+$('#open-guide').addEventListener('click', () => openDialog('#guide-dialog'));
+$('#open-credits').addEventListener('click', () => openDialog('#credits-dialog'));
+document.querySelectorAll('.close-dialog').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
+
+function syncUI() {
+    if (game.state !== previousState) {
+        app.dataset.state = game.state;
+        clearInputs();
+        if (game.state === 'paused') openDialog('#pause-dialog');
+        if (game.state === 'quiz') {
+            $('#question-text').textContent = game.question.text;
+            $('#quiz-bonus').textContent = game.quizMultiplier === 2 ? 'Pena dourada garantida nesta resposta: +4 pontos ao acertar.' : 'Uma resposta certa vale +2 pontos.';
+            $('#answer-feedback').textContent = ''; $('#quiz-continue').hidden = true;
+            $('#answer-true').disabled = false; $('#answer-false').disabled = false;
+            openDialog('#quiz-dialog');
+        }
+        if (game.state === 'ended') result();
+        previousState = game.state;
+    }
+    $('#countdown').hidden = game.state !== 'countdown';
+    if (game.state === 'countdown') $('#count-number').textContent = Math.max(1, Math.ceil(game.countdown));
+    $('#score').textContent = game.score;
+    $('#stage-name').textContent = STAGES[game.stage];
+    $('#progress-fill').style.width = `${Math.min(100, game.score / VICTORY_SCORE * 100)}%`;
+    $('#energy').value = game.stamina;
+    $('#shield-status').classList.toggle('active', game.shield);
+    $('#shield-status span').textContent = game.shield ? 'Escudo pronto' : 'Sem escudo';
+    $('#feather-status').classList.toggle('golden', game.feather > 0);
+    $('#feather-status').classList.toggle('active', game.feather > 0);
+    $('#feather-status span').textContent = game.feather > 0 ? `×2 · ${Math.ceil(game.feather)}s` : 'Pena ×2';
+    $('#feather-status progress').value = game.feather;
+    if (toastUntil < game.elapsed) $('#toast').classList.remove('visible');
+    if (pointsUntil < game.elapsed) $('#score-bonus').textContent = '';
+}
+
+function frame(time) {
+    const delta = lastTime ? Math.min(.25, Math.max(0, (time - lastTime) / 1000)) : 0;
+    lastTime = time;
+    clock.advance(delta);
+    syncUI();
+    if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
+    else renderer.game(game, reducedMotion.matches, time / 1000);
+    requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
