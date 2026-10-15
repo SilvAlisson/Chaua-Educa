@@ -13,6 +13,7 @@ const flightInputs = new Set();
 let player = '', selectedMode = 'aventura', previousState = '', board = 'aventura';
 let returnToResult = false, lastTime = 0, toastUntil = 0, pointsUntil = 0;
 let resultAnimation = null, soundOn = false, audioContext;
+let assetsReady = false;
 try { soundOn = localStorage.getItem('chaua-sound') === 'true'; } catch { /* Optional preference. */ }
 
 function sound(type) {
@@ -73,6 +74,7 @@ function closeDialogs() { dialogs.forEach(dialog => { if (dialog.open) dialog.cl
 function openDialog(id) { const dialog = $(id); if (!dialog.open) dialog.showModal(); }
 
 function start() {
+    if (!assetsReady) return;
     closeDialogs(); clearInputs();
     cancelAnimationFrame(resultAnimation);
     app.classList.add('in-flight'); $('#home').hidden = true; $('#hud').hidden = false;
@@ -92,7 +94,7 @@ function home() {
 
 $('#inputPlayer').addEventListener('input', event => {
     const value = event.target.value;
-    $('#btnStart').disabled = value.trim().length < 3;
+    $('#btnStart').disabled = !assetsReady || value.trim().length < 3;
     $('#name-count').textContent = `${value.length}/24`;
     event.target.setCustomValidity('');
 });
@@ -267,3 +269,12 @@ function showCollection() {
     openDialog('#collection-dialog');
 }
 $('#open-collection').addEventListener('click', showCollection);
+
+renderer.ready.then(() => {
+    assetsReady=true;
+    $('#asset-status').hidden=true;
+    $('#btnStart').disabled=$('#inputPlayer').value.trim().length<3;
+}).catch(error => {
+    $('#asset-status').textContent=error.message;
+    $('#btnStart').disabled=true;
+});

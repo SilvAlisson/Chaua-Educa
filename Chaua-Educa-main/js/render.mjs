@@ -1,3 +1,4 @@
+import { images, loadAssets, BIRD_ANCHORS, TRUNKS, SPECIAL, flightPose } from './assets.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 const TAU = Math.PI * 2;
@@ -21,42 +22,19 @@ function leaf(c, x, y, size, rotation, light = '#87b36a', dark = '#3d7349') {
 }
 
 export function drawBird(c, { x, y, scale = 1, angle = 0, wing = 0, perched = false, time = 0, surprise = false, reduced = false }) {
-    c.save(); c.translate(x, y); c.scale(scale, scale); c.rotate(angle);
-    const breath = reduced ? 0 : Math.sin(time * 1.8) * .6;
-    // Body and head keep the same anchor and scale throughout every wing pose.
-    c.translate(0, breath);
-    if (perched) {
-        c.lineWidth = 5; c.strokeStyle = '#6d6545'; c.lineCap = 'round';
-        for (const sx of [-6, 12]) { c.beginPath(); c.moveTo(sx, 28); c.lineTo(sx - 2, 40); c.moveTo(sx - 9, 42); c.lineTo(sx + 5, 42); c.stroke(); }
-    }
-    clay(c, -28, 22, 25, 9, '#479b6f', '#1b5e4f', -.55);
-    clay(c, -20, 26, 23, 7, '#4a8b8e', '#295b64', -.7);
-    // Far wing, main torso, near wing: no sprite swaps or size changes.
-    clay(c, -7, -8, 30, 13, '#79b365', '#336d40', -.45 - wing * .7);
-    clay(c, -2, 5, 27, 32, '#a6ce60', '#4b8a43', -.15);
-    clay(c, 9, 10, 19, 25, '#badb76', '#72a746', .1);
-    c.save(); c.translate(-10, 0); c.rotate(perched ? -.14 + wing * .15 : -.3 - wing * 1.4);
-    clay(c, -8, 10, 15, 31, '#66a85b', '#347845', -.25);
-    for (let i = 0; i < 4; i++) clay(c, -17 + i * 6, 24 - i * 2, 4.8, 13, i % 2 ? '#328680' : '#437f78', '#2d665e', -.25);
-    clay(c, -8, 1, 12, 17, '#7eb457', '#508b43', -.25);
-    c.restore();
-    clay(c, 13, -21, 22, 24, '#a5c95c', '#5c963c', -.2);
-    clay(c, 27, -21, 11, 15, '#e6ce69', '#c7ac50', -.2);
-    clay(c, 13, -40, 16, 8, '#d6664a', '#a93a36', .08);
-    clay(c, 5, -39, 9, 6, '#e08c52', '#c45239', -.3);
-    // Gentle natural face, with a blink on the resting pose.
-    const blinking = perched && !reduced && time % 5.7 > 5.5;
-    clay(c, 26, -26, 6.5, surprise ? 8 : 6.7, '#f8edc3', '#d6d29f');
-    if (blinking) { c.beginPath(); c.moveTo(22, -26); c.lineTo(30, -26); c.strokeStyle = '#2d3928'; c.lineWidth = 2; c.stroke(); }
-    else { oval(c, 28, -26, surprise ? 3.8 : 3.3, surprise ? 5 : 4.2, '#233729'); oval(c, 29, -28, 1.2, 1.5, '#fffdf1'); }
-    const beak = c.createLinearGradient(34, -25, 44, -7); beak.addColorStop(0, '#d2c39b'); beak.addColorStop(1, '#797958');
-    c.beginPath(); c.moveTo(33, -24); c.quadraticCurveTo(50, -21, 41, -8); c.quadraticCurveTo(42, -17, 33, -15); c.closePath(); c.fillStyle = beak; c.fill();
-    oval(c, 35, -21, 1, 1, '#4a4a35');
+    const pose=flightPose(wing,reduced), image=images.get(perched?(surprise?'chaua-hero':'perch'):`chaua-${pose}`);
+    if (!image) return;
+    c.save(); c.translate(x,y); c.rotate(angle);
+    const breath=reduced?1:1+Math.sin(time*1.8)*.008;
+    const size=(perched?115:125)*scale, factor=size/image.naturalWidth;
+    const [ax,ay]=perched?[.5,.52]:BIRD_ANCHORS[pose];
+    c.scale(breath,breath);
+    c.drawImage(image,-image.naturalWidth*factor*ax,-image.naturalHeight*factor*ay,image.naturalWidth*factor,image.naturalHeight*factor);
     c.restore();
 }
 
 export class Renderer {
-    constructor(canvas) { this.canvas = canvas; this.c = canvas.getContext('2d'); this.resize(); this.fruitImages = FRUITS.map(f => { const image = new Image(); image.src = `images/fruit-${f.id}.webp`; return image; }); }
+    constructor(canvas) { this.canvas = canvas; this.c = canvas.getContext('2d'); this.fruitImages = []; this.ready = loadAssets().then(()=>{this.fruitImages=FRUITS.map(f=>images.get(`fruit-${f.id}`));}); this.resize(); }
     resize() {
         const r = this.canvas.getBoundingClientRect();
         this.w = r.width; this.h = r.height;
@@ -77,7 +55,7 @@ export class Renderer {
         const sun = c.createRadialGradient(w * .7, h * .15, 0, w * .7, h * .15, h * .8);
         sun.addColorStop(0, '#fff4c299'); sun.addColorStop(.5, '#fff0b52a'); sun.addColorStop(1, '#fff0b500');
         c.fillStyle = sun; c.fillRect(0, 0, w, h);
-        for (let layer = 0; layer < 3; layer++) {
+        for (let layer = 0; !images.has('forest') && layer < 3; layer++) {
             const gap = 180 - layer * 25, travel = (offset * (.07 + layer * .06)) % gap;
             c.globalAlpha = .12 + layer * .08;
             for (let i = -1; i < w / gap + 2; i++) {
@@ -88,6 +66,14 @@ export class Renderer {
             }
         }
         c.globalAlpha = 1;
+        const forest=images.get('forest');
+        if (forest) {
+            const scale=Math.max(w/forest.naturalWidth,h/forest.naturalHeight)*1.08;
+            const fw=forest.naturalWidth*scale, fh=forest.naturalHeight*scale;
+            const drift=reduced?0:Math.sin(time*.035)*Math.min(24,(fw-w)/2);
+            c.drawImage(forest,(w-fw)/2+drift,(h-fh)/2,fw,fh);
+            c.fillStyle=['#385e2810','#d6bf6010','#d89e3518','#365e6330'][stage]; c.fillRect(0,0,w,h);
+        }
         // Long translucent light shafts, stable during flight.
         c.fillStyle = '#ffffcb10';
         for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(w * .65 + i * 95, 0); c.lineTo(w * .65 + 45 + i * 95, 0); c.lineTo(w * .13 + i * 110, h); c.lineTo(w * .13 - 120 + i * 110, h); c.fill(); }
@@ -123,14 +109,7 @@ export class Renderer {
         const y = mobile ? this.h - 238 : this.h * .53;
         const scale = mobile ? 1.65 : Math.min(3.6, this.w / 370);
         c.save(); c.translate(x, y);
-        // An old branch with a light-catching clay ridge.
-        c.lineCap = 'round'; c.strokeStyle = '#496440'; c.lineWidth = scale * 19;
-        c.beginPath(); c.moveTo(-scale * 74, scale * 62); c.bezierCurveTo(scale * 5, scale * 42, scale * 60, scale * 58, scale * 130, scale * 20); c.stroke();
-        c.strokeStyle = '#8a9160'; c.lineWidth = scale * 12; c.stroke();
-        c.strokeStyle = '#b0ab75'; c.lineWidth = scale * 3; c.beginPath(); c.moveTo(-scale * 66, scale * 56); c.quadraticCurveTo(scale * 30, scale * 40, scale * 114, scale * 26); c.stroke();
-        c.strokeStyle = '#6c7b4e'; c.lineWidth = scale * 7; c.beginPath(); c.moveTo(scale * 56, scale * 47); c.lineTo(scale * 69, scale * 11); c.stroke();
-        for (const [lx, ly, r, a] of [[65,9,20,-1.1],[85,17,21,-.3],[-64,55,19,-.3],[-81,64,18,-1.7],[111,32,18,-.7],[126,18,21,-1.2]]) leaf(c, lx * scale, ly * scale, r * scale, a, '#a5bf63', '#4b8047');
-        drawBird(c, { x: 0, y: scale * 5, scale, perched: true, wing: reduced ? .08 : .07 + Math.sin(time * .9) * .06, time, reduced });
+        drawBird(c, { x: 0, y: scale * 5, scale: scale*1.3, perched: true, wing: reduced ? .08 : .07 + Math.sin(time * .9) * .06, time, reduced });
         c.restore();
         // Loose foreground leaves frame the diorama.
         if (!mobile) {
@@ -154,14 +133,7 @@ export class Renderer {
         }
         for (const e of game.entities) {
             if (e.kind === 'wood') {
-                for (const rect of game.woodRects(e)) this.wood(rect);
-                if (e.snake && (!e.snake.retreat || e.snake.retreatTime < .8)) {
-                    c.save();
-                    const retreat = e.snake.retreat ? e.snake.retreatTime / .8 : 0;
-                    c.globalAlpha = 1 - retreat;
-                    this.snake(e.x + retreat * 50, e.snake.y + retreat * (e.snake.y < 320 ? -40 : 40), e.snake.branch, reduced ? 0 : game.elapsed);
-                    c.restore();
-                }
+                this.obstacle(e, game);
             } else if (e.kind === 'hawk') {
                 if (e.warning > 0) {
                     const wx = worldWidth - 52;
@@ -194,41 +166,53 @@ export class Renderer {
         }
     }
 
-    wood({ x, y, w, h }) {
-        if (h <= 0) return;
-        const c = this.c;
-        c.save();
-        const g = c.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#655d3e'); g.addColorStop(.3, '#a39765'); g.addColorStop(.65, '#8b8054'); g.addColorStop(1, '#5e5c3c');
-        c.fillStyle = g; c.beginPath(); c.roundRect(x, y, w, h, Math.min(7, h / 3)); c.fill();
-        c.strokeStyle = '#c5bb8044'; c.lineWidth = 2;
-        for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(x + 12 + i * 14, y + 7); c.bezierCurveTo(x + 3 + i * 14, y + h * .4, x + 22 + i * 12, y + h * .6, x + 10 + i * 14, y + h - 5); c.stroke(); }
-        // End-grain and moss stay within the solid collision shape.
-        if (h > 30) { clay(c, x + w / 2, y > 0 ? y + 7 : y + h - 7, w / 2 - 3, 6, '#c8b17a', '#8c8052');
-            for (let i = 0; i < 3; i++) leaf(c, x + 10 + i * 16, y > 0 ? y + 12 : y + h - 13, 8, i - .8, '#91a65a', '#5c8144'); }
+    obstacle(e, game) {
+        const c=this.c, variant=(e.id??0)%3, preset=TRUNKS[variant];
+        const topRects=game.woodRects(e).filter(r=>r.y<e.bottom);
+        // Clip only at real openings; leaves outside the wooden core remain decorative.
+        if(topRects.length) {
+            c.save(); c.beginPath();
+            for(const r of topRects)c.rect(r.x-22,r.y,r.w+44,r.h);
+            c.clip(); this.trunk(`trunk-${variant}`,preset,e.x+29,e.top,true);
+            c.restore();
+        }
+        if(!e.broken || e.brokenSide!=='bottom') {
+            const kind=e.snake&&!e.snake.branch&&!e.snake.retreat?'snake':e.variant==='hollow'?'hollow':`trunk-${variant}`;
+            this.trunk(kind,SPECIAL[kind]??preset,e.x+29,e.bottom,false);
+            if(e.variant==='branch') {
+                const image=images.get('branch');
+                if(image && !e.snake?.retreat) c.drawImage(image,e.x-70,e.bottom+8,160,160*image.naturalHeight/image.naturalWidth);
+                else this.wood({x:e.x-70,y:e.bottom+30,w:78,h:18},variant);
+            }
+        }
+        if(e.variant==='broken'&&(!e.broken||e.brokenSide!=='top'))this.wood({x:e.x+52,y:e.top-35,w:26,h:18},variant);
+    }
+
+    trunk(key,preset,x,y,flip) {
+        const image=images.get(key),c=this.c;
+        if(!image)return;
+        const factor=58/preset.coreWidth, h=image.naturalHeight*factor;
+        c.save();c.translate(x,y);if(flip)c.scale(1,-1);
+        // Extend the base with matching bark if a trunk is shorter than the viewport.
+        this.wood({x:-29,y:Math.max(0,h-8),w:58,h:HEIGHT},0);
+        c.drawImage(image,-image.naturalWidth*factor*preset.originX,0,image.naturalWidth*factor,h);
         c.restore();
     }
 
-    snake(x, y, branch, time) {
-        const c = this.c, sx = x + (branch ? -27 : 38);
-        c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
-        c.strokeStyle = '#48623b'; c.lineWidth = 13;
-        c.beginPath(); c.moveTo(x + 10, y - 10); c.bezierCurveTo(x + 65, y - 15, x + 55, y - 28, x + 8, y - 25); c.bezierCurveTo(x - 8, y - 21, x + 3, y - 5, sx, y); c.stroke();
-        c.strokeStyle = '#91a858'; c.lineWidth = 7; c.stroke();
-        clay(c, sx, y + Math.sin(time * 1.8) * 1.2, 16, 10, '#acb966', '#6a8a49');
-        oval(c, sx - 8, y - 3, 2, 2.5, '#2e4230'); oval(c, sx - 8.5, y - 3.5, .7, .7, '#f5ecd1');
+    wood({x,y,w,h},variant=0) {
+        const image=images.get(`bark-${variant}`); if(!image||h<=0)return;
+        const c=this.c,tileH=image.naturalHeight*w/image.naturalWidth;
+        c.save();c.beginPath();c.rect(x,y,w,h);c.clip();
+        for(let offset=0;offset<h;offset+=tileH)c.drawImage(image,x,y+offset,w,tileH);
         c.restore();
     }
 
     hawk(x, y, time, warning, angle = 0) {
-        const c = this.c, size = warning ? .65 : 1;
-        c.save(); c.translate(x, y); c.rotate(angle); c.scale(size, size);
-        const a = warning ? .25 : Math.sin(time * 4) * .17;
-        clay(c, -14, 0, 37, 10, '#a8987a', '#766952', -.45 + a);
-        clay(c, 5, 0, 30, 10, '#c4b59a', '#89785a', .5 - a);
-        clay(c, -1, 5, 25, 14, '#c4bba3', '#9c8c6b');
-        for (let i = 0; i < 3; i++) { c.strokeStyle = '#776d58'; c.lineWidth = 3; c.beginPath(); c.moveTo(-24 + i * 7, 2); c.lineTo(-35 + i * 9, 12); c.stroke(); }
-        clay(c, -19, -4, 11, 12, '#d3c7ab', '#99896d');
-        clay(c, -30, -2, 6, 4, '#beb392', '#797b65'); oval(c, -23, -7, 2, 2.3, '#3a3c2c');
+        const image=images.get(`hawk-${warning?1:Math.floor(time*6)%2}`);
+        if (!image) return;
+        const c=this.c, factor=(warning?49:110)/image.naturalWidth;
+        c.save(); c.translate(x,y); c.rotate(angle);
+        c.drawImage(image,-image.naturalWidth*factor*.43,-image.naturalHeight*factor*.66,image.naturalWidth*factor,image.naturalHeight*factor);
         c.restore();
     }
 
@@ -245,16 +229,9 @@ export class Renderer {
             const gold = e.kind === 'feather';
             const glow = c.createRadialGradient(0, 0, 4, 0, 0, 34); glow.addColorStop(0, gold ? '#ffdf9aaa' : '#d0ef91aa'); glow.addColorStop(1, '#ffffff00');
             oval(c, 0, 0, 34, 34, glow);
-            oval(c, 0, float, 22, 22, gold ? '#fff0b9' : '#dbedb9');
-            c.strokeStyle = gold ? '#cfac54' : '#8eaf63'; c.lineWidth = 1; c.beginPath(); c.arc(0, float, 22, 0, TAU); c.stroke();
-            if (gold) {
-                leaf(c, 0, float, 15, -.85, '#ffe79b', '#d7a442');
-                c.strokeStyle = '#fff6cb'; c.lineWidth = 2; c.beginPath(); c.moveTo(-11, 12 + float); c.lineTo(9, -11 + float); c.stroke();
-                c.fillStyle = '#8b6928'; c.font = '900 8px Nunito'; c.textAlign = 'center'; c.fillText('×2', 0, 35);
-            } else {
-                c.beginPath(); c.moveTo(0, -14 + float); c.lineTo(13, -8 + float); c.quadraticCurveTo(14, 8 + float, 0, 15 + float); c.quadraticCurveTo(-14, 8 + float, -13, -8 + float); c.closePath(); c.fillStyle = '#73994d'; c.fill();
-                leaf(c, 0, float, 10, -.9, '#e4f1b0', '#accc7b');
-            }
+            const image=images.get(e.kind);
+            if(image) { const factor=42/Math.max(image.naturalWidth,image.naturalHeight); c.drawImage(image,-image.naturalWidth*factor/2,float-image.naturalHeight*factor/2,image.naturalWidth*factor,image.naturalHeight*factor); }
+            if(gold) { c.fillStyle='#fff2b6'; c.font='900 10px Nunito'; c.textAlign='center'; c.fillText('×2',0,34); }
         }
         c.restore();
     }

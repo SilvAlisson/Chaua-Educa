@@ -117,7 +117,7 @@ export class Game {
             } else {
                 entity.broken = true;
                 entity.brokenSide = entity.hitSide;
-                const snakeSide = entity.snake?.branch ? 'bottom' : 'top';
+                const snakeSide = 'bottom';
                 if (entity.snake && (!entity.brokenSide || entity.brokenSide === snakeSide)) { entity.snake.retreat = true; entity.snake.retreatTime = 0; }
             }
             this.onEvent({ type: 'shield-break', animal });
@@ -179,19 +179,18 @@ export class Game {
             ? [{ x, y: 0, w: 58, h: top - 108 }, { x, y: top - 42, w: 58, h: 42 }]
             : [{ x, y: 0, w: 58, h: top }];
         solids.push({ x, y: bottom, w: 58, h: HEIGHT - bottom });
-        if (variant === 'branch') solids.push({ x: x - 40, y: bottom + 20, w: 48, h: 19 });
+        if (variant === 'branch') solids.push({ x: x - 70, y: bottom + 30, w: 78, h: 18 });
+        if (variant === 'hollow') solids.push({x:x-22,y:bottom+140,w:24,h:30});
         if (variant === 'broken') solids.push({ x: x + 52, y: top - 35, w: 26, h: 18 });
         return solids.filter(rect => !entity.broken || (rect.y >= entity.bottom ? 'bottom' : 'top') !== entity.brokenSide);
     }
 
     snakeRects(entity) {
         if (!entity.snake || entity.snake.retreat) return [];
-        const { y, branch } = entity.snake, x = entity.x;
-        return [
-            { x: x + 2, y: y - 28, w: 62, h: 23 },
-            { x: x + (branch ? -43 : 22), y: y - 12, w: 32, h: 24 },
-            ...(branch ? [{ x: x - 27, y: y - 14, w: 40, h: 18 }] : []),
-        ];
+        const x=entity.x, y=entity.bottom;
+        return entity.snake.branch
+            ? [{x:x-52,y:y+12,w:31,h:15},{x:x-20,y:y+21,w:62,h:12}]
+            : [{x:x+51,y:y+28,w:30,h:17},{x:x-3,y:y+35,w:62,h:23}];
     }
 
     spawn() {
@@ -223,7 +222,7 @@ export class Game {
             const variants = ['plain', 'broken', 'hollow', 'branch'];
             const variant = this.elapsed > 17 ? variants[n % variants.length] : 'plain';
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false };
-            if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.top + 9, retreat: false };
+            if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, retreat: false };
             if (variant === 'branch') wood.snake = { y: wood.bottom + 12, branch: true, retreat: false };
             this.entities.push(wood);
             if (this.elapsed > 92 && n % 3 === 0) this.entities.push({

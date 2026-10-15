@@ -56,3 +56,11 @@ O teste de navegador utiliza o Chromium do sistema quando disponível. Em outra 
 - A implementação Canvas da branch foi preservada. Não houve migração de volta para Phaser/TypeScript.
 
 Validação desta correção: 26 testes de lógica e regressão. O teste de navegador exige Chromium disponível no ambiente. `npm run dev` também inicia o servidor na porta 5501.
+
+### Artes integradas ao Canvas
+
+As artes WebP v3/v4 agora são carregadas por `js/assets.mjs` e desenhadas pelo renderizador atual: quatro poses de voo com âncoras estáveis, papagaio pousado no início/vitória e retrato no resultado de derrota, floresta com movimento suave, três troncos, cascas, tronco oco, cobras no tronco e no galho, dois quadros de gavião, escudo e pena dourada. As sete frutas também usam o carregamento centralizado. O botão de início só é liberado depois de todas as imagens carregarem; erros são apresentados na tela.
+
+A madeira conserva seu núcleo de colisão; folhas são decorativas. Cobras agora ficam nos troncos inferiores, conforme a arte, com colisões específicas para suas cabeças e galhos. O buraco dos obstáculos superiores continua recortado tanto na imagem quanto na colisão. As artes são servidas localmente em `assets/v3` e `assets/v4`.
+
+Validação da integração: 30 testes automatizados (incluindo presença dos WebP, quatro poses, chamadas do renderizador e colisões), build SCSS e verificação de diff. Testes de desenho usam contexto Canvas instrumentado; não substituem avaliação visual em navegador. Não foi executado Chromium neste ambiente.
