@@ -1,8 +1,13 @@
-import { defineConfig } from "vite";
+import { defineConfig } from 'vite';
 export default defineConfig({
-  base: "./",
+  base: './',
   build: {
-    target: "es2022",
-    rollupOptions: { output: { manualChunks: { phaser: ["phaser"] } } },
+    target: 'es2022',
+    rollupOptions: { output: { manualChunks: { three: ['three'] } } },
+  },
+  css: {
+    postcss: {
+      plugins: [],
+    },
   },
 });

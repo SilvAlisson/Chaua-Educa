@@ -22,7 +22,7 @@ export const WORLD = {
   birdX: 220,
   birdHalfW: 18,
   birdHalfH: 14,
-  treeWidth: 76,
+  treeWidth: 54,
   target: 200,
 };
 export interface Obstacle {
@@ -63,6 +63,7 @@ export class Simulation {
   question: Question | null = null;
   quizFruit: FruitId | null = null;
   answerCorrect: boolean | null = null;
+  lastFlapTick = -100;
   private previousState: State = "playing";
   private spawnTicks = 0;
   private nextId = 1;
@@ -98,9 +99,13 @@ export class Simulation {
     this.lastQuizTick = -900;
     this.bag = [];
     this.flapQueued = false;
+    this.lastFlapTick = -100;
   }
   flap() {
-    if (this.state === "playing") this.flapQueued = true;
+    if (this.state === "playing") {
+      this.flapQueued = true;
+      this.lastFlapTick = this.ticks;
+    }
   }
   pause() {
     if (this.state !== "playing" && this.state !== "countdown") return;
@@ -137,15 +142,16 @@ export class Simulation {
     this.prevY = this.y;
     this.prevDistance = this.distance;
     if (this.flapQueued) {
-      this.vy = -285;
+      this.vy = -330;
       this.flapQueued = false;
+      this.lastFlapTick = this.ticks;
     }
-    this.vy = Math.min(440, this.vy + 800 * dt);
+    this.vy = Math.min(520, this.vy + 960 * dt);
     this.y += this.vy * dt;
     const progress = Math.min(1, this.score / WORLD.target);
-    const speed = 155 + progress * 40;
+    const speed = 280 + progress * 80;
     this.distance += speed * dt;
-    if (++this.spawnTicks >= 130) {
+    if (++this.spawnTicks >= 90) {
       this.spawnTicks = 0;
       this.spawn(progress);
     }
@@ -253,7 +259,7 @@ export class Simulation {
       330,
       Math.max(205, this.center + (this.random() * 2 - 1) * 55),
     );
-    const gap = (this.mode === "learn" ? 240 : 215) - progress * 20;
+    const gap = (this.mode === "learn" ? 135 : 118) - progress * 15;
     this.obstacles.push({
       id: this.nextId++,
       x: 1020,

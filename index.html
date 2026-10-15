@@ -2,8 +2,8 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#173f32" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <meta name="theme-color" content="#132f24" />
     <meta
       name="description"
       content="Voe com o chauá, explore a Mata Atlântica e aprenda a proteger a biodiversidade."
@@ -12,173 +12,127 @@
     <title>Chauá Educa · Uma aventura pela Mata Atlântica</title>
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="./" aria-label="Chauá Educa, início"
-        ><img src="assets/images/favicon.png" alt="" /><span
-          >chauá<span class="brand-light">educa</span
-          ><small>VOAR. DESCOBRIR. PRESERVAR.</small></span
-        ></a
-      >
-      <nav aria-label="Explorar">
-        <button data-open="encyclopedia">Chauapédia</button
-        ><button data-open="ranking">Ranking</button
-        ><button data-open="settings" aria-label="Configurações">
-          Ajustes
-        </button>
-      </nav>
-    </header>
-    <main>
-      <div class="intro">
-        <div>
-          <p class="eyebrow">UMA AVENTURA PELA MATA ATLÂNTICA</p>
-          <h1>Pequenas asas.<br /><em>Grandes descobertas.</em></h1>
+    <div class="app-shell" id="appShell">
+      <header class="hud">
+        <div class="hud-left">
+          <a class="brand" href="./" aria-label="Chauá Educa, início">
+            <img src="assets/images/favicon.png" alt="" />
+            <span>chauá<span class="brand-light">educa</span></span>
+          </a>
+          <div class="mode-tag">
+            <span class="live-dot"></span>
+            <span id="modeLabel">EXPEDIÇÃO CHAUÁ</span>
+          </div>
         </div>
-        <p class="intro-note">
-          Entre na floresta com o chauá.<br />Desvie, colete e aprenda a
-          cuidar<br />de um mundo cheio de vida.
-        </p>
-      </div>
-      <section class="game-shell" aria-label="Jogo Chauá Educa">
-        <div class="hud">
-          <div class="hud-left">
-            <span class="live-dot"></span
-            ><span id="modeLabel">EXPEDIÇÃO CHAUÁ</span>
-          </div>
-          <div class="hud-score">
-            <strong id="score">0</strong><span>/ 200 pontos</span>
-          </div>
-          <button id="pause" aria-label="Pausar partida" disabled>
-            Pausar <kbd>Esc</kbd>
+
+        <div class="hud-score">
+          <strong id="score">0</strong><span>/ 200 pontos</span>
+        </div>
+
+        <div class="hud-right">
+          <button class="hud-btn" data-open="encyclopedia" title="Abrir Chauapédia">
+            📖 <span class="btn-text">Chauapédia</span>
+          </button>
+          <button class="hud-btn" data-open="ranking" title="Ver Ranking">
+            🏆 <span class="btn-text">Ranking</span>
+          </button>
+          <button class="hud-btn" data-open="settings" aria-label="Configurações" title="Ajustes do jogo">
+            ⚙ <span class="btn-text">Ajustes</span>
+          </button>
+          <button class="hud-btn" data-open="guide" title="Como Jogar">
+            ❓ <span class="btn-text">Ajuda</span>
+          </button>
+          <button class="hud-btn hud-pause" id="pause" aria-label="Pausar partida" disabled>
+            ⏸ <span class="btn-text">Pausar</span> <kbd>Esc</kbd>
+          </button>
+          <button class="hud-btn hud-fullscreen" id="fullscreenBtn" aria-label="Alternar tela cheia" title="Tela cheia (F)">
+            ⛶ <span class="btn-text">Tela Cheia</span>
           </button>
         </div>
-        <div class="stage" id="stage">
-          <div
-            id="game"
-            role="application"
-            aria-label="Área de voo. Use espaço, seta para cima ou toque para bater as asas."
-            tabindex="0"
-          ></div>
-          <div class="welcome" id="welcome">
-            <div class="welcome-copy">
-              <span class="tag">O SEU VOO COMEÇA AQUI</span>
-              <h2>A floresta<br />espera por você.</h2>
-              <p>
-                Um chauá, sete descobertas e muitas histórias para aprender.
-              </p>
-              <form id="startForm">
-                <label for="player">Como podemos chamar você?</label
-                ><input
-                  id="player"
-                  name="player"
-                  placeholder="Seu nome ou apelido"
-                  minlength="3"
-                  maxlength="24"
-                  autocomplete="nickname"
-                  required
-                />
-                <fieldset>
-                  <legend>Escolha sua aventura</legend>
-                  <label class="mode-option"
-                    ><input
-                      type="radio"
-                      name="mode"
-                      value="learn"
-                      checked
-                    /><span
-                      ><b>Aprender</b
-                      ><small>Errou o quiz? Aprenda e continue.</small></span
-                    ></label
-                  ><label class="mode-option"
-                    ><input type="radio" name="mode" value="challenge" /><span
-                      ><b>Desafio</b
-                      ><small>Cada resposta faz a diferença.</small></span
-                    ></label
-                  >
-                </fieldset>
-                <button
-                  class="primary start-button"
-                  id="start"
-                  type="submit"
-                  disabled
-                >
-                  Carregando a floresta…
-                </button>
-                <p id="loadStatus" role="status"></p>
-              </form>
-            </div>
-            <div class="hero-bird">
-              <span class="orbit orbit-one"></span
-              ><span class="orbit orbit-two"></span
-              ><img
-                src="assets/images/papagaio-chaua.png"
-                alt="Ilustração do papagaio-chauá"
-              /><span class="species-tag"
-                >Amazona rhodocorytha<br /><b
-                  >Nosso pequeno protagonista</b
-                ></span
-              >
-            </div>
+      </header>
+
+      <div class="stage" id="stage">
+        <div
+          id="game"
+          role="application"
+          aria-label="Área de voo. Use espaço, seta para cima ou toque para bater as asas."
+          tabindex="0"
+        ></div>
+
+        <div class="welcome" id="welcome">
+          <div class="welcome-copy">
+            <span class="tag">O SEU VOO COMEÇA AQUI</span>
+            <h2>A floresta<br />espera por você.</h2>
+            <p>
+              Um chauá, sete descobertas e muitas histórias para aprender.
+            </p>
+            <form id="startForm">
+              <label for="player">Como podemos chamar você?</label>
+              <input
+                id="player"
+                name="player"
+                placeholder="Seu nome ou apelido"
+                minlength="3"
+                maxlength="24"
+                autocomplete="nickname"
+                required
+              />
+              <fieldset>
+                <legend>Escolha sua aventura</legend>
+                <label class="mode-option">
+                  <input type="radio" name="mode" value="learn" checked />
+                  <span><b>Aprender</b><small>Errou o quiz? Aprenda e continue.</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="mode" value="challenge" />
+                  <span><b>Desafio</b><small>Cada resposta faz a diferença.</small></span>
+                </label>
+              </fieldset>
+              <button class="primary start-button" id="start" type="submit" disabled>
+                Carregando a floresta…
+              </button>
+              <p id="loadStatus" role="status"></p>
+            </form>
           </div>
-          <div class="countdown" id="countdown" hidden>
-            <span>Prepare as asas</span><strong id="count">3</strong
-            ><span>Espaço, ↑ ou toque para voar</span>
+          <div class="hero-bird">
+            <span class="orbit orbit-one"></span>
+            <span class="orbit orbit-two"></span>
+            <img src="assets/v2/chaua-hero.png" alt="Ilustração do papagaio-chauá" />
+            <span class="species-tag">
+              Amazona rhodocorytha<br /><b>Nosso pequeno protagonista</b>
+            </span>
           </div>
         </div>
-        <div class="game-footer">
-          <span
-            ><kbd>Espaço</kbd> ou <kbd>↑</kbd> para voar
-            <span class="desktop-help"
-              >· Toque na floresta pelo celular</span
-            ></span
-          ><span id="collectionCount">0 / 7 descobertas</span>
+
+        <div class="countdown" id="countdown" hidden>
+          <span>Prepare as asas</span>
+          <strong id="count">3</strong>
+          <span>Espaço, ↑ ou toque para voar</span>
         </div>
-        <button class="touch-flap" id="flap" disabled>Bater as asas ↑</button>
-      </section>
-      <section class="guide" aria-label="Como jogar">
-        <article>
-          <span class="step-number">01</span>
-          <div>
-            <h3>Encontre seu ritmo</h3>
-            <p>
-              Toques curtos para subir. Atravesse as aberturas entre os troncos.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span class="step-number">02</span>
-          <div>
-            <h3>Colete descobertas</h3>
-            <p>
-              Cada coleta vale 3 pontos. Um par de obstáculos ultrapassado vale
-              1.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span class="step-number">03</span>
-          <div>
-            <h3>Aprenda pelo caminho</h3>
-            <p>
-              Leia com calma: o voo pausa no quiz. Cada acerto vale mais 2
-              pontos.
-            </p>
-          </div>
-        </article>
-      </section>
-      <p id="storageStatus" class="storage-status" role="status"></p>
-    </main>
-    <footer class="site-footer">
-      <span>Feito para despertar o cuidado com a natureza.</span
-      ><button data-open="credits">Sobre o projeto e créditos ↗</button>
-    </footer>
+      </div>
+
+      <footer class="game-footer">
+        <span>
+          <kbd>Espaço</kbd> ou <kbd>↑</kbd> para voar · Toque na tela no celular
+        </span>
+        <span id="collectionCount">0 / 7 descobertas</span>
+        <button class="footer-link-btn" data-open="credits">Sobre e créditos ↗</button>
+      </footer>
+
+      <button class="touch-flap" id="flap" disabled>Bater as asas ↑</button>
+    </div>
+
+    <p id="storageStatus" class="storage-status" role="status"></p>
+
     <dialog id="dialog" aria-labelledby="dialogTitle">
       <div class="dialog-head">
-        <span class="eyebrow" id="dialogKicker">CHAUÁ EDUCA</span
-        ><button id="closeDialog" aria-label="Fechar janela">✕</button>
+        <span class="eyebrow" id="dialogKicker">CHAUÁ EDUCA</span>
+        <button id="closeDialog" aria-label="Fechar janela">✕</button>
       </div>
       <h2 id="dialogTitle"></h2>
       <div id="dialogContent"></div>
     </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -16,8 +16,16 @@
 * {
   box-sizing: border-box;
 }
+html,
 body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0d2217;
+  color: #f5f4e9;
+  user-select: none;
 }
 button,
 input {
@@ -55,158 +63,206 @@ button:hover:not(:disabled) {
 a {
   color: inherit;
 }
-.site-header,
-main,
-.site-footer {
-  max-width: 1200px;
-  margin: auto;
-}
-.site-header {
-  padding: 24px 24px 18px;
+
+.app-shell {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #d9e0d2;
-}
-.brand {
-  text-decoration: none;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 27px;
-  font-weight: 800;
-  letter-spacing: -1px;
-}
-.brand img {
-  width: 36px;
-  image-rendering: pixelated;
-}
-.brand-light {
-  font-weight: 400;
-}
-.brand small {
-  display: block;
-  font-size: 8px;
-  letter-spacing: 2.2px;
-  margin-top: 5px;
-}
-.site-header nav {
-  display: flex;
-  gap: 8px;
-}
-.site-header button,
-.site-footer button {
-  background: transparent;
-  padding: 12px;
-  font-size: 13px;
-  font-weight: 600;
-}
-main {
-  padding: 0 24px;
-}
-.intro {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 35px 0 28px;
-}
-.eyebrow {
-  font-size: 10px;
-  letter-spacing: 2px;
-  font-weight: 700;
-  color: #61745f;
-  margin: 0 0 12px;
-}
-h1 {
-  font-size: clamp(32px, 4vw, 48px);
-  letter-spacing: -1.8px;
-  line-height: 1.08;
-  margin: 0;
-}
-h1 em {
-  font-style: normal;
-  color: #7d9068;
-}
-.intro-note {
-  font-size: 14px;
-  line-height: 1.7;
-  color: #667565;
-  margin: 0 0 0 20px;
-}
-.game-shell {
+  flex-direction: column;
   overflow: hidden;
-  border-radius: 20px;
-  background: #173f32;
-  box-shadow: 0 12px 40px #23392a12;
-  border: 1px solid #173f32;
+  position: relative;
+  background: #0d2217;
 }
+
 .hud {
-  height: 60px;
+  height: 52px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: #f5f4e9;
-  padding: 0 24px;
+  padding: 0 16px;
   gap: 12px;
+  background: #132f24;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 25;
 }
+
 .hud-left {
-  font-size: 10px;
-  letter-spacing: 1.6px;
   display: flex;
-  gap: 9px;
   align-items: center;
+  gap: 14px;
+}
+
+.brand {
+  text-decoration: none;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #f5f4e9;
+}
+.brand img {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+}
+.brand-light {
+  font-weight: 400;
+  color: #b9d79b;
+}
+
+.mode-tag {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #d8e6cb;
 }
 .live-dot {
   width: 7px;
   height: 7px;
-  background: #c5db8f;
+  background: #a5db66;
   border-radius: 50%;
+  box-shadow: 0 0 6px #a5db66aa;
 }
+
 .hud-score {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: baseline;
 }
 .hud-score strong {
-  font-size: 27px;
+  font-size: 26px;
   font-variant-numeric: tabular-nums;
+  color: #fce881;
 }
 .hud-score span {
   font-size: 11px;
-  opacity: 0.65;
+  opacity: 0.7;
 }
-.hud button {
-  background: #ffffff12;
+
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-btn {
+  background: rgba(255, 255, 255, 0.1);
   color: #f4f2df;
-  border: 1px solid #ffffff20;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  padding: 6px 10px;
   font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
 }
+.hud-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.hud-pause {
+  background: rgba(234, 178, 88, 0.15);
+  border-color: rgba(234, 178, 88, 0.3);
+  color: #ffe6a3;
+}
+.hud-fullscreen {
+  background: #235d46;
+  border-color: #388465;
+  color: #fff;
+}
+.hud-fullscreen:hover:not(:disabled) {
+  background: #2b7055;
+}
+
 kbd {
   font-family: inherit;
   font-size: 10px;
   border: 1px solid currentColor;
   border-radius: 4px;
-  padding: 2px 5px;
-  opacity: 0.65;
+  padding: 1px 4px;
+  opacity: 0.7;
 }
+
 .stage {
   position: relative;
+  flex: 1;
   width: 100%;
-  aspect-ratio: 16/9;
-  background: #203c2c url("../public/assets/images/background-img.png")
-    center/cover;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #091710;
 }
 .stage #game {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .stage canvas {
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.game-footer {
+  height: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #0d2218;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: #8fa892;
+  z-index: 25;
+}
+
+.footer-link-btn {
+  background: transparent;
+  color: #9cb29d;
+  font-size: 11px;
+  text-decoration: underline;
+  padding: 2px 6px;
+}
+.footer-link-btn:hover {
+  color: #d1dfcf;
+}
+
+@media (max-width: 720px) {
+  .hud {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .hud-btn .btn-text,
+  .mode-tag {
+    display: none;
+  }
+  .hud-btn {
+    padding: 6px 8px;
+  }
 }
 .welcome {
   position: absolute;
@@ -803,6 +859,22 @@ body.reduce-motion * {
     font-size: 11px;
   }
 }
+.guide-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.guide-modal p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.guide-modal kbd {
+  background: #e8ecde;
+  border-color: #abbb9b;
+  color: #193e31;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

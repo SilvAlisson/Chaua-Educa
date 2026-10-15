@@ -23,12 +23,16 @@ for i in range(8):
     bg.paste(bird, (80, 20), bird)
     frames.append(bg)
 frames[0].save(root/'review/Chaua-Voo.gif', save_all=True, append_images=frames[1:], duration=[83]*8, loop=0)
-meta = json.loads((root/'chaua-flight-atlas.json').read_text())
+meta = json.loads((root/'chaua-flight-atlas.json').read_text(encoding='utf-8'))
 meta['meta']['image'] = 'chaua-flight-sheet@2x.png'
 meta['meta']['size'] = {'w': 2560, 'h': 1280}
 meta['meta']['scale'] = '2'
 for f in meta['frames'].values():
     for k in ['frame', 'spriteSourceSize', 'sourceSize']:
         f[k] = {a: v*2 for a, v in f[k].items()}
-(root/'chaua-flight-atlas@2x.json').write_text(json.dumps(meta, indent=2))
+(root/'chaua-flight-atlas@2x.json').write_text(json.dumps(meta, indent=2), encoding='utf-8')
+pub_v2 = root.parents[0] / 'public/assets/v2'
+if pub_v2.exists():
+    (pub_v2 / 'chaua-flight-atlas@2x.json').write_text(json.dumps(meta, indent=2), encoding='utf-8')
+    (pub_v2 / 'chaua-flight-atlas.json').write_text((root/'chaua-flight-atlas.json').read_text(encoding='utf-8'), encoding='utf-8')
 print('Verified transparent PNGs, eight unclipped frames and atlas bounds. GIF and 2x atlas exported.')
