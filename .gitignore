@@ -8,3 +8,5 @@ art/v2/png/
 art/v2/review/
 # Local workspace scratch
 chaua-educa-modernizado/
+__pycache__/
+*.py[cod]

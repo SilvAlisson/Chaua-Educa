@@ -1,6 +1,7 @@
+import Phaser from 'phaser';
 import './style.css';
 import { Simulation, type Mode, type State } from './core/Simulation';
-import { ForestScene3D } from './game/ForestScene3D';
+import { ForestScene } from './game/ForestScene';
 import { FRUITS, QUESTIONS, SOURCES, type Question } from './data/content';
 import { Store, validName } from './data/storage';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -18,7 +19,8 @@ const player = $<HTMLInputElement>('player');
 const start = $<HTMLButtonElement>('start');
 let name = store.data.player;
 let ready = false;
-let scene: ForestScene3D | null = null;
+let scene: ForestScene | null = null;
+let game: Phaser.Game | null = null;
 let lastState: State | null = null;
 let extra: string | null = null;
 let rankingMode: Mode | 'legacy' = 'learn';
@@ -205,7 +207,7 @@ function toggleFullscreen() {
   }
 }
 try {
-  scene = new ForestScene3D({
+  scene = new ForestScene({
     sim,
     reducedMotion: () => store.data.reducedMotion,
     muted: () => store.data.muted,
@@ -225,6 +227,19 @@ try {
       if (e.type === 'end') store.score(name, sim.score, sim.mode);
       storageStatus();
     },
+  });
+
+  game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'game',
+    width: 960,
+    height: 540,
+    backgroundColor: '#091710',
+    scene: [scene],
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    render: { antialias: true, roundPixels: false },
+    audio: { disableWebAudio: false },
+    banner: false,
   });
 } catch {
   $('loadStatus').textContent =
@@ -253,11 +268,11 @@ document.addEventListener('fullscreenchange', () => {
       : `⛶ <span class="btn-text">Tela Cheia</span>`;
   }
   setTimeout(() => {
-    scene?.handleResize();
+    game?.scale.refresh();
   }, 100);
 });
 window.addEventListener('resize', () => {
-  scene?.handleResize();
+  game?.scale.refresh();
 });
 $('closeDialog').addEventListener('click', closeExtra);
 dialog.addEventListener('cancel', (e) => {

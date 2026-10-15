@@ -15,13 +15,11 @@ export interface Bridge {
 
 export class ForestScene extends Phaser.Scene {
   private clock = new FixedStep();
-  private bird!: Phaser.GameObjects.Sprite;
-  private layer1!: Phaser.GameObjects.TileSprite;
-  private layer2!: Phaser.GameObjects.TileSprite;
-  private layer3!: Phaser.GameObjects.TileSprite;
-  private layer4!: Phaser.GameObjects.TileSprite;
-  private mist!: Phaser.GameObjects.Graphics;
+  private bird!: Phaser.GameObjects.Image;
+  private backdrop!: Phaser.GameObjects.TileSprite;
+  private layerFore!: Phaser.GameObjects.TileSprite;
   private lastSeenFlapTick = -100;
+  private flapTimer?: Phaser.Time.TimerEvent;
   private trees = new Map<number, [Phaser.GameObjects.Image, Phaser.GameObjects.Image]>();
   private fruits = new Map<number, [Phaser.GameObjects.Arc, Phaser.GameObjects.Image]>();
   private motes: Phaser.GameObjects.Arc[] = [];
@@ -37,36 +35,27 @@ export class ForestScene extends Phaser.Scene {
       if (file.type === 'image') this.loadFailed = true;
     });
 
-    // Parallax background layers (1920x1080)
-    this.load.image('forest-01', 'assets/v2/forest-01-atmosphere.png');
-    this.load.image('forest-02', 'assets/v2/forest-02-distant-trees.png');
-    this.load.image('forest-03', 'assets/v2/forest-03-mid-canopy.png');
+    // 3D Clay Panoramic Backdrop
+    this.load.image('forest-clay-bg', 'assets/v2/forest-clay-backdrop.png');
     this.load.image('forest-04', 'assets/v2/forest-04-foreground.png');
 
-    // Chauá 8-frame flight animation atlas
-    this.load.atlas(
-      'chaua-v2',
-      'assets/v2/chaua-flight-sheet.png',
-      'assets/v2/chaua-flight-atlas.json',
-    );
+    // 3D Clay Chauá flight poses
+    this.load.image('chaua-glide', 'assets/v2/chaua-clay-glide.png');
+    this.load.image('chaua-flap', 'assets/v2/chaua-clay-flap.png');
 
-    // Obstacles
-    this.load.image('trunk-01', 'assets/v2/trunk-01.png');
-    this.load.image('trunk-02', 'assets/v2/trunk-02.png');
-    this.load.image('trunk-03', 'assets/v2/trunk-03.png');
-    this.load.image('vine-01', 'assets/v2/vine-01.png');
-    this.load.image('vine-02', 'assets/v2/vine-02.png');
-    this.load.image('bromelia', 'assets/v2/bromelia.png');
-    this.load.image('fern', 'assets/v2/fern.png');
+    // 3D Clay Obstacles
+    this.load.image('trunk-clay', 'assets/v2/trunk-clay.png');
+    this.load.image('trunk-clay-top', 'assets/v2/trunk-clay-top.png');
 
-    // Native fruits
+    // 3D Clay Native Fruits
     for (const fruit of FRUITS) {
       this.load.image(`fruit-${fruit.id}`, `assets/v2/fruit-${fruit.id}.png`);
     }
 
     // Audio
-    for (const name of ['die', 'get-fruit', 'winner'])
+    for (const name of ['die', 'get-fruit', 'winner']) {
       this.load.audio(name, `assets/Sounds/${name}.wav`);
+    }
   }
 
   create() {
@@ -75,78 +64,37 @@ export class ForestScene extends Phaser.Scene {
       return;
     }
 
-    // Layer 1: Atmosphere
-    this.layer1 = this.add
-      .tileSprite(480, 270, 960, 540, 'forest-01')
+    // 1. Panoramic 3D Clay Forest Backdrop
+    this.backdrop = this.add
+      .tileSprite(480, 270, 960, 540, 'forest-clay-bg')
       .setTileScale(0.5, 0.5)
       .setDepth(1);
 
-    // Layer 2: Distant trees
-    this.layer2 = this.add
-      .tileSprite(480, 270, 960, 540, 'forest-02')
-      .setTileScale(0.5, 0.5)
-      .setDepth(2);
-
-    // Layer 3: Mid canopy
-    this.layer3 = this.add
-      .tileSprite(480, 270, 960, 540, 'forest-03')
-      .setTileScale(0.5, 0.5)
-      .setDepth(3);
-
-    // Atmospheric mist
-    this.mist = this.add.graphics().setDepth(4);
-    this.mist.fillStyle(0x0e281b, 0.1).fillRect(0, 0, 960, 540);
-
-    // Ambient forest light motes / fireflies
-    for (let i = 0; i < 25; i++)
+    // 2. Ambient Forest Light Motes / Spores
+    for (let i = 0; i < 28; i++) {
       this.motes.push(
         this.add
-          .circle((i * 137) % 960, (i * 79) % 480, i % 3 === 0 ? 3 : 2, 0xffeaa7, 0.4)
+          .circle((i * 137) % 960, (i * 79) % 480, i % 3 === 0 ? 3 : 2, 0xffeaa7, 0.45)
           .setDepth(9),
       );
+    }
 
-    // Energetic flap burst when key pressed (plays once, then settles into glide)
-    this.anims.create({
-      key: 'chaua-flap',
-      frames: [
-        { key: 'chaua-v2', frame: 'fly-03' },
-        { key: 'chaua-v2', frame: 'fly-04' },
-        { key: 'chaua-v2', frame: 'fly-05' },
-        { key: 'chaua-v2', frame: 'fly-06' },
-        { key: 'chaua-v2', frame: 'fly-07' },
-        { key: 'chaua-v2', frame: 'fly-00' },
-        { key: 'chaua-v2', frame: 'fly-01' },
-      ],
-      frameRate: 20,
-      repeat: 0,
-    });
-
-    // Gentle hover loop for countdown
-    this.anims.create({
-      key: 'chaua-hover',
-      frames: Array.from({ length: 8 }, (_, i) => ({
-        key: 'chaua-v2',
-        frame: `fly-${String(i).padStart(2, '0')}`,
-      })),
-      frameRate: 8,
-      repeat: -1,
-    });
-
+    // 3. 3D Clay Chauá
     this.bird = this.add
-      .sprite(WORLD.birdX, 260, 'chaua-v2', 'fly-01')
-      .setDisplaySize(72, 72)
-      .setOrigin(0.55, 0.54)
+      .image(WORLD.birdX, 260, 'chaua-glide')
+      .setDisplaySize(78, 68)
+      .setOrigin(0.5, 0.5)
       .setDepth(10);
 
-    // Layer 4: Foreground canopy & ferns (in front of bird / obstacles for immersive parallax)
-    this.layer4 = this.add
+    // 4. Foreground canopy framing (in front of bird / obstacles for immersive depth)
+    this.layerFore = this.add
       .tileSprite(480, 270, 960, 540, 'forest-04')
       .setTileScale(0.5, 0.5)
       .setDepth(12);
 
-    // Floor boundaries
-    this.add.rectangle(480, 523, 960, 34, 0x163421).setDepth(14);
-    this.add.rectangle(480, 509, 960, 5, 0x82a94f).setDepth(14);
+    // 5. Floor boundaries
+    this.add.rectangle(480, 523, 960, 34, 0x143521).setDepth(14);
+    this.add.rectangle(480, 509, 960, 5, 0x6e9e42).setDepth(14);
 
     this.input.on('pointerdown', () => this.bridge.sim.flap());
     this.bridge.ready();
@@ -172,49 +120,48 @@ export class ForestScene extends Phaser.Scene {
     for (const e of sim.events.splice(0)) {
       const sound =
         e.type === 'fruit' ? 'get-fruit' : e.type === 'end' ? (e.won ? 'winner' : 'die') : null;
-      if (sound && this.cache.audio.exists(sound)) this.sound.play(sound, { volume: 0.3 });
+      if (sound && this.cache.audio.exists(sound)) this.sound.play(sound, { volume: 0.35 });
       this.bridge.event(e);
     }
 
     const d = lerp(sim.prevDistance, sim.distance, alpha);
     const rm = this.bridge.reducedMotion();
 
-    // 4-Layer Parallax scroll
-    this.layer1.tilePositionX = rm ? 0 : d * 0.04;
-    this.layer2.tilePositionX = rm ? 0 : d * 0.12;
-    this.layer3.tilePositionX = rm ? 0 : d * 0.28;
-    this.layer4.tilePositionX = rm ? 0 : d * 0.55;
+    // Parallax scroll
+    this.backdrop.tilePositionX = rm ? 0 : d * 0.16;
+    this.layerFore.tilePositionX = rm ? 0 : d * 0.55;
 
-    // Bird position and dynamic wing animation
+    // Bird position & animation
     this.bird.y = lerp(sim.prevY, sim.y, alpha);
     this.bird.setVisible(sim.state !== 'menu');
 
     if (sim.state === 'playing') {
-      // Trigger flap animation burst only when player flaps
+      // Dynamic flap response: switch to flap pose, then glide
       if (sim.lastFlapTick > this.lastSeenFlapTick) {
         this.lastSeenFlapTick = sim.lastFlapTick;
-        this.bird.play('chaua-flap', true);
-      } else if (!this.bird.anims.isPlaying) {
-        // Hold open wings gliding pose
-        this.bird.setFrame('fly-01');
+        this.bird.setTexture('chaua-flap');
+        this.flapTimer?.remove(false);
+        this.flapTimer = this.time.delayedCall(240, () => {
+          if (this.bird && sim.state === 'playing') {
+            this.bird.setTexture('chaua-glide');
+          }
+        });
       }
+
+      // Smooth aerodynamic pitch
       this.bird.angle = rm
         ? 0
         : sim.vy < 0
           ? Phaser.Math.Clamp(sim.vy * 0.05, -20, 0)
           : Phaser.Math.Clamp(sim.vy * 0.075, 0, 32);
     } else if (sim.state === 'countdown') {
-      if (!this.bird.anims.isPlaying || this.bird.anims.currentAnim?.key !== 'chaua-hover') {
-        this.bird.play('chaua-hover');
-      }
+      this.bird.setTexture('chaua-glide');
       this.bird.angle = 0;
     } else if (sim.state === 'over') {
-      this.bird.stop();
-      this.bird.setFrame('fly-04');
+      this.bird.setTexture('chaua-glide');
       this.bird.angle = rm ? 0 : 45;
     } else {
-      this.bird.stop();
-      this.bird.setFrame('fly-01');
+      this.bird.setTexture('chaua-glide');
       this.bird.angle = 0;
     }
 
@@ -225,73 +172,75 @@ export class ForestScene extends Phaser.Scene {
     }
 
     // Obstacles cleanup
-    for (const [id, objects] of this.trees)
+    for (const [id, objects] of this.trees) {
       if (!sim.obstacles.some((t) => t.id === id)) {
         objects.forEach((o) => o.destroy());
         this.trees.delete(id);
       }
+    }
 
-    // Obstacles rendering with pixel-perfect cut face alignment and core hitbox matching
-    const trunkKeys = ['trunk-01', 'trunk-02', 'trunk-03'];
-    const trunkW = 170; // 54px core / (76/240) = 170px total sprite width
-    const trunkH = 440; // Full height ensures trunks reach past screen edge without distortion
+    // Obstacles rendering with 3D Clay tree trunks
+    // Total sprite width is 110px, solid wood core is 54px matching WORLD.treeWidth
+    const trunkW = 110;
+    const trunkH = 540;
 
     for (const t of sim.obstacles) {
       let objects = this.trees.get(t.id);
       if (!objects) {
-        const topKey = trunkKeys[t.id % 3];
-        const bottomKey = trunkKeys[(t.id + 1) % 3];
         objects = [
-          // Top trunk: flipped vertically, cut tip aligned at bottom of sprite (0.48, 0.95)
+          // Top trunk: cut face at bottom of sprite (origin Y = 1), extends upwards
           this.add
-            .image(t.x, 0, topKey)
-            .setOrigin(0.48, 0.95)
-            .setFlipY(true)
+            .image(t.x, 0, 'trunk-clay-top')
+            .setOrigin(0.5, 1)
             .setDisplaySize(trunkW, trunkH)
             .setDepth(5),
-          // Bottom trunk: normal, cut tip aligned at top of sprite (0.48, 0.05)
+          // Bottom trunk: cut face at top of sprite (origin Y = 0), extends downwards
           this.add
-            .image(t.x, 540, bottomKey)
-            .setOrigin(0.48, 0.05)
+            .image(t.x, 540, 'trunk-clay')
+            .setOrigin(0.5, 0)
             .setDisplaySize(trunkW, trunkH)
             .setDepth(5),
         ];
         this.trees.set(t.id, objects);
       }
+
       const top = t.center - t.gap / 2;
       const bottom = t.center + t.gap / 2;
       const currentX = lerp(t.prevX, t.x, alpha);
 
-      // Top trunk cut face is positioned precisely at top
+      // Top cut face sits precisely at top boundary
       objects[0].setPosition(currentX, top);
-      // Bottom trunk cut face is positioned precisely at bottom
+      // Bottom cut face sits precisely at bottom boundary
       objects[1].setPosition(currentX, bottom);
     }
 
     // Collectibles cleanup
-    for (const [id, objects] of this.fruits)
+    for (const [id, objects] of this.fruits) {
       if (!sim.fruits.some((f) => f.id === id)) {
         objects.forEach((o) => o.destroy());
         this.fruits.delete(id);
       }
+    }
 
-    // Collectibles rendering
+    // Collectibles rendering: 3D Clay Fruits with glowing halo
     for (const f of sim.fruits) {
       let objects = this.fruits.get(f.id);
       if (!objects) {
         objects = [
           this.add
-            .circle(f.x, f.y, 25, 0xf6d779, 0.24)
-            .setStrokeStyle(1.5, 0xffe49a, 0.85)
+            .circle(f.x, f.y, 25, 0xffeaa1, 0.26)
+            .setStrokeStyle(1.5, 0xfff3c4, 0.9)
             .setDepth(7),
-          this.add.image(f.x, f.y, `fruit-${f.kind}`).setDisplaySize(38, 38).setDepth(8),
+          this.add.image(f.x, f.y, `fruit-${f.kind}`).setDisplaySize(44, 44).setDepth(8),
         ];
         this.fruits.set(f.id, objects);
       }
-      objects.forEach((o) => {
-        o.x = lerp(f.prevX, f.x, alpha);
-        o.y = f.y;
-      });
+
+      const currentX = lerp(f.prevX, f.x, alpha);
+      const bob = rm ? 0 : Math.sin((sim.ticks + f.id * 10) * 0.1) * 3;
+
+      objects[0].setPosition(currentX, f.y + bob);
+      objects[1].setPosition(currentX, f.y + bob);
       objects[0].setScale(rm ? 1 : 1 + Math.sin(sim.ticks / 18) * 0.09);
     }
 
