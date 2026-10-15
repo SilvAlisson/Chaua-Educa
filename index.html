@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#132f24" />
+    <meta
+      name="description"
+      content="Voe com o chauá, explore a Mata Atlântica e aprenda a proteger a biodiversidade."
+    />
+    <link rel="icon" href="assets/images/favicon.png" />
+    <title>Chauá Educa · Uma aventura pela Mata Atlântica</title>
+  </head>
+  <body>
+    <div class="app-shell" id="appShell">
+      <header class="hud">
+        <div class="hud-left">
+          <a class="brand" href="./" aria-label="Chauá Educa, início">
+            <img src="assets/images/favicon.png" alt="" />
+            <span>chauá<span class="brand-light">educa</span></span>
+          </a>
+          <div class="mode-tag">
+            <span class="live-dot"></span>
+            <span id="modeLabel">EXPEDIÇÃO CHAUÁ</span>
+          </div>
+        </div>
+
+        <div class="hud-score">
+          <strong id="score">0</strong><span>/ 200 pontos</span>
+        </div>
+
+        <div class="hud-right">
+          <button
+            class="hud-btn"
+            data-open="encyclopedia"
+            title="Abrir Chauapédia"
+          >
+            📖 <span class="btn-text">Chauapédia</span>
+          </button>
+          <button class="hud-btn" data-open="ranking" title="Ver Ranking">
+            🏆 <span class="btn-text">Ranking</span>
+          </button>
+          <button
+            class="hud-btn"
+            data-open="settings"
+            aria-label="Configurações"
+            title="Ajustes do jogo"
+          >
+            ⚙ <span class="btn-text">Ajustes</span>
+          </button>
+          <button class="hud-btn" data-open="guide" title="Como Jogar">
+            ❓ <span class="btn-text">Ajuda</span>
+          </button>
+          <button
+            class="hud-btn hud-pause"
+            id="pause"
+            aria-label="Pausar partida"
+            disabled
+          >
+            ⏸ <span class="btn-text">Pausar</span> <kbd>Esc</kbd>
+          </button>
+          <button
+            class="hud-btn hud-fullscreen"
+            id="fullscreenBtn"
+            aria-label="Alternar tela cheia"
+            title="Tela cheia (F)"
+          >
+            ⛶ <span class="btn-text">Tela Cheia</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="stage" id="stage">
+        <div
+          id="game"
+          role="application"
+          aria-label="Área de voo. Use espaço, seta para cima ou toque para bater as asas."
+          tabindex="0"
+        ></div>
+
+        <div class="welcome" id="welcome">
+          <div class="welcome-copy">
+            <span class="tag">O SEU VOO COMEÇA AQUI</span>
+            <h2>A floresta<br />espera por você.</h2>
+            <p>Abra as asas. Descubra a mata. Proteja seu voo.</p>
+            <form id="startForm">
+              <label for="player">Como podemos chamar você?</label>
+              <input
+                id="player"
+                name="player"
+                placeholder="Seu nome ou apelido"
+                minlength="3"
+                maxlength="24"
+                autocomplete="nickname"
+                required
+              />
+              <fieldset>
+                <legend>Escolha sua aventura</legend>
+                <label class="mode-option">
+                  <input type="radio" name="mode" value="learn" checked />
+                  <span
+                    ><b>Aprender</b
+                    ><small>Errou o quiz? Aprenda e continue.</small></span
+                  >
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="mode" value="challenge" />
+                  <span
+                    ><b>Desafio</b
+                    ><small>Cada resposta faz a diferença.</small></span
+                  >
+                </label>
+              </fieldset>
+              <button
+                class="primary start-button"
+                id="start"
+                type="submit"
+                disabled
+              >
+                Carregando a floresta…
+              </button>
+              <p id="loadStatus" role="status"></p>
+            </form>
+          </div>
+          <div class="hero-bird">
+            <span class="orbit orbit-one"></span>
+            <span class="orbit orbit-two"></span>
+            <img
+              src="assets/v4/perch.webp"
+              alt="Ilustração do papagaio-chauá"
+            />
+            <span class="species-tag">
+              Amazona rhodocorytha<br /><b>Nosso pequeno protagonista</b>
+            </span>
+          </div>
+        </div>
+
+        <div class="power-hud" id="powerHud" hidden>
+          <span id="chapterLabel"></span><span id="shieldStatus" hidden></span
+          ><span id="featherStatus" hidden></span>
+        </div>
+        <div class="countdown" id="countdown" hidden>
+          <span id="countdownLabel">Prepare as asas</span>
+          <strong id="count">3</strong>
+          <span>Espaço, ↑ ou toque para voar</span>
+        </div>
+      </div>
+
+      <footer class="game-footer">
+        <span>
+          <kbd>Espaço</kbd> ou <kbd>↑</kbd> · Segure para subir, solte para
+          planar
+        </span>
+        <span id="collectionCount">0 / 7 descobertas</span>
+        <button class="footer-link-btn" data-open="credits">
+          Sobre e créditos ↗
+        </button>
+      </footer>
+
+      <button class="touch-flap" id="flap" disabled>Bater as asas ↑</button>
+    </div>
+
+    <p id="storageStatus" class="storage-status" role="status"></p>
+
+    <dialog id="dialog" aria-labelledby="dialogTitle">
+      <div class="dialog-head">
+        <span class="eyebrow" id="dialogKicker">CHAUÁ EDUCA</span>
+        <button id="closeDialog" aria-label="Fechar janela">✕</button>
+      </div>
+      <h2 id="dialogTitle"></h2>
+      <div id="dialogContent"></div>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

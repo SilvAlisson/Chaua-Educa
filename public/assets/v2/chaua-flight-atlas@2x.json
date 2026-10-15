@@ -1,0 +1,207 @@
+{
+  "frames": {
+    "fly-00": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    },
+    "fly-01": {
+      "frame": {
+        "x": 640,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    },
+    "fly-02": {
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    },
+    "fly-03": {
+      "frame": {
+        "x": 1920,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    },
+    "fly-04": {
+      "frame": {
+        "x": 0,
+        "y": 640,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    },
+    "fly-05": {
+      "frame": {
+        "x": 640,
+        "y": 640,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    },
+    "fly-06": {
+      "frame": {
+        "x": 1280,
+        "y": 640,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    },
+    "fly-07": {
+      "frame": {
+        "x": 1920,
+        "y": 640,
+        "w": 640,
+        "h": 640
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 640
+      },
+      "sourceSize": {
+        "w": 640,
+        "h": 640
+      },
+      "pivot": {
+        "x": 0.55,
+        "y": 0.54
+      }
+    }
+  },
+  "meta": {
+    "app": "Chaua Educa native SVG art generator",
+    "version": "1",
+    "image": "chaua-flight-sheet@2x.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 2560,
+      "h": 1280
+    },
+    "scale": "2"
+  }
+}
