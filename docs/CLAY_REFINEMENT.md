@@ -11,7 +11,7 @@ Os problemas encontrados incluíam sprites com proporções distintas esticados 
 Preservamos o volume de massinha, cores verdes, testa vermelha, aro azul e bico alaranjado do personagem proposto pelo autor. As novas imagens foram geradas com IA a partir das referências existentes e empacotadas em WebP com alfa. São ilustrações estilizadas, não pranchas científicas.
 
 - Quatro poses com âncoras individuais em `src/game/visuals.ts`; escala uniforme, sem deformação de largura/altura.
-- Três variações de tronco. O núcleo visual tem 60 px e a colisão 54 px; plantas laterais são decorativas. Metadados em `public/assets/v3/trunks.json` alinham o centro da madeira e não o centro da imagem decorada. Extensões de casca cobrem a região até a borda sem esticar o tronco inteiro.
+- Três variações de tronco. O núcleo visual tem 60 px e a colisão 54 px; plantas laterais são decorativas. Metadados em `src/game/assets/trunks.json` alinham o centro da madeira e não o centro da imagem decorada. Extensões de casca cobrem a região até a borda sem esticar o tronco inteiro.
 - Sete itens de coleta com lado máximo de 42 px no mundo. O halo pulsa; o item permanece sobre seu centro lógico.
 - Fundo com área central mais clara e enquadramento com sobra. Deslocamento sutil limitado evita emendas de panorama. Não há promessa de quatro camadas independentes: esta versão usa uma ilustração de fundo e partículas sobrepostas.
 - A opção de movimento reduzido remove balanço do fundo, partículas, inclinação e ciclo de asas.

@@ -35,7 +35,8 @@ async function trim(buffer) {
    await sharp(trunks).extract({left:core[0]+16,top:200,width:core[1]-core[0]-32,height:400}).webp({quality:90,alphaQuality:100,effort:6}).toFile(`${out}/bark-${i}.webp`);
    manifest.push({originX:((core[0]+core[1])/2-left-box.left)/box.width,coreWidth:core[1]-core[0],height:box.height});
  }
- await fs.writeFile(`${out}/trunks.json`,JSON.stringify(manifest,null,2)+'\n');
+ await fs.mkdir(path.join(__dirname, '../src/game/assets'), {recursive:true});
+ await fs.writeFile(path.join(__dirname, '../src/game/assets/trunks.json'),JSON.stringify(manifest,null,2)+'\n');
  await sharp(forest).resize(1920,1080,{fit:'cover'}).webp({quality:86}).toFile(`${out}/forest.webp`);
  console.log('Packed 4 poses, hero, 7 collectibles, 3 trunks with bark extensions, forest and geometry metadata.');
 })().catch(e=>{console.error(e);process.exitCode=1});

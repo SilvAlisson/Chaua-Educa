@@ -3,7 +3,7 @@ import { FixedStep, lerp } from "../core/FixedStep";
 import { Simulation, WORLD, type GameEvent } from "../core/Simulation";
 import { FRUITS } from "../data/content";
 import { BIRD_POSES, birdPose } from "./visuals";
-import trunkPresets from "../../public/assets/v3/trunks.json";
+import trunkPresets from "./assets/trunks.json";
 
 export interface Bridge {
   sim: Simulation;
