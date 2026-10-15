@@ -1,4 +1,5 @@
-import { HEIGHT } from './engine.mjs';
+import { FRUITS } from './fruits.mjs';
+import { WIDTH, HEIGHT } from './engine.mjs';
 const TAU = Math.PI * 2;
 const mixColor = (a, b, t) => `rgb(${[1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)).join(',')})`;
 
@@ -55,7 +56,7 @@ export function drawBird(c, { x, y, scale = 1, angle = 0, wing = 0, perched = fa
 }
 
 export class Renderer {
-    constructor(canvas) { this.canvas = canvas; this.c = canvas.getContext('2d'); this.resize(); }
+    constructor(canvas) { this.canvas = canvas; this.c = canvas.getContext('2d'); this.resize(); this.fruitImages = FRUITS.map(f => { const image = new Image(); image.src = `images/fruit-${f.id}.webp`; return image; }); }
     resize() {
         const r = this.canvas.getBoundingClientRect();
         this.w = r.width; this.h = r.height;
@@ -143,9 +144,11 @@ export class Renderer {
         this.base();
         const c = this.c;
         this.background(game.elapsed, game.elapsed * game.speed, game.stage, false, reduced);
-        const s = this.h / HEIGHT;
-        const worldWidth = this.w / s;
-        c.save(); c.scale(s, s);
+        const s = Math.min(this.h / HEIGHT, this.w / WIDTH);
+        const worldWidth = WIDTH;
+        c.save(); c.translate((this.w - WIDTH*s)/2, (this.h-HEIGHT*s)/2); c.scale(s, s);
+        c.beginPath(); c.rect(0,0,WIDTH,HEIGHT); c.clip();
+        c.strokeStyle = '#d9edb6'; c.lineWidth = 2; c.strokeRect(0, 1, WIDTH, HEIGHT-2);
         if (game.feather > 0 && !reduced) {
             for (let i = 1; i < 8; i++) oval(c, game.x - i * 9, game.y + Math.sin(game.elapsed * 7 - i) * 7, 3 * (1 - i / 9), 3, `rgba(255,219,112,${.7 - i * .08})`);
         }
@@ -233,10 +236,11 @@ export class Renderer {
         const c = this.c, float = reduced ? 0 : Math.sin(time * 2 + e.id) * 2;
         c.save(); c.translate(e.x, e.y);
         if (e.kind === 'fruit') {
-            const colors = [['#edbb66', '#cb7c42'], ['#e49f73', '#ba6853'], ['#c4cb71', '#86954a'], ['#f0ce6c', '#d1a044']][e.variety];
-            clay(c, 0, float, 13, 15, ...colors, -.2);
-            c.strokeStyle = '#6f7941'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, -14 + float); c.lineTo(3, -21 + float); c.stroke();
-            leaf(c, 8, -16 + float, 8, -.45, '#a3bc64', '#688845');
+            const image = this.fruitImages[e.variety];
+            if (image?.complete && image.naturalWidth) {
+                const scale = 34 / Math.max(image.naturalWidth,image.naturalHeight);
+                c.drawImage(image,-image.naturalWidth*scale/2,float-image.naturalHeight*scale/2,image.naturalWidth*scale,image.naturalHeight*scale);
+            } else clay(c, 0, float, 13, 15, '#edbb66', '#cb7c42');
         } else {
             const gold = e.kind === 'feather';
             const glow = c.createRadialGradient(0, 0, 4, 0, 0, 34); glow.addColorStop(0, gold ? '#ffdf9aaa' : '#d0ef91aa'); glow.addColorStop(1, '#ffffff00');

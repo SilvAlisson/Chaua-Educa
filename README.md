@@ -20,7 +20,7 @@ A nova aventura mantém o objetivo educativo do Chauá e acrescenta voo com plan
 - **Ritmo:** troncos, troncos ocos, galhos quebrados, cobras, gaviões em travessia e, depois, mergulhos. Avisos mostram as trajetórias dos gaviões. Os primeiros encontros são isolados; combinações mantêm a passagem livre. Clareiras dão intervalos para respirar.
 - **Escudo de folhas:** absorve um contato e concede 1,6 s para sair da colisão. Quebra madeira sem dar pontos de destruição ou afasta um animal sem destruí-lo. Recolher mais escudos não acumula vidas. Não protege dos limites do cenário nem de resposta incorreta.
 - **Pena dourada:** dobra os pontos por 10 s de voo. Outra pena renova o tempo; não aumenta o multiplicador. Pausas e perguntas congelam o relógio. O bônus de uma resposta é definido na coleta que abriu o quiz.
-- **Aprendizado:** uma passagem vale 1 ponto; um fruto, 3; uma resposta correta, 2. A cada dois frutos, aparece um quiz. A resposta incorreta é explicada e encerra o voo. As 15 perguntas existentes não se repetem até esgotar a lista. Com 200 pontos, há uma celebração de vitória.
+- **Aprendizado:** uma passagem vale 1 ponto; um fruto, 3; uma resposta correta, 2. A cada dois frutos, aparece um quiz. A resposta incorreta é explicada: na Aventura encerra o voo; no Voo tranquilo permite continuar. As oito perguntas restauradas da versão anterior incluem explicação e fonte e não se repetem até esgotar a lista. Com 200 pontos, há uma celebração de vitória.
 - **Ranking:** aventura e voo tranquilo têm classificações próprias em `db-chaua-floresta-v2`. O ranking clássico continua intacto em `db-chaua` e pode ser consultado separadamente. Dados ficam no navegador; se o armazenamento estiver indisponível, os novos resultados ficam só na sessão.
 - **Acessibilidade:** botões e quizzes por teclado/toque, diálogos com foco contido, pausa ao sair da aba, controle de som e respeito a `prefers-reduced-motion`. O voo é um jogo visual; a navegação e os resultados têm rótulos para tecnologias assistivas.
 
@@ -45,3 +45,14 @@ npm run test:browser  # com o servidor ativo: teclado, toque, quizzes e interfac
 O teste de navegador utiliza o Chromium do sistema quando disponível. Em outra máquina, instale o navegador com `npx playwright install chromium`, ou defina `CHROMIUM_PATH`. `GAME_URL` permite mudar a origem do servidor. `SCREENSHOT_DIR` é opcional para salvar uma captura de tela da versão móvel.
 
 `scss/style.scss` é a fonte dos estilos da nova interface e `css/style.css` é o arquivo gerado. `js/engine.mjs` contém a simulação em passos de 1/120 s; `render.mjs`, a arte desenhada no canvas; `script.js`, a interface, os controles e o áudio; `questions.mjs`, o material educativo; `database.js`, os recordes. Baloo 2 e Nunito são servidas localmente, com suas licenças SIL OFL em `Fonts/`. Os créditos e as referências originais continuam disponíveis na interface.
+
+### Correções de continuidade
+
+- Mundo lógico fixo de 960 × 640, ajustado com margens nas telas de outra proporção. Redimensionar não muda colisões, posições nem distância dos encontros.
+- Simulação de 120 ticks/s e interpolação visual entre estados, incluindo voo e obstáculos.
+- Retomada de 1,5 s após quiz e pausa, mantendo poderes e física congelados durante a contagem.
+- Sete alimentos com as artes WebP anteriores e Chauapédia com descobertas persistentes.
+- Ranking da versão anterior (`chaua-educa-v2`) consultável em aba separada; desbloqueios reaproveitados sem modificar esse arquivo de armazenamento.
+- A implementação Canvas da branch foi preservada. Não houve migração de volta para Phaser/TypeScript.
+
+Validação desta correção: 26 testes de lógica e regressão. O teste de navegador exige Chromium disponível no ambiente. `npm run dev` também inicia o servidor na porta 5501.

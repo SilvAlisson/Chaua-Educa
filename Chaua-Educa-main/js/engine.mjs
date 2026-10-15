@@ -1,5 +1,7 @@
+import { FRUITS } from './fruits.mjs';
 import { QUESTIONS } from './questions.mjs';
 
+export const WIDTH = 960;
 export const HEIGHT = 640;
 export const STEP = 1 / 120;
 export const FEATHER_SECONDS = 10;
@@ -23,11 +25,28 @@ export class FlightClock {
 
 // Only flight time advances physics, spawns, powers and warnings.
 export class Game {
-    constructor({ width = 960, random = Math.random, onEvent = () => {} } = {}) {
-        this.width = width;
+    constructor({ random = Math.random, onEvent = () => {} } = {}) {
+        this.width = WIDTH;
         this.random = random;
         this.onEvent = onEvent;
         this.reset();
+    }
+
+    snapshot() {
+        this.previous = { y: this.y, angle: this.angle, entities: new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y}])) };
+    }
+
+    visual(alpha) {
+        if (this.state !== 'playing' || !this.previous) return this;
+        const lerp = (a,b) => a + (b-a) * Math.max(0, Math.min(1, alpha));
+        const view = Object.create(this);
+        view.y = lerp(this.previous.y, this.y);
+        view.angle = lerp(this.previous.angle, this.angle);
+        view.entities = this.entities.map(e => {
+            const old = this.previous.entities.get(e.id);
+            return old ? {...e, x:lerp(old.x,e.x), y:lerp(old.y,e.y)} : e;
+        });
+        return view;
     }
 
     reset(mode = 'aventura') {
@@ -39,6 +58,7 @@ export class Game {
             sequence: 0, lastGap: 320, question: null, questionPool: [],
             answerResult: null, reason: '', stage: 0, nextId: 1,
         });
+        this.snapshot();
     }
 
     get x() { return Math.max(85, Math.min(220, this.width * .23)); }
@@ -70,7 +90,7 @@ export class Game {
         this.state = 'paused';
         this.release();
     }
-    resume() { if (this.state === 'paused') this.state = this.beforePause; }
+    resume() { if (this.state === 'paused') { this.countdown = Math.max(1.5, this.beforePause === 'countdown' ? this.countdown : 0); this.state = 'countdown'; this.snapshot(); } }
 
     addScore(value, multiplier = this.feather > 0 ? 2 : 1) {
         this.score += value * multiplier;
@@ -124,9 +144,9 @@ export class Game {
 
     continueQuiz() {
         if (this.state !== 'quiz' || this.answerResult === null) return;
-        if (!this.answerResult) this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?');
+        if (!this.answerResult && this.mode !== 'tranquilo') this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?');
         else if (this.score >= VICTORY_SCORE) this.end(true, 'Você completou a aventura do Chauá!');
-        else { this.state = 'playing'; this.release(); }
+        else { this.state = 'countdown'; this.countdown = 1.5; this.release(); this.snapshot(); }
     }
 
     collect(entity) {
@@ -135,7 +155,7 @@ export class Game {
         const multiplier = this.feather > 0 ? 2 : 1;
         this.fruits++;
         this.addScore(3, multiplier);
-        this.onEvent({ type: 'fruit' });
+        this.onEvent({ type: 'fruit', fruit: FRUITS[entity.variety ?? 0].id });
         this.burst(entity.x, entity.y, '#ffc45b', 10);
         if (this.fruits % 2 === 0) {
             if (!this.questionPool.length) this.questionPool = QUESTIONS.map((_, i) => i);
@@ -212,15 +232,16 @@ export class Game {
                 warning: 2, age: 0, dive: false, w: 66, h: 34,
             });
         }
-        this.entities.push({ id: this.nextId++, kind: 'fruit', x: x + 15, y: center, variety: n % 4 });
+        this.entities.push({ id: this.nextId++, kind: 'fruit', x: x + 15, y: center, variety: n % FRUITS.length });
         if (n % 4 === 0 || n % 4 === 2) this.entities.push({ id: this.nextId++, kind: n % 4 === 0 ? 'shield' : 'feather', x: x - 120, y: center });
         this.nextSpawn = Math.max(2.9, 3.6 - this.elapsed * .004);
     }
 
     tick(dt) {
+        this.snapshot();
         if (this.state === 'countdown') {
             this.countdown -= dt;
-            if (this.countdown <= 0) this.state = 'playing';
+            if (this.countdown <= 1e-10) this.state = 'playing';
             return;
         }
         if (this.state !== 'playing') return;

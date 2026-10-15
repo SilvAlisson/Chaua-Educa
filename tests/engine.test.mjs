@@ -1,3 +1,4 @@
+import { QUESTIONS } from '../Chaua-Educa-main/js/questions.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, FlightClock, STEP, overlaps } from '../Chaua-Educa-main/js/engine.mjs';
@@ -36,7 +37,7 @@ test('pauses freeze countdown, physics, warnings and powers without catch-up', (
     const game = flight(), clock = new FlightClock(game); game.power('feather');
     game.entities.push({kind:'hawk', x:900,y:100,startX:900,startY:100,targetX:100,targetY:100,warning:2,age:0});
     game.pause(); const snapshot = JSON.stringify(game); for (let i = 0; i < 100; i++) clock.advance(.1);
-    assert.equal(JSON.stringify(game), snapshot); game.resume(); clock.advance(STEP);
+    assert.equal(JSON.stringify(game), snapshot); game.resume(); advance(game,1.5); clock.advance(STEP);
     assert.ok(game.feather < 10 && game.feather > 9.9);
     game.start(); game.pause(); advance(game, 3); assert.equal(game.countdown, 2.4);
 });
@@ -48,17 +49,17 @@ test('quiz freezes timers and guarantees the captured multiplier on its answer',
     const time = game.feather; advance(game, 20); assert.equal(game.feather, time);
     game.feather = 0; game.answer(game.question.answer); game.answer(game.question.answer);
     assert.equal(game.score, 10); assert.equal(game.correct, 1);
-    game.continueQuiz(); assert.equal(game.state, 'playing');
+    game.continueQuiz(); assert.equal(game.state, 'countdown');
 });
 
 test('questions do not repeat until the whole pool has been used', () => {
     const game = flight({random:()=>0}), seen = new Set();
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < QUESTIONS.length; i++) {
         game.state = 'playing'; game.fruits = 1; game.collect({kind:'fruit',x:0,y:0});
         assert.ok(!seen.has(game.question.text)); seen.add(game.question.text);
         game.answer(game.question.answer); game.continueQuiz();
     }
-    assert.equal(seen.size, 15);
+    assert.equal(seen.size, QUESTIONS.length);
 });
 
 test('feathers refresh ten seconds and never multiply to four', () => {

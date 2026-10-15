@@ -16,6 +16,32 @@ export default class DB {
         }
     }
 
+    static readObject(key, fallback) {
+        if (this.memory.has(key)) return this.memory.get(key);
+        try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback; }
+        catch { return fallback; }
+    }
+
+    static previousScores() {
+        const data = this.readObject('chaua-educa-v2', {});
+        return (Array.isArray(data?.scores) ? data.scores : [])
+            .filter(s => s && typeof s.name === 'string' && Number.isFinite(s.score) && s.score >= 0)
+            .map(s => ({playerName:s.name, score_val:s.score, mode:s.mode, ruleset:s.ruleset}));
+    }
+
+    static unlocked() {
+        const old = this.readObject('chaua-educa-v2', {});
+        const current = this.readObject('chaua-floresta-collection', []);
+        return [...new Set([...(Array.isArray(old?.unlocked) ? old.unlocked : []), ...(Array.isArray(current) ? current : [])].filter(id => ['Goiaba','Semente','Manga','Mamao','Coquinho','Banana','Milho'].includes(id)))];
+    }
+
+    static unlock(id) {
+        const data = [...new Set([...this.unlocked(), id])];
+        this.memory.set('chaua-floresta-collection',data);
+        try { localStorage.setItem('chaua-floresta-collection',JSON.stringify(data)); }
+        catch { this.storageAvailable = false; }
+    }
+
     static upsertPlayerScore(playerName, score, mode = 'aventura') {
         const data = this.get();
         const previous = data.find(p => p.playerName === playerName && p.mode === mode);

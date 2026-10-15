@@ -1,3 +1,5 @@
+import { SOURCES } from './questions.mjs';
+import { FRUITS } from './fruits.mjs';
 import DB from './database.js';
 import { Game, FlightClock, HEIGHT, STAGES, VICTORY_SCORE } from './engine.mjs';
 import { Renderer, drawBird } from './render.mjs';
@@ -42,8 +44,9 @@ function toast(text) {
     $('#screen-reader-status').textContent = text;
 }
 
-export const game = new Game({ width: renderer.w / renderer.h * HEIGHT, onEvent(event) {
+export const game = new Game({ onEvent(event) {
     sound(event.type);
+    if (event.type === 'fruit') DB.unlock(event.fruit);
     const messages = { shield: 'Escudo de folhas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · um respiro para continuar', quiet: 'Uma clareira. Recupere o fôlego.' };
     if (messages[event.type]) toast(messages[event.type]);
     if (event.type === 'points') { $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1; }
@@ -52,7 +55,7 @@ const clock = new FlightClock(game);
 
 function resize() {
     renderer.resize();
-    game.width = renderer.w / renderer.h * HEIGHT;
+
 }
 new ResizeObserver(resize).observe(app);
 window.addEventListener('resize', resize);
@@ -151,9 +154,12 @@ function answer(value) {
     $('#answer-true').disabled = true; $('#answer-false').disabled = true;
     const feedback = $('#answer-feedback');
     feedback.textContent = result ? `Boa descoberta! +${2 * game.quizMultiplier} pontos.` : `A afirmação é ${game.question.answer ? 'verdadeira' : 'falsa'}. Guarde essa descoberta para o próximo voo.`;
+    feedback.textContent += ` ${game.question.explanation}`;
+    const source = SOURCES[game.question.source];
+    const link = document.createElement('a'); link.href = source.url; link.textContent = ' Fonte: ' + source.label; link.target = '_blank'; link.rel = 'noopener noreferrer'; feedback.append(link);
     feedback.classList.toggle('incorrect', !result);
     $('#quiz-continue').hidden = false;
-    $('#quiz-continue').textContent = result ? 'Continuar o voo →' : 'Ver meu voo →';
+    $('#quiz-continue').textContent = result || game.mode === 'tranquilo' ? 'Continuar o voo →' : 'Ver meu voo →';
     $('#quiz-continue').focus();
 }
 $('#answer-true').addEventListener('click', () => answer(true));
@@ -191,11 +197,11 @@ function showRanking(fromResult = false) {
 }
 function renderRanking() {
     document.querySelectorAll('[data-board]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.board === board)));
-    const rows = DB.get(board === 'legacy').filter(p => board === 'legacy' || p.mode === board).sort((a, b) => b.score_val - a.score_val);
+    const rows = (board === 'previous' ? DB.previousScores() : DB.get(board === 'legacy')).filter(p => ['legacy','previous'].includes(board) || p.mode === board).sort((a, b) => b.score_val - a.score_val);
     $('#ranking-empty').hidden = rows.length !== 0;
     $('#ranking-body').replaceChildren(...rows.map((row, index) => {
         const tr = document.createElement('tr');
-        for (const text of [String(index + 1).padStart(2, '0'), row.playerName, row.score_val]) { const td = document.createElement('td'); td.textContent = text; tr.append(td); }
+        for (const text of [String(index + 1).padStart(2, '0'), board === 'previous' ? `${row.playerName} · ${row.mode} · ${row.ruleset || 'original'}` : row.playerName, row.score_val]) { const td = document.createElement('td'); td.textContent = text; tr.append(td); }
         return tr;
     }));
 }
@@ -244,7 +250,20 @@ function frame(time) {
     clock.advance(delta);
     syncUI();
     if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
-    else renderer.game(game, reducedMotion.matches, time / 1000);
+    else renderer.game(game.visual(clock.accumulator / (1 / 120)), reducedMotion.matches, time / 1000);
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+function showCollection() {
+    const unlocked = DB.unlocked();
+    $('#collection-items').replaceChildren(...FRUITS.map(f => {
+        const card = document.createElement('article');
+        const title = document.createElement('h3'); title.textContent = f.name;
+        const img = new Image(); img.src = `images/fruit-${f.id}.webp`; img.alt = f.name; img.width = 64; img.height = 64; img.style.objectFit = 'contain';
+        const text = document.createElement('p'); text.textContent = unlocked.includes(f.id) ? f.description : 'Recolha este alimento para desbloquear a descoberta.';
+        card.append(img,title,text); return card;
+    }));
+    openDialog('#collection-dialog');
+}
+$('#open-collection').addEventListener('click', showCollection);

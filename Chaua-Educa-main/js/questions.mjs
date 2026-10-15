@@ -1,62 +1,84 @@
+export const SOURCES = {
+  zoo: {
+    label: "Fundação Jardim Zoológico de Brasília · Papagaio-chauá",
+    url: "https://www.zoo.df.gov.br/papagaio-chaua-amazona-rhodocorytha",
+  },
+  icmbio: {
+    label: "ICMBio · Plano de Ação Nacional dos Papagaios",
+    url: "https://www.gov.br/icmbio/pt-br/assuntos/biodiversidade/pan/pan-papagaios/pan-papagaios/",
+  },
+};
 export const QUESTIONS = [
   {
-    "text": "Os papagaios-chauá habitam o Pantanal?",
-    "answer": false
+    id: "habitat",
+    topic: "Habitat",
+    text: "O papagaio-chauá vive na Mata Atlântica.",
+    answer: true,
+    explanation:
+      "A Mata Atlântica é o habitat do chauá. Proteger essa floresta ajuda a conservar a espécie.",
+    source: "zoo",
   },
   {
-    "text": "A expectativa de vida dessas aves é de aproximadamente 45 anos?",
-    "answer": true
+    id: "pantanal",
+    topic: "Habitat",
+    text: "O Pantanal é o habitat característico do papagaio-chauá.",
+    answer: false,
+    explanation:
+      "O chauá é uma espécie da Mata Atlântica, e não uma ave característica do Pantanal.",
+    source: "zoo",
   },
   {
-    "text": "O período de incubação dessas aves é de 24 dias?",
-    "answer": true
+    id: "alagoas",
+    topic: "Distribuição",
+    text: "Alagoas faz parte da área de ocorrência do chauá.",
+    answer: true,
+    explanation:
+      "Sua área de ocorrência inclui Alagoas e outros estados do leste do Brasil.",
+    source: "zoo",
   },
   {
-    "text": "Os papagaios-chauá podem chegar ao tamanho de até 90 centímetros?",
-    "answer": false
+    id: "cientifico",
+    topic: "Conheça o chauá",
+    text: "Amazona rhodocorytha é o nome científico do chauá.",
+    answer: true,
+    explanation:
+      "Esse nome identifica a espécie e ajuda a diferenciá-la de outros papagaios.",
+    source: "zoo",
   },
   {
-    "text": "O papagaios-chauá são conhecidos popularmente por papagaios da cabeça vermelha, papagaios de crista rosada ou papagaios com topete rosa?",
-    "answer": true
+    id: "captura",
+    topic: "Conservação",
+    text: "A captura de ovos e filhotes ameaça as populações de chauás.",
+    answer: true,
+    explanation:
+      "A captura para o comércio ilegal é uma das ameaças enfrentadas pela espécie.",
+    source: "icmbio",
   },
   {
-    "text": "Os papagaios-chauá se alimentam de frutos?",
-    "answer": true
+    id: "floresta",
+    topic: "Conservação",
+    text: "A destruição e a fragmentação das florestas não afetam o chauá.",
+    answer: false,
+    explanation:
+      "A perda e a fragmentação do habitat estão entre as ameaças ao chauá.",
+    source: "icmbio",
   },
   {
-    "text": "Os papagaios-chauá são aves que podem ser encontradas em outros países além do Brasil?",
-    "answer": false
+    id: "protecao",
+    topic: "Conservação",
+    text: "Conservar o habitat faz parte da proteção dos papagaios.",
+    answer: true,
+    explanation:
+      "A conservação precisa proteger tanto as aves quanto os ambientes de que dependem.",
+    source: "icmbio",
   },
   {
-    "text": "Os papagaios-chauá têm hábitos noturnos?",
-    "answer": false
+    id: "todos",
+    topic: "Diversidade",
+    text: "Todos os papagaios brasileiros pertencem à mesma espécie.",
+    answer: false,
+    explanation:
+      "O PAN Papagaios contempla diferentes espécies, incluindo o chauá e o papagaio-de-peito-roxo.",
+    source: "icmbio",
   },
-  {
-    "text": "Os papagaios-chauá existem em abundância na natureza?",
-    "answer": false
-  },
-  {
-    "text": "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza?",
-    "answer": true
-  },
-  {
-    "text": "A Mata Atlântica tem grande importância econômica e ecológica. As formações florestais ajudam a regular o clima e proteger o solo?",
-    "answer": true
-  },
-  {
-    "text": "Desde a colonização do Brasil, ocorre exploração da Mata Atlântica?",
-    "answer": true
-  },
-  {
-    "text": "A Mata Atlântica é encontrada na região central do Brasil?",
-    "answer": false
-  },
-  {
-    "text": "A expansão da indústria, da agricultura, do turismo e da urbanização não causa impacto na biodiversidade da Mata Atlântica?",
-    "answer": false
-  },
-  {
-    "text": "A riqueza da biodiversidade da Mata Atlântica tem números impressionantes, como: 1020 espécies de aves, 350 espécies de peixes, 340 espécies de anfíbios e 197 répteis?",
-    "answer": true
-  }
 ];
