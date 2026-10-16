@@ -203,6 +203,7 @@ function renderRanking() {
     $('#ranking-empty').hidden = rows.length !== 0;
     $('#ranking-body').replaceChildren(...rows.map((row, index) => {
         const tr = document.createElement('tr');
+        tr.style.setProperty('--row-delay', `${Math.min(index, 7) * 45}ms`);
         for (const text of [String(index + 1).padStart(2, '0'), board === 'previous' ? `${row.playerName} · ${row.mode} · ${row.ruleset || 'original'}` : row.playerName, row.score_val]) { const td = document.createElement('td'); td.textContent = text; tr.append(td); }
         return tr;
     }));

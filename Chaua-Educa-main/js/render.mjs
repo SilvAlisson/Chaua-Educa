@@ -33,6 +33,16 @@ export function drawBird(c, { x, y, scale = 1, angle = 0, wing = 0, perched = fa
     c.restore();
 }
 
+// Shared attachment geometry keeps the authored perch joined to the side tree.
+export function homePerchLayout(width, height) {
+    const mobile=width<=700, scale=mobile?1.65:Math.min(3.6,width/370);
+    const x=width*(mobile?.55:.765), y=mobile?height-238:height*.53;
+    const size=115*scale*1.3, trunkWidth=Math.min(90,width*.16);
+    return {mobile,scale,x,y,size,trunkWidth,trunkX:width-trunkWidth*.65,
+        joinX:x+size*.40, joinY:y+scale*5+size*(727/900)*.225,
+        rootX:width-trunkWidth*.15};
+}
+
 export class Renderer {
     constructor(canvas) { this.canvas = canvas; this.c = canvas.getContext('2d'); this.fruitImages = []; this.ready = loadAssets().then(()=>{this.fruitImages=FRUITS.map(f=>images.get(`fruit-${f.id}`));}); this.resize(); }
     resize() {
@@ -105,12 +115,22 @@ export class Renderer {
             const wash = c.createLinearGradient(0, this.h * .50, 0, this.h * .78); wash.addColorStop(0, '#f0f1da'); wash.addColorStop(1, '#f0f1da00');
             c.fillStyle = '#f0f1da'; c.fillRect(0, 0, this.w, this.h * .5); c.fillStyle = wash; c.fillRect(0, this.h * .5, this.w, this.h * .28);
         }
-        const x = mobile ? this.w * .55 : this.w * .765;
-        const y = mobile ? this.h - 238 : this.h * .53;
-        const scale = mobile ? 1.65 : Math.min(3.6, this.w / 370);
+        const {x,y,scale,size,trunkWidth,trunkX,joinX,joinY,rootX}=homePerchLayout(this.w,this.h);
+        // A continuous side tree reaches both canvas edges; the branch grows from it.
+        this.wood({x:trunkX,y:-20,w:trunkWidth,h:this.h+40},1);
+        c.save(); c.lineCap='round';
+        c.beginPath(); c.moveTo(joinX-12,joinY);
+        c.bezierCurveTo(joinX+size*.12,joinY-8,rootX-20,joinY-30,rootX,joinY-45);
+        c.lineWidth=size*.12; c.strokeStyle='#5c4c32'; c.stroke();
+        c.lineWidth=size*.085; c.strokeStyle='#85744c'; c.stroke();
+        c.lineWidth=size*.025; c.strokeStyle='#a5a15a'; c.stroke();
+        c.restore();
         c.save(); c.translate(x, y);
         drawBird(c, { x: 0, y: scale * 5, scale: scale*1.3, perched: true, wing: reduced ? .08 : .07 + Math.sin(time * .9) * .06, time, reduced });
         c.restore();
+        // Moss and leaves overlap the cut face in the source art and the new joint.
+        leaf(c,joinX+size*.065,joinY-size*.035,size*.075,-.45,'#94a644','#476837');
+        leaf(c,rootX-10,joinY-45,22,-1.15,'#a3b557','#4b713c');
         // Loose foreground leaves frame the diorama.
         if (!mobile) {
             leaf(c, this.w * .985, this.h * .41, 90, -1.15, '#b0c16c', '#497e49');

@@ -1553,3 +1553,202 @@ dd {
     color: #59883d;
   }
 }
+/* Short entrance sequences, with restrained ambient movement between actions. */
+@keyframes forest-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes forest-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes button-sheen {
+  0%, 72% {
+    transform: translateX(-160%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(260%) skewX(-18deg);
+  }
+}
+@keyframes resting-bird {
+  0%, 100% {
+    transform: rotate(-1deg) scale(1);
+  }
+  50% {
+    transform: rotate(1deg) scale(1.025);
+  }
+}
+@keyframes canopy-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(166, 202, 99, 0.3137254902), 0 16px 40px rgba(36, 69, 43, 0.0705882353);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(166, 202, 99, 0), 0 20px 48px rgba(101, 143, 69, 0.1568627451);
+  }
+}
+@keyframes podium-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+button {
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+button:focus-visible {
+  outline: 3px solid #bbce75;
+  outline-offset: 4px;
+}
+
+button:not(:disabled):active {
+  transform: translateY(2px) scale(0.98);
+}
+
+@media (hover: hover) {
+  .home-links button:hover, .result-actions button:hover, .tabs button:hover,
+  .icon-btn:hover, .text-button:hover {
+    transform: translateY(-2px);
+  }
+}
+.primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.primary:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 216, 0.2), transparent);
+  animation: button-sheen 5s ease-in-out infinite;
+}
+
+.primary svg {
+  transition: transform 0.2s ease;
+}
+
+.primary:hover:not(:disabled) svg {
+  transform: translateX(4px);
+}
+
+.primary:disabled::after {
+  display: none;
+}
+
+.home:not([hidden]) .eyebrow {
+  animation: forest-enter 0.45s both;
+}
+
+.home:not([hidden]) h1 {
+  animation: forest-enter 0.55s 0.06s both;
+}
+
+.home:not([hidden]) .intro {
+  animation: forest-enter 0.55s 0.12s both;
+}
+
+.home:not([hidden]) .start-card {
+  animation: forest-enter 0.6s 0.18s backwards, canopy-glow 6s 1s infinite;
+}
+
+.home:not([hidden]) .home-links {
+  animation: forest-enter 0.55s 0.26s both;
+}
+
+.name-field {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.name-field:focus-within {
+  box-shadow: 0 0 0 4px rgba(156, 189, 101, 0.1607843137);
+}
+
+dialog[open] {
+  animation: forest-enter 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+dialog[open]::backdrop {
+  animation: forest-backdrop 0.25s ease both;
+}
+
+#result-dialog[open] .result-bird {
+  animation: forest-enter 0.5s 0.08s both;
+}
+
+#result-dialog[open] .result-bird canvas {
+  animation: resting-bird 4s ease-in-out infinite;
+  transform-origin: 50% 75%;
+}
+
+#result-dialog[open] .result-stats > div {
+  animation: forest-enter 0.45s 0.15s both;
+}
+
+#result-dialog[open] .result-stats > div:nth-child(2) {
+  animation-delay: 0.23s;
+}
+
+#result-dialog[open] .result-stats > div:nth-child(3) {
+  animation-delay: 0.31s;
+}
+
+#result-dialog[open] #restart-button {
+  animation: forest-enter 0.4s 0.25s backwards;
+}
+
+#result-dialog[open] h2, #ranking-dialog[open] h2 {
+  text-shadow: 0 2px 14px rgba(167, 193, 108, 0.2196078431);
+}
+
+#ranking-dialog[open] .eyebrow, #ranking-dialog[open] h2 {
+  animation: forest-enter 0.4s both;
+}
+
+#ranking-dialog[open] .tabs {
+  animation: forest-enter 0.4s 0.08s both;
+}
+
+#ranking-dialog[open] tbody tr {
+  animation: podium-enter 0.4s var(--row-delay, 0ms) backwards;
+}
+
+#ranking-dialog tbody tr:nth-child(-n+3) td:first-child {
+  color: #806324;
+  font-weight: 900;
+}
+
+#ranking-dialog tbody tr:first-child {
+  background: linear-gradient(90deg, rgba(233, 215, 155, 0.3333333333), rgba(246, 244, 223, 0));
+}
+
+#ranking-dialog[open] #ranking-empty:not([hidden]) {
+  animation: forest-enter 0.45s 0.12s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .primary::after {
+    display: none;
+  }
+}

@@ -72,3 +72,9 @@ Aventura começa a 245 unidades/s (antes 140); Voo tranquilo começa a 205 (ante
 As passagens da Aventura diminuem de 185 até 155 unidades; no Tranquilo, de 220 até 190. A cadência normal dos encontros começa em 2,15 s e chega a 1,65 s, com clareiras de 2,8 s. Os mergulhos são introduzidos após 55 s de voo para aparecerem antes de uma vitória no novo ritmo. Os capítulos visuais avançam a cada 20 s.
 
 Validação do ajuste: testes de sustentação com fôlego mínimo, recuperação ao pressionar durante queda, descida sem comando, equivalência de física por Hz e percurso automatizado até a vitória. A sensação de controle ainda depende de avaliação jogando no navegador.
+
+### Movimento das telas e apoio do papagaio
+
+A tela inicial revela título, formulário e ações em sequência. Botões têm resposta ao toque/foco e um reflexo suave nas ações principais. Fim de jogo anima o papagaio e apresenta as estatísticas em sequência; ranking anima a abertura, abas e linhas com atraso limitado a 315 ms. As ações continuam disponíveis durante as transições. `prefers-reduced-motion` desativa os movimentos.
+
+O galho da arte inicial agora se prolonga até uma árvore lateral com casca, que atravessa a altura do cenário. A conexão usa as mesmas coordenadas e escala do papagaio; folhas cobrem a junção com a arte original em telas largas e estreitas. Validação: build SCSS, 33 testes existentes e diff sem erros; composição visual ainda requer conferência em navegador.
