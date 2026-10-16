@@ -74,7 +74,7 @@ test('one shield breaks wood, grants escape time and no destruction points', () 
     assert.equal(obstacle.brokenSide, 'top');
     assert.ok(game.woodRects(obstacle).some(rect=>rect.y===obstacle.bottom));
     obstacle.x = game.x - 200; game.tick(STEP); assert.equal(game.score, 0);
-    game.invincible = 0; game.entities = [wood(game)]; game.tick(STEP); assert.equal(game.state, 'ended');
+    game.invincible = 0; game.entities = [wood(game)]; game.tick(STEP); assert.equal(game.state, 'impact'); advance(game,.45); assert.equal(game.state, 'ended');
 });
 
 test('shield repels animals and never destroys them', () => {

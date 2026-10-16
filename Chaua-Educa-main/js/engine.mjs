@@ -19,12 +19,12 @@ export class FlightClock {
     constructor(game) { this.game = game; this.accumulator = 0; }
     reset() { this.accumulator = 0; }
     advance(seconds) {
-        if (!['playing', 'countdown'].includes(this.game.state)) return this.reset();
+        if (!['playing', 'countdown', 'impact'].includes(this.game.state)) return this.reset();
         this.accumulator += Math.min(.25, Math.max(0, seconds));
         while (this.accumulator + 1e-10 >= STEP) {
             this.game.tick(STEP);
             this.accumulator -= STEP;
-            if (!['playing', 'countdown'].includes(this.game.state)) { this.reset(); break; }
+            if (!['playing', 'countdown', 'impact'].includes(this.game.state)) { this.reset(); break; }
         }
     }
 }
@@ -33,6 +33,7 @@ export class FlightClock {
 export class Game {
     constructor({ random = Math.random, onEvent = () => {} } = {}) {
         this.width = WIDTH;
+        this.reducedMotion = false;
         this.random = random;
         this.onEvent = onEvent;
         this.reset();
@@ -62,7 +63,7 @@ export class Game {
             flapCooldown: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], nextSpawn: 1.5,
             sequence: 0, lastGap: 320, question: null, questionPool: [],
-            answerResult: null, reason: '', stage: 0, nextId: 1,
+            answerResult: null, reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0,
         });
         this.snapshot();
     }
@@ -110,8 +111,9 @@ export class Game {
         this.burst(this.x, this.y, kind === 'shield' ? '#aedf8d' : '#ffd76b', 12);
     }
 
-    collide(entity, animal = false) {
-        if (this.invincible > 0) return;
+    collide(entity, animal = false, host = entity) {
+        if (this.state !== 'playing' || this.invincible > 0) return;
+        this.hit = {id:host.id, age:0};
         if (this.shield) {
             this.shield = false;
             this.invincible = 1.6;
@@ -127,13 +129,15 @@ export class Game {
                 if (entity.snake && (!entity.brokenSide || entity.brokenSide === snakeSide)) { entity.snake.retreat = true; entity.snake.retreatTime = 0; }
             }
             this.onEvent({ type: 'shield-break', animal });
-            this.burst(this.x, this.y, animal ? '#b7df92' : '#bb9765', 18);
-        } else this.end(false, animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra do galho.') : 'Você esbarrou na madeira.');
+            this.featherBurst(['#d6edb0','#7ead5a','#e9f4ca'],12);
+        } else this.end(false, animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra do galho.') : 'Você esbarrou na madeira.', true);
     }
 
-    end(won, reason) {
-        if (this.state === 'ended') return;
-        this.state = 'ended';
+    end(won, reason, collision = false) {
+        if (['ended','impact'].includes(this.state)) return;
+        this.impactRemaining = collision && !this.reducedMotion ? .42 : 0;
+        this.state = this.impactRemaining > 0 ? 'impact' : 'ended';
+        if(collision) this.featherBurst(['#48965b','#7db852','#3c8b91','#d7b85b'],18);
         this.won = won;
         this.reason = reason;
         this.release();
@@ -176,6 +180,24 @@ export class Game {
 
     burst(x, y, color, count) {
         for (let i = 0; i < count; i++) this.particles.push({ x, y, vx: (this.random() - .5) * 160, vy: (this.random() - .5) * 160, life: .7, color });
+    }
+
+    featherBurst(colors, count) {
+        // Cosmetic variation must not consume the obstacle/question random stream.
+        for(let i=0;i<count;i++) {
+            const angle=i*Math.PI*2/count, speed=125+(i*37)%95;
+            this.particles.push({x:this.x,y:this.y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed-55,
+                life:.48,maxLife:.48,color:colors[i%colors.length],feather:true,rotation:angle,spin:i%2?9:-7});
+        }
+    }
+
+    advanceEffects(dt) {
+        if(this.hit) {this.hit.age+=dt;if(this.hit.age>=.3)this.hit=null;}
+        for(const p of this.particles) {
+            p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;
+            if(p.feather) {p.vy+=210*dt;p.rotation+=p.spin*dt;}
+        }
+        this.particles=this.particles.filter(p=>p.life>0);
     }
 
     woodRects(entity) {
@@ -245,6 +267,11 @@ export class Game {
 
     tick(dt) {
         this.snapshot();
+        if(this.state==='impact') {
+            this.advanceEffects(dt);this.impactRemaining-=dt;
+            if(this.impactRemaining<=1e-10 || this.reducedMotion)this.state='ended';
+            return;
+        }
         if (this.state === 'countdown') {
             this.countdown -= dt;
             if (this.countdown <= 1e-10) this.state = 'playing';
@@ -264,7 +291,7 @@ export class Game {
         const targetAngle = Math.max(-.23, Math.min(.28, this.vy / 750));
         this.angle += (targetAngle - this.angle) * (1 - Math.exp(-8 * dt));
         if (this.y < 20 || this.y > HEIGHT - 25) {
-            this.end(false, this.y < 20 ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!');
+            this.end(false, this.y < 20 ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!', true);
             return;
         }
         this.nextSpawn -= dt;
@@ -284,7 +311,7 @@ export class Game {
             if (e.kind === 'wood') {
                 if (e.snake?.retreat) e.snake.retreatTime += dt;
                 if (e.snake && !e.snake.retreat) {
-                    if (this.snakeRects(e).some(rect => overlaps(this.body, rect))) this.collide(e.snake, true);
+                    if (this.snakeRects(e).some(rect => overlaps(this.body, rect))) this.collide(e.snake, true, e);
                 }
                 const woodHit = this.woodRects(e).find(rect => overlaps(this.body, rect));
                 if (woodHit) { e.hitSide = woodHit.y >= e.bottom ? 'bottom' : 'top'; this.collide(e); }
@@ -292,8 +319,7 @@ export class Game {
             } else if (!e.collected && overlaps(this.body, { x: e.x - 18, y: e.y - 18, w: 36, h: 36 })) this.collect(e);
         }
         this.entities = this.entities.filter(e => e.x > -150 && e.x < this.width + 800 && !e.collected);
-        for (const p of this.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
-        this.particles = this.particles.filter(p => p.life > 0);
+        this.advanceEffects(dt);
         if (this.score >= VICTORY_SCORE && this.state === 'playing') this.end(true, 'Você completou a aventura do Chauá!');
     }
 }

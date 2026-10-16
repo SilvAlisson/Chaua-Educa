@@ -18,7 +18,7 @@ A nova aventura mantém o objetivo educativo do Chauá e acrescenta voo com plan
 
 - **Voo:** toque na área do jogo ou no botão Voar, ou use ↑/espaço. Um toque bate as asas; segurar repete em cadência e consome fôlego; soltar faz descer e recupera energia. A inclinação é limitada e suave. Colisões e os limites superior e inferior encerram o voo sem proteção de cenário.
 - **Ritmo:** troncos, troncos ocos, galhos quebrados, cobras, gaviões em travessia e, depois, mergulhos. Avisos mostram as trajetórias dos gaviões. Os primeiros encontros são isolados; combinações mantêm a passagem livre. Clareiras dão intervalos para respirar.
-- **Escudo de folhas:** absorve um contato e concede 1,6 s para sair da colisão. Quebra madeira sem dar pontos de destruição ou afasta um animal sem destruí-lo. Recolher mais escudos não acumula vidas. Não protege dos limites do cenário nem de resposta incorreta.
+- **Escudo de penas:** absorve um contato e concede 1,6 s para sair da colisão. Quebra madeira sem dar pontos de destruição ou afasta um animal sem destruí-lo. Recolher mais escudos não acumula vidas. Não protege dos limites do cenário nem de resposta incorreta.
 - **Pena dourada:** dobra os pontos por 10 s de voo. Outra pena renova o tempo; não aumenta o multiplicador. Pausas e perguntas congelam o relógio. O bônus de uma resposta é definido na coleta que abriu o quiz.
 - **Aprendizado:** uma passagem vale 1 ponto; um fruto, 3; uma resposta correta, 2. A cada dois frutos, aparece um quiz. A resposta incorreta é explicada: na Aventura encerra o voo; no Voo tranquilo permite continuar. As oito perguntas restauradas da versão anterior incluem explicação e fonte e não se repetem até esgotar a lista. Com 200 pontos, há uma celebração de vitória.
 - **Ranking:** aventura e voo tranquilo têm classificações próprias em `db-chaua-floresta-v2`. O ranking clássico continua intacto em `db-chaua` e pode ser consultado separadamente. Dados ficam no navegador; se o armazenamento estiver indisponível, os novos resultados ficam só na sessão.
@@ -78,3 +78,9 @@ Validação do ajuste: testes de sustentação com fôlego mínimo, recuperaçã
 A tela inicial revela título, formulário e ações em sequência. Botões têm resposta ao toque/foco e um reflexo suave nas ações principais. Fim de jogo anima o papagaio e apresenta as estatísticas em sequência; ranking anima a abertura, abas e linhas com atraso limitado a 315 ms. As ações continuam disponíveis durante as transições. `prefers-reduced-motion` desativa os movimentos.
 
 O galho da arte inicial agora se prolonga até uma árvore lateral com casca, que atravessa a altura do cenário. A conexão usa as mesmas coordenadas e escala do papagaio; folhas cobrem a junção com a arte original em telas largas e estreitas. Validação: build SCSS, 33 testes existentes e diff sem erros; composição visual ainda requer conferência em navegador.
+
+### Impactos e leitura dos poderes
+
+Colisões fatais exibem uma explosão curta de penas durante 0,42 s antes do resultado. Durante esse intervalo, voo, obstáculos, pontuação e relógios dos poderes ficam congelados; só os efeitos avançam. O tronco atingido recebe um tremor amortecido de até 6 unidades por 0,3 s, sem mover sua colisão. O escudo é representado por nove penas orbitando o papagaio e também solta penas ao absorver o contato. A pena dourada mantém uma aura e um rastro enquanto o multiplicador estiver ativo.
+
+Movimento reduzido mantém os indicadores estáticos, omite partículas/tremor e abre o resultado imediatamente. Erros no quiz não acionam animação de impacto. Os efeitos de penas não consomem a aleatoriedade dos obstáculos/perguntas. Validação: 37 testes e build; aparência final ainda requer avaliação em navegador.

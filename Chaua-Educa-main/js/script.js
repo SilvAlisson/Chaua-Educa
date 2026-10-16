@@ -48,7 +48,7 @@ function toast(text) {
 export const game = new Game({ onEvent(event) {
     sound(event.type);
     if (event.type === 'fruit') DB.unlock(event.fruit);
-    const messages = { shield: 'Escudo de folhas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · um respiro para continuar', quiet: 'Uma clareira. Recupere o fôlego.' };
+    const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · um respiro para continuar', quiet: 'Uma clareira. Recupere o fôlego.' };
     if (messages[event.type]) toast(messages[event.type]);
     if (event.type === 'points') { $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1; }
 } });
@@ -250,6 +250,7 @@ function syncUI() {
 function frame(time) {
     const delta = lastTime ? Math.min(.25, Math.max(0, (time - lastTime) / 1000)) : 0;
     lastTime = time;
+    game.reducedMotion=reducedMotion.matches;
     clock.advance(delta);
     syncUI();
     if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);

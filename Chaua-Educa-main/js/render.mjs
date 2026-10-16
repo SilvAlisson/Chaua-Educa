@@ -21,6 +21,14 @@ function leaf(c, x, y, size, rotation, light = '#87b36a', dark = '#3d7349') {
     c.restore();
 }
 
+function feather(c,x,y,size,rotation,color) {
+    c.save();c.translate(x,y);c.rotate(rotation);
+    c.beginPath();c.moveTo(0,-size);c.bezierCurveTo(size*.8,-size*.4,size*.55,size*.5,0,size);
+    c.bezierCurveTo(-size*.55,size*.4,-size*.6,-size*.5,0,-size);c.fillStyle=color;c.fill();
+    c.strokeStyle='#eff6cbb0';c.lineWidth=1;c.beginPath();c.moveTo(0,size*1.2);c.lineTo(0,-size*.8);c.stroke();
+    c.restore();
+}
+
 export function drawBird(c, { x, y, scale = 1, angle = 0, wing = 0, perched = false, time = 0, surprise = false, reduced = false }) {
     const pose=flightPose(wing,reduced), image=images.get(perched?(surprise?'chaua-hero':'perch'):`chaua-${pose}`);
     if (!image) return;
@@ -148,12 +156,18 @@ export class Renderer {
         c.save(); c.translate((this.w - WIDTH*s)/2, (this.h-HEIGHT*s)/2); c.scale(s, s);
         c.beginPath(); c.rect(0,0,WIDTH,HEIGHT); c.clip();
         c.strokeStyle = '#d9edb6'; c.lineWidth = 2; c.strokeRect(0, 1, WIDTH, HEIGHT-2);
-        if (game.feather > 0 && !reduced) {
-            for (let i = 1; i < 8; i++) oval(c, game.x - i * 9, game.y + Math.sin(game.elapsed * 7 - i) * 7, 3 * (1 - i / 9), 3, `rgba(255,219,112,${.7 - i * .08})`);
+        if (game.feather > 0) {
+            c.save();
+            const radius=58*(reduced?1:1+Math.sin(game.elapsed*3)*.06);
+            const aura=c.createRadialGradient(game.x,game.y,10,game.x,game.y,radius);
+            aura.addColorStop(0,'#ffe29455');aura.addColorStop(.65,'#ffcd4538');aura.addColorStop(1,'#ffd85a00');
+            oval(c,game.x,game.y,radius,radius,aura);
+            if(!reduced) for(let i=1;i<8;i++)oval(c,game.x-i*9,game.y+Math.sin(game.elapsed*7-i)*7,3*(1-i/9),3,`rgba(255,219,112,${.7-i*.08})`);
+            c.restore();
         }
         for (const e of game.entities) {
             if (e.kind === 'wood') {
-                this.obstacle(e, game);
+                this.obstacle(e, game, reduced);
             } else if (e.kind === 'hawk') {
                 if (e.warning > 0) {
                     const wx = worldWidth - 52;
@@ -166,15 +180,22 @@ export class Renderer {
             } else if (!e.collected) this.pickup(e, game.elapsed, reduced);
         }
         if (game.shield || game.invincible > 0) {
-            const r = 42;
-            c.save(); c.globalAlpha = game.shield ? .7 : .4;
-            const shield = c.createRadialGradient(game.x - 10, game.y - 10, 10, game.x, game.y, r); shield.addColorStop(0, '#e1f8a505'); shield.addColorStop(.9, '#c2ee8670'); shield.addColorStop(1, '#d3f19baa');
-            oval(c, game.x, game.y, r, r, shield); c.strokeStyle = '#d5eaa7'; c.lineWidth = 1.5; c.beginPath(); c.arc(game.x, game.y, r, 0, TAU); c.stroke();
-            for (let i = 0; i < 3; i++) { const a = i * TAU / 3 + (reduced ? 0 : game.elapsed); leaf(c, game.x + Math.cos(a) * r, game.y + Math.sin(a) * r, 7, a, '#e5f4ac', '#8bad59'); }
+            const r=43;
+            c.save();c.globalAlpha=game.shield ? .95 : .45;
+            c.strokeStyle='#d8ecae55';c.lineWidth=1;c.beginPath();c.arc(game.x,game.y,r,0,TAU);c.stroke();
+            for(let i=0;i<9;i++) {
+                const a=i*TAU/9+(reduced?0:game.elapsed*.8);
+                feather(c,game.x+Math.cos(a)*r,game.y+Math.sin(a)*r,10,a+Math.PI/2,i%2?'#d7edab':'#8fb969');
+            }
             c.restore();
         }
+
         drawBird(c, { x: game.x, y: game.y, scale: .78, angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: game.elapsed, reduced });
-        if (!reduced) for (const p of game.particles) { c.globalAlpha = p.life / .7; leaf(c, p.x, p.y, 3, p.life * 5, p.color, p.color); }
+        if (!reduced) for (const p of game.particles) {
+            c.globalAlpha=Math.max(0,p.life/(p.maxLife??.7));
+            if(p.feather)feather(c,p.x,p.y,7,p.rotation,p.color);
+            else leaf(c,p.x,p.y,3,p.life*5,p.color,p.color);
+        }
         c.globalAlpha = 1;
         c.restore();
         if (game.state === 'ended' && game.won) {
@@ -186,8 +207,12 @@ export class Renderer {
         }
     }
 
-    obstacle(e, game) {
+    obstacle(e, game, reduced=false) {
         const c=this.c, variant=(e.id??0)%3, preset=TRUNKS[variant];
+        c.save();
+        if(!reduced && game.hit && game.hit.id===e.id) {
+            const t=game.hit.age;c.translate(Math.sin(t*95)*6*Math.max(0,1-t/.3),0);
+        }
         const topRects=game.woodRects(e).filter(r=>r.y<e.bottom);
         // Clip only at real openings; leaves outside the wooden core remain decorative.
         if(topRects.length) {
@@ -206,6 +231,7 @@ export class Renderer {
             }
         }
         if(e.variant==='broken'&&(!e.broken||e.brokenSide!=='top'))this.wood({x:e.x+52,y:e.top-35,w:26,h:18},variant);
+        c.restore();
     }
 
     trunk(key,preset,x,y,flip) {
