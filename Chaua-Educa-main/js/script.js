@@ -80,7 +80,7 @@ function start() {
     app.classList.add('in-flight'); $('#home').hidden = true; $('#hud').hidden = false;
     resize(); game.start(selectedMode); previousState = ''; clock.reset(); lastTime = 0;
     $('#score-bonus').textContent = ''; $('#toast').classList.remove('visible'); toastUntil = 0;
-    $('#screen-reader-status').textContent = 'O voo vai começar. Toque, seta para cima ou espaço para bater asas. Solte para planar.';
+    $('#screen-reader-status').textContent = 'O voo vai começar. Toque, seta para cima ou espaço para bater asas. Solte para descer.';
     // Remove focus from the submitting/restarting button, avoiding Space clicks.
     document.activeElement?.blur();
     syncUI();

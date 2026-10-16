@@ -48,7 +48,7 @@ export class Renderer {
         const c = this.c, w = this.w, h = this.h;
         const bg = c.createLinearGradient(0, 0, 0, h);
         const palette = ['#dbe7b5', '#dde0a1', '#e6d8a0', '#e7d2a1'];
-        const light = reduced ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], Math.min(1, Math.max(0, (time - stage * 30) / 4)));
+        const light = reduced ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], Math.min(1, Math.max(0, (time - stage * 20) / 4)));
         bg.addColorStop(0, light); bg.addColorStop(.5, '#abc68d'); bg.addColorStop(1, '#355f45');
         c.fillStyle = bg; c.fillRect(0, 0, w, h);
         // Filtered sunlight through distant crowns.

@@ -6,6 +6,12 @@ export const HEIGHT = 640;
 export const STEP = 1 / 120;
 export const FEATHER_SECONDS = 10;
 export const VICTORY_SCORE = 200;
+export const FLIGHT = Object.freeze({
+    gravity: 900, fallLimit: 360, tapLift: 300,
+    holdLift: 230, staminaLift: 50, flapInterval: .22,
+    aventura: {speed: 245, gap: 185, minGap: 155},
+    tranquilo: {speed: 205, gap: 220, minGap: 190},
+});
 export const STAGES = ['Primeiras asas', 'Entre raízes', 'Céu compartilhado', 'Coração da mata'];
 export const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -63,7 +69,7 @@ export class Game {
 
     get x() { return Math.max(85, Math.min(220, this.width * .23)); }
     get body() { return { x: this.x - 18, y: this.y - 18, w: 36, h: 36 }; }
-    get speed() { return (this.mode === 'tranquilo' ? 119 : 140) + Math.min(35, this.elapsed * .32); }
+    get speed() { return FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45); }
     start(mode = 'aventura') { this.reset(mode); this.state = 'countdown'; }
 
     press() {
@@ -77,10 +83,10 @@ export class Game {
 
     flap(tap = false) {
         if (this.flapCooldown > 0) return;
-        // Continuous holds lose lift; releasing restores wing energy.
-        const lift = tap ? 165 + 45 * this.stamina : 125 * this.stamina;
-        this.vy = Math.max(-220, this.vy - lift);
-        this.flapCooldown = .24;
+        // Every wingbeat restores upward velocity, including when tired or falling.
+        // Fatigue softens sustained climbing without making the control ineffective.
+        this.vy = -(tap ? FLIGHT.tapLift : FLIGHT.holdLift + FLIGHT.staminaLift * this.stamina);
+        this.flapCooldown = FLIGHT.flapInterval;
         this.wing = 1;
     }
 
@@ -203,18 +209,19 @@ export class Game {
             this.sequence--; this.nextSpawn = .4; return;
         }
         if (n > 0 && n % 6 === 5) {
-            this.nextSpawn = 4.4;
+            this.nextSpawn = 2.8;
             this.onEvent({ type: 'quiet' });
             return;
         }
         const x = this.width + 80;
         const travel = (x - this.x) / this.speed;
-        const gap = this.mode === 'tranquilo' ? 278 : Math.max(220, 270 - n * 2);
+        const profile = FLIGHT[this.mode];
+        const gap = Math.max(profile.minGap, profile.gap - n * 1.5);
         const center = Math.max(200, Math.min(440, this.lastGap + (this.random() - .5) * 110));
         this.lastGap = center;
         const hawkAlone = soloHawk;
         if (hawkAlone) {
-            const dive = this.elapsed > 75 && n % 2 === 0;
+            const dive = this.elapsed > 55 && n % 2 === 0;
             const y = dive ? 100 : center < 320 ? 460 : 170;
             this.entities.push({ id: this.nextId++, kind: 'hawk', solo: true, x, y, startX: x, targetX: this.x - 60, startY: y, targetY: dive ? 420 : y,
                 warning: Math.max(1.7, travel * .25), age: 0, dive, w: 66, h: 34 });
@@ -233,7 +240,7 @@ export class Game {
         }
         this.entities.push({ id: this.nextId++, kind: 'fruit', x: x + 15, y: center, variety: n % FRUITS.length });
         if (n % 4 === 0 || n % 4 === 2) this.entities.push({ id: this.nextId++, kind: n % 4 === 0 ? 'shield' : 'feather', x: x - 120, y: center });
-        this.nextSpawn = Math.max(2.9, 3.6 - this.elapsed * .004);
+        this.nextSpawn = Math.max(1.65, 2.15 - this.elapsed * .003);
     }
 
     tick(dt) {
@@ -245,19 +252,19 @@ export class Game {
         }
         if (this.state !== 'playing') return;
         this.elapsed += dt;
-        this.stage = Math.min(3, Math.floor(this.elapsed / 30));
+        this.stage = Math.min(3, Math.floor(this.elapsed / 20));
         this.feather = Math.max(0, this.feather - dt);
         this.invincible = Math.max(0, this.invincible - dt);
         this.flapCooldown = Math.max(0, this.flapCooldown - dt);
         this.wing = Math.max(0, this.wing - dt * 4);
         this.stamina = Math.max(.08, Math.min(1, this.stamina + (this.held ? -.44 : .65) * dt));
         if (this.held) { this.holdAge += dt; this.flap(); }
-        this.vy = Math.min(this.held ? 250 : 125, this.vy + (this.held ? 470 : 230) * dt);
+        this.vy = Math.min(FLIGHT.fallLimit, this.vy + FLIGHT.gravity * dt);
         this.y += this.vy * dt;
         const targetAngle = Math.max(-.23, Math.min(.28, this.vy / 750));
         this.angle += (targetAngle - this.angle) * (1 - Math.exp(-8 * dt));
         if (this.y < 20 || this.y > HEIGHT - 25) {
-            this.end(false, this.y < 20 ? 'Você voou acima da copa. Solte para planar.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!');
+            this.end(false, this.y < 20 ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!');
             return;
         }
         this.nextSpawn -= dt;
@@ -268,7 +275,7 @@ export class Game {
                 e.age += dt;
                 if (e.warning > 0) { e.warning -= dt; continue; }
                 e.x -= (this.speed + 50) * dt;
-                if (e.retreat) { e.x += 330 * dt; e.y += e.retreatY * dt; }
+                if (e.retreat) { e.x += (this.speed + 200) * dt; e.y += e.retreatY * dt; }
                 else e.y = e.startY + (e.targetY - e.startY) * Math.min(1, (e.startX - e.x) / (e.startX - e.targetX));
                 if (!e.harmless && overlaps(this.body, { x: e.x - 30, y: e.y - 13, w: 60, h: 26 })) this.collide(e, true);
                 continue;

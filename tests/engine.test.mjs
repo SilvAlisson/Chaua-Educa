@@ -1,7 +1,7 @@
 import { QUESTIONS } from '../Chaua-Educa-main/js/questions.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Game, FlightClock, STEP, overlaps } from '../Chaua-Educa-main/js/engine.mjs';
+import { Game, FlightClock, STEP, FLIGHT, overlaps } from '../Chaua-Educa-main/js/engine.mjs';
 
 function flight(options) { const game = new Game(options); game.state = 'playing'; game.nextSpawn = Infinity; return game; }
 function advance(game, seconds) { for (let i = 0; i < Math.round(seconds / STEP); i++) game.tick(STEP); }
@@ -11,14 +11,14 @@ test('a tap lifts; release glides with bounded descent and gentle tilt', () => {
     const game = flight(); game.press(); game.release(); advance(game, .3);
     assert.ok(game.y < 307.2); assert.ok(game.angle >= -.23 && game.angle <= .28);
     game.y = 150; game.vy = 300; advance(game, .5);
-    assert.ok(game.vy <= 125); assert.ok(game.y < 215);
+    assert.ok(game.vy <= FLIGHT.fallLimit); assert.ok(game.y > 300 && game.y < 340);
 });
 
-test('a continuous hold loses lift and cannot supply infinite ascent', () => {
+test('a continuous hold keeps climbing even after stamina is depleted', () => {
     const game = flight(); game.press();
     // Center vertically to isolate fatigue from boundary collisions.
     for (let i = 0; i < 480; i++) { game.y = 320; game.tick(STEP); }
-    assert.ok(game.stamina <= .1); assert.ok(game.vy > 0);
+    assert.ok(game.stamina <= .1); assert.ok(game.vy < 0);
     const energy = game.stamina; game.release(); advance(game, .25);
     assert.ok(game.stamina > energy);
 });
@@ -100,7 +100,7 @@ test('generation introduces snakes and hawks gradually and preserves open routes
             if (game.elapsed < 22 && obstacle) assert.ok(!obstacle.snake);
             if (game.elapsed < 42) assert.equal(hawks.length, 0);
             if (obstacle) {
-                assert.ok(obstacle.bottom-obstacle.top>=220);
+                assert.ok(obstacle.bottom-obstacle.top>=FLIGHT.aventura.minGap);
                 const center = (obstacle.top+obstacle.bottom)/2;
                 assert.ok(Math.abs(center-lastCenter)<=55.01); lastCenter=center;
                 for (const hawk of hawks) {

@@ -40,3 +40,22 @@ test('previous scores and discoveries remain accessible without rewriting old sa
  assert.equal(DB.previousScores()[0].score_val,80);assert.deepEqual(DB.unlocked(),['Manga']);DB.unlock('Goiaba');
  assert.deepEqual(DB.unlocked(),['Manga','Goiaba']);assert.equal(data.get('chaua-educa-v2'),original);
 });
+
+test('holding reverses a fast fall and keeps climbing with minimum stamina',()=>{
+ const g=new Game();g.state='playing';g.nextSpawn=Infinity;g.y=500;g.vy=360;g.stamina=.08;
+ g.press();assert.ok(g.vy<0);
+ for(let i=0;i<96;i++){g.tick(STEP);assert.ok(g.vy<0,'holding must keep producing lift');}
+ assert.ok(g.y<390);assert.equal(g.state,'playing');
+});
+test('releasing produces a decisive fall while retaining gentle pitch',()=>{
+ const g=new Game();g.state='playing';g.nextSpawn=Infinity;g.y=200;g.vy=0;
+ for(let i=0;i<72;i++)g.tick(STEP);
+ assert.ok(g.y>340&&g.y<360);assert.equal(g.vy,360);assert.ok(g.angle<=.28);
+});
+test('both modes are faster and openings are compact but leave clearance',()=>{
+ for(const mode of ['aventura','tranquilo']){
+  const g=new Game({random:()=>.5});g.reset(mode);g.spawn();const wood=g.entities.find(e=>e.kind==='wood');
+  assert.ok(g.speed>=205);assert.ok(wood.bottom-wood.top<=220);assert.ok(wood.bottom-wood.top>=155);
+  assert.ok(g.nextSpawn<=2.15);
+ }
+});
