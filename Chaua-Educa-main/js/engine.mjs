@@ -58,10 +58,10 @@ export class Game {
 
     reset(mode = 'aventura') {
         Object.assign(this, {
-            mode, state: 'menu', elapsed: 0, score: 0, fruits: 0, correct: 0,
+            mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, invincible: 0, held: false, holdAge: 0,
             flapCooldown: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
-            vy: 0, countdown: 2.4, entities: [], particles: [], nextSpawn: 1.5,
+            vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
             sequence: 0, lastGap: 320, question: null, questionPool: [],
             answerResult: null, reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0,
         });
@@ -89,6 +89,7 @@ export class Game {
         this.vy = -(tap ? FLIGHT.tapLift : FLIGHT.holdLift + FLIGHT.staminaLift * this.stamina);
         this.flapCooldown = FLIGHT.flapInterval;
         this.wing = 1;
+        this.onEvent({type:'flap'});
     }
 
     pause() {
@@ -102,11 +103,13 @@ export class Game {
     addScore(value, multiplier = this.feather > 0 ? 2 : 1) {
         this.score += value * multiplier;
         this.onEvent({ type: 'points', value: value * multiplier });
+        this.popups.push({x:this.x+28,y:this.y-30,text:`+${value*multiplier}`,gold:multiplier===2,life:.85});
+        if(this.popups.length>6)this.popups.shift();
     }
 
     power(kind) {
         if (kind === 'shield') this.shield = true;
-        if (kind === 'feather') this.feather = FEATHER_SECONDS;
+        if (kind === 'feather') {this.feather = FEATHER_SECONDS;this.powerFade=0;}
         this.onEvent({ type: kind });
         this.burst(this.x, this.y, kind === 'shield' ? '#aedf8d' : '#ffd76b', 12);
     }
@@ -125,6 +128,8 @@ export class Game {
             } else {
                 entity.broken = true;
                 entity.brokenSide = entity.hitSide;
+                entity.breakFx={side:entity.hitSide,age:0};
+                this.woodBurst(this.x,this.y);
                 const snakeSide = 'bottom';
                 if (entity.snake && (!entity.brokenSide || entity.brokenSide === snakeSide)) { entity.snake.retreat = true; entity.snake.retreatTime = 0; }
             }
@@ -166,7 +171,8 @@ export class Game {
         this.fruits++;
         this.addScore(3, multiplier);
         this.onEvent({ type: 'fruit', fruit: FRUITS[entity.variety ?? 0].id });
-        this.burst(entity.x, entity.y, '#ffc45b', 10);
+        this.collectPulse=.26;
+        this.burst(entity.x, entity.y, multiplier===2?'#ffe39a':'#bce77f', 12);
         if (this.fruits % 2 === 0) {
             if (!this.questionPool.length) this.questionPool = QUESTIONS.map((_, i) => i);
             const index = Math.floor(this.random() * this.questionPool.length);
@@ -179,23 +185,45 @@ export class Game {
     }
 
     burst(x, y, color, count) {
-        for (let i = 0; i < count; i++) this.particles.push({ x, y, vx: (this.random() - .5) * 160, vy: (this.random() - .5) * 160, life: .7, color });
+        for(let i=0;i<count;i++) {
+            const a=i*Math.PI*2/count, speed=55+(i*29)%85;
+            this.particle({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed-25,life:.6,maxLife:.6,color,spark:true});
+        }
     }
 
     featherBurst(colors, count) {
         // Cosmetic variation must not consume the obstacle/question random stream.
         for(let i=0;i<count;i++) {
             const angle=i*Math.PI*2/count, speed=125+(i*37)%95;
-            this.particles.push({x:this.x,y:this.y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed-55,
+            this.particle({x:this.x,y:this.y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed-55,
                 life:.48,maxLife:.48,color:colors[i%colors.length],feather:true,rotation:angle,spin:i%2?9:-7});
         }
     }
 
+    particle(p) {
+        if(this.particles.length>=96)this.particles.shift();
+        this.particles.push(p);
+    }
+
+    woodBurst(x,y) {
+        for(let i=0;i<16;i++) {
+            const a=i*2.39996;
+            this.particle({x,y,vx:Math.cos(a)*(90+i*5),vy:Math.sin(a)*110-75,
+                life:.65,maxLife:.65,color:i%3?'#9d7545':'#9aba67',chip:i%3!==0,
+                size:3+i%5,rotation:a,spin:i%2?7:-9});
+        }
+    }
+
     advanceEffects(dt) {
+        this.collectPulse=Math.max(0,this.collectPulse-dt);
+        this.powerFade=Math.max(0,this.powerFade-dt);
+        for(const p of this.popups){p.life-=dt;if(!this.reducedMotion)p.y-=24*dt;}
+        this.popups=this.popups.filter(p=>p.life>0);
+        for(const e of this.entities)if(e.breakFx){e.breakFx.age+=dt;if(e.breakFx.age>=.24)delete e.breakFx;}
         if(this.hit) {this.hit.age+=dt;if(this.hit.age>=.3)this.hit=null;}
         for(const p of this.particles) {
             p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;
-            if(p.feather) {p.vy+=210*dt;p.rotation+=p.spin*dt;}
+            if(p.feather||p.chip) {p.vy+=(p.chip?380:210)*dt;p.rotation+=p.spin*dt;}
         }
         this.particles=this.particles.filter(p=>p.life>0);
     }
@@ -279,8 +307,11 @@ export class Game {
         }
         if (this.state !== 'playing') return;
         this.elapsed += dt;
+        this.distance += this.speed*dt;
         this.stage = Math.min(3, Math.floor(this.elapsed / 20));
+        const previousFeather=this.feather;
         this.feather = Math.max(0, this.feather - dt);
+        if(previousFeather>0 && this.feather===0){this.powerFade=.5;this.onEvent({type:'feather-end'});}
         this.invincible = Math.max(0, this.invincible - dt);
         this.flapCooldown = Math.max(0, this.flapCooldown - dt);
         this.wing = Math.max(0, this.wing - dt * 4);

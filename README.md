@@ -84,3 +84,14 @@ O galho da arte inicial agora se prolonga até uma árvore lateral com casca, qu
 Colisões fatais exibem uma explosão curta de penas durante 0,42 s antes do resultado. Durante esse intervalo, voo, obstáculos, pontuação e relógios dos poderes ficam congelados; só os efeitos avançam. O tronco atingido recebe um tremor amortecido de até 6 unidades por 0,3 s, sem mover sua colisão. O escudo é representado por nove penas orbitando o papagaio e também solta penas ao absorver o contato. A pena dourada mantém uma aura e um rastro enquanto o multiplicador estiver ativo.
 
 Movimento reduzido mantém os indicadores estáticos, omite partículas/tremor e abre o resultado imediatamente. Erros no quiz não acionam animação de impacto. Os efeitos de penas não consomem a aleatoriedade dos obstáculos/perguntas. Validação: 37 testes e build; aparência final ainda requer avaliação em navegador.
+
+### Imersão da floresta
+
+- Camadas de árvores distantes/intermediárias com velocidades distintas, folhas próximas apenas nas bordas, cipós e folhagem com vento sincronizado. A rolagem usa distância integrada, sem saltos ao acelerar. Luz e tons fazem transições de quatro segundos; trechos ganham flores e bromélias decorativas.
+- Vento e cantos sintetizados localmente, com sons de asas, coleta e poderes. O botão de som controla tudo. O contexto de áudio só é criado após interação com som habilitado; ambiente silencia em pausas, quiz, resultado e ao perder foco. Não há downloads de áudio nem timers permanentes.
+- Coletas exibem partículas, pontos próximos ao papagaio, reação breve do personagem e do contador. Pontos dobrados usam dourado. As asas têm transição curta entre poses e a cauda tem movimento secundário discreto.
+- Cobras movimentam a região da cabeça e mostram a língua ocasionalmente; o resto do tronco e a colisão permanecem estáticos. Gaviões alternam batidas e planeio.
+- Madeira destruída pelo escudo desaparece em 0,24 s com fragmentos de casca e folhas. A proteção temporária tem contorno azul tracejado, diferente das penas do escudo. A aura ×2 encolhe nos três segundos finais e termina com um anel e aviso sonoro suaves.
+- Limite de 96 partículas e seis indicadores de pontos; efeitos cosméticos não consomem a aleatoriedade da partida. Pausas congelam relógios e efeitos; movimento reduzido remove animações decorativas e deslocamento dos pontos.
+
+Validação: 43 testes automatizados, build SCSS e inspeção de imagens renderizadas com Canvas nativo/Skia usando os assets reais. Uma cena de 960 × 640 levou cerca de 1,4 ms por renderização neste ambiente (60 quadros); esse número não representa FPS do navegador ou de um notebook específico. Interface DOM, áudio audível e sensação ao jogar ainda precisam de avaliação no navegador.

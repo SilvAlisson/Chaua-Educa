@@ -1,3 +1,4 @@
+import { ForestAudio } from './audio.mjs';
 import { SOURCES } from './questions.mjs';
 import { FRUITS } from './fruits.mjs';
 import DB from './database.js';
@@ -12,31 +13,13 @@ const dialogs = [...document.querySelectorAll('dialog')];
 const flightInputs = new Set();
 let player = '', selectedMode = 'aventura', previousState = '', board = 'aventura';
 let returnToResult = false, lastTime = 0, toastUntil = 0, pointsUntil = 0;
-let resultAnimation = null, soundOn = false, audioContext;
+let resultAnimation = null, soundOn = false;
 let assetsReady = false;
 try { soundOn = localStorage.getItem('chaua-sound') === 'true'; } catch { /* Optional preference. */ }
 
-function sound(type) {
-    if (!soundOn) return;
-    try {
-        audioContext ??= new (window.AudioContext || window.webkitAudioContext)();
-        if (audioContext.state === 'suspended') audioContext.resume();
-        const notes = {
-            fruit: [660, 880], shield: [330, 494, 660], 'shield-break': [220, 147],
-            feather: [523, 659, 784, 1046], correct: [660, 880, 990],
-            incorrect: [260, 196], lose: [392, 330, 220], win: [523, 659, 784, 1046, 1318],
-        }[type];
-        if (!notes) return;
-        notes.forEach((frequency, i) => {
-            const start = audioContext.currentTime + i * .085;
-            const oscillator = audioContext.createOscillator(), gain = audioContext.createGain();
-            oscillator.type = type === 'shield-break' ? 'triangle' : 'sine';
-            oscillator.frequency.value = frequency;
-            gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(.065, start + .012); gain.gain.exponentialRampToValueAtTime(.001, start + .2);
-            oscillator.connect(gain).connect(audioContext.destination); oscillator.start(start); oscillator.stop(start + .22);
-        });
-    } catch { /* Audio is optional, including on silent mobile devices. */ }
-}
+const forestAudio=new ForestAudio();
+forestAudio.setEnabled(soundOn);
+function sound(type) { forestAudio.setEnabled(soundOn);forestAudio.play(type); }
 
 function toast(text) {
     $('#toast').textContent = text;
@@ -50,7 +33,13 @@ export const game = new Game({ onEvent(event) {
     if (event.type === 'fruit') DB.unlock(event.fruit);
     const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · um respiro para continuar', quiet: 'Uma clareira. Recupere o fôlego.' };
     if (messages[event.type]) toast(messages[event.type]);
-    if (event.type === 'points') { $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1; }
+    if (event.type === 'points') {
+        $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1;
+        if(!reducedMotion.matches) {
+            const score=$('#score');score.getAnimations().forEach(a=>a.cancel());
+            score.animate([{transform:'scale(1)'},{transform:'scale(1.16)',color:'#b48c32'},{transform:'scale(1)'}],{duration:240});
+        }
+    }
 } });
 const clock = new FlightClock(game);
 
@@ -136,7 +125,7 @@ window.addEventListener('keydown', event => {
     if (['ArrowUp', 'Space'].includes(event.code)) { event.preventDefault(); if (!event.repeat) hold(event.code); }
 });
 window.addEventListener('keyup', event => { if (['ArrowUp', 'Space'].includes(event.code)) release(event.code); });
-function autoPause() { clearInputs(); game.pause(); syncUI(); }
+function autoPause() { clearInputs(); game.pause(); forestAudio.update('paused',false,game.elapsed,game.stage); syncUI(); }
 window.addEventListener('blur', autoPause);
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
 
@@ -253,6 +242,7 @@ function frame(time) {
     game.reducedMotion=reducedMotion.matches;
     clock.advance(delta);
     syncUI();
+    forestAudio.update(game.state,!document.hidden&&document.hasFocus(),time/1000,game.stage);
     if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
     else renderer.game(game.visual(clock.accumulator / (1 / 120)), reducedMotion.matches, time / 1000);
     requestAnimationFrame(frame);

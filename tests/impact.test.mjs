@@ -16,7 +16,7 @@ test('fatal impact animates briefly with frozen flight and ends exactly once',()
 test('shield sheds feathers and shakes wood without ending or awarding points',()=>{
  const g=flight();g.shield=true;const e={id:4,kind:'wood',hitSide:'top'};g.collide(e);
  assert.equal(g.state,'playing');assert.equal(g.shield,false);assert.equal(e.broken,true);
- assert.equal(g.score,0);assert.equal(g.hit.id,4);assert.ok(g.particles.every(p=>p.feather));
+ assert.equal(g.score,0);assert.equal(g.hit.id,4);assert.ok(g.particles.some(p=>p.feather));assert.ok(g.particles.some(p=>p.chip));
  g.advanceEffects(.31);assert.equal(g.hit,null);
 });
 test('reduced motion and non-collision losses do not delay the result',()=>{
