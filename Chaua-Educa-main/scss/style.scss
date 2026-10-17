@@ -1665,3 +1665,7 @@ dialog[open]::backdrop { animation: forest-backdrop .25s ease both; }
   .hud .toast { bottom: calc(var(--safe-bottom) + 12px); max-width: 38%; }
   .countdown strong { font-size: 72px; }
 }
+
+.score-details { margin: 0 0 18px; text-align: center; font-size: 13px; color: var(--muted); }
+.score-details summary { cursor: pointer; padding: 10px; font-weight: 800; color: var(--ink); }
+.score-details p { margin: 4px 0; font-size: 13px; line-height: 1.6; }

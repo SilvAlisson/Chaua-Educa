@@ -1,3 +1,4 @@
+import { offerPower, POWER_BALANCE } from './powers.mjs';
 import { advanceHawk, advanceSnake } from './animals.mjs';
 import { planEncounter, seededRandom } from './encounters.mjs';
 import { FRUITS } from './fruits.mjs';
@@ -64,7 +65,9 @@ export class Game {
     reset(mode = 'aventura') {
         this.random = this.randomOverride ?? seededRandom(this.seed ^ 0x9e3779b9);
         this.encounterRandom = this.randomOverride ?? seededRandom(this.seed);
+        this.powerRandom = this.randomOverride ?? seededRandom(this.seed ^ 0x85ebca6b);
         Object.assign(this, {
+            scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:0,nextShield:0,nextFeather:18},
             mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, invincible: 0, held: false, holdAge: 0,
             flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
@@ -112,17 +115,20 @@ export class Game {
     }
     resume() { if (this.state === 'paused') { this.countdown = Math.max(1.5, this.beforePause === 'countdown' ? this.countdown : 0); this.state = 'countdown'; this.snapshot(); } }
 
-    addScore(value, multiplier = this.feather > 0 ? 2 : 1) {
+    addScore(value, multiplier = this.feather > 0 ? 2 : 1, source = 'passage') {
         this.score += value * multiplier;
+        this.scoreBreakdown[source] += value * multiplier;
         this.onEvent({ type: 'points', value: value * multiplier });
         this.popups.push({x:this.x+28,y:this.y-30,text:`+${value*multiplier}`,gold:multiplier===2,life:.85});
         if(this.popups.length>6)this.popups.shift();
     }
 
     power(kind) {
+        if (kind === 'shield' && this.shield) { this.onEvent({type:'shield-kept'}); return; }
+        const renewed=kind==='feather' && this.feather>0;
         if (kind === 'shield') this.shield = true;
         if (kind === 'feather') {this.feather = FEATHER_SECONDS;this.powerFade=0;}
-        this.onEvent({ type: kind });
+        this.onEvent({ type: kind, renewed });
         this.burst(this.x, this.y, kind === 'shield' ? '#aedf8d' : '#ffd76b', 12);
     }
 
@@ -139,12 +145,15 @@ export class Game {
     }
 
     boundaryContact(side) {
-        if (this.invincible > 0) { this.recover(null, side); return; }
+        if (this.invincible > 0) { for(const r of this.routes.values())r.failed=true; this.recover(null, side); return; }
         this.collide({kind:'boundary', side});
     }
 
     collide(entity, animal = false, host = entity) {
-        if (this.state !== 'playing' || this.invincible > 0) return;
+        if (this.state !== 'playing') return;
+        const route=this.routes.get(host.route);if(route)route.failed=true;
+        if(entity.kind==='boundary')for(const r of this.routes.values())r.failed=true;
+        if(this.invincible>0)return;
         const boundary = entity.kind === 'boundary' ? entity.side : null;
         this.hit = boundary ? null : {id:host.id, age:0};
         if (this.shield) {
@@ -189,7 +198,7 @@ export class Game {
         if (this.state !== 'quiz' || this.answerResult !== null) return;
         const right = value === this.question.answer;
         this.answerResult = right;
-        if (right) { this.correct++; this.addScore(2, this.quizMultiplier); }
+        if (right) { this.correct++; this.addScore(2, this.quizMultiplier, 'quiz'); }
         this.onEvent({ type: right ? 'correct' : 'incorrect', questionId:this.question.id });
         this.reviewIds = this.reviewIds.filter(id=>id!==this.question.id);
         if (!right) this.reviewIds.push(this.question.id);
@@ -204,11 +213,21 @@ export class Game {
     }
 
     collect(entity) {
+        if(this.state!=='playing' || entity.collected)return;
         entity.collected = true;
         if (entity.kind !== 'fruit') return this.power(entity.kind);
         const multiplier = this.feather > 0 ? 2 : 1;
         this.fruits++;
-        this.addScore(3, multiplier);
+        this.addScore(3, multiplier, 'fruit');
+        const route=this.routes.get(entity.route);
+        if(route && !route.failed && !route.awarded) {
+            route.collected++;
+            if(route.collected===route.total) {
+                route.awarded=true;
+                this.addScore(POWER_BALANCE.routeBonus,multiplier,'route');
+                this.onEvent({type:'route-complete',points:POWER_BALANCE.routeBonus*multiplier});
+            }
+        }
         this.onEvent({ type: 'fruit', fruit: FRUITS[entity.variety ?? 0].id });
         this.collectPulse=.26;
         this.burst(entity.x, entity.y, multiplier===2?'#ffe39a':'#bce77f', 12);
@@ -335,15 +354,17 @@ export class Game {
         } else {
             const variants = ['plain', 'broken', 'hollow', 'branch'];
             const variant = plan.variant ?? (this.elapsed > 17 ? variants[n % variants.length] : 'plain');
-            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false, encounter:plan.id };
+            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false, route:n, encounter:plan.id };
             if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, phase:'watching', retreat: false };
             if (variant === 'branch') wood.snake = { y: wood.bottom + 12, branch: true, phase:'watching', retreat: false };
             this.entities.push(wood);
         }
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
+        if(fruits.length>1)this.routes.set(n,{total:fruits.length,collected:0,awarded:false,failed:false});
         for(const [index,point] of fruits.entries()) this.entities.push({ id: this.nextId++, kind:'fruit', x:x+point.x, y:point.y,
             variety:(n+index)%FRUITS.length, route:n, optional:!hawkAlone&&plan.optional });
-        if (n % 4 === 0 || n % 4 === 2) this.entities.push({ id: this.nextId++, kind: n % 4 === 0 ? 'shield' : 'feather', x: x - 120, y: center });
+        const kind=hawkAlone?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,entities:this.entities,schedule:this.powerSchedule,opportunity:fruits.length>1,random:this.powerRandom});
+        if(kind)this.entities.push({id:this.nextId++,kind,x:x+fruits[0].x-125,y:fruits[0].y});
         this.nextSpawn = plan.interval;
     }
 
@@ -407,6 +428,7 @@ export class Game {
             } else if (!e.collected && overlaps(this.body, { x: e.x - 18, y: e.y - 18, w: 36, h: 36 })) this.collect(e);
         }
         this.entities = this.entities.filter(e => e.x > -150 && e.x < this.width + 800 && !e.collected && !e.finished);
+        for(const id of this.routes.keys())if(!this.entities.some(e=>e.kind==='fruit'&&e.route===id))this.routes.delete(id);
         this.advanceEffects(dt);
         this.maybeOpenQuiz();
         if (this.score >= VICTORY_SCORE && this.state === 'playing' && !this.quizDue) this.end(true, 'Você completou a aventura do Chauá!');

@@ -34,6 +34,9 @@ export const game = new Game({ onEvent(event) {
     if (['correct','incorrect'].includes(event.type)) DB.recordDiscovery(player,event.questionId,event.type==='correct');
     const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · proteção breve para retomar o voo', quiet: 'Uma clareira. Recupere o fôlego.' };
     if (messages[event.type]) toast(messages[event.type]);
+    if(event.type==='shield-kept')toast('Seu escudo já está pronto · proteção mantida');
+    if(event.type==='feather' && event.renewed)toast('Pena renovada · mais 10s de pontos ×2');
+    if(event.type==='route-complete')toast(`Trilha completa · +${event.points} pontos`);
     if (event.type === 'points') {
         $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1;
         if(!reducedMotion.matches) {
@@ -167,6 +170,7 @@ function result() {
     $('#result-eyebrow').textContent = game.won ? 'UM VOO PARA GUARDAR' : 'CADA VOO É UM COMEÇO';
     $('#result-reason').textContent = game.reason;
     $('#new-record').hidden = !record || game.score === 0;
+    $('#score-breakdown').textContent=`Passagens ${game.scoreBreakdown.passage} · Frutas ${game.scoreBreakdown.fruit} · Respostas ${game.scoreBreakdown.quiz} · Trilhas ${game.scoreBreakdown.route}. Valores já incluem a pena ×2.`;
     $('#result-fruits').textContent = game.fruits; $('#result-correct').textContent = game.correct;
     $('#storage-note').textContent = DB.storageAvailable ? 'Seu recorde fica salvo neste navegador.' : 'Armazenamento indisponível: recorde mantido apenas nesta sessão.';
     const birdCanvas = document.createElement('canvas'); birdCanvas.width = 300; birdCanvas.height = 210;
