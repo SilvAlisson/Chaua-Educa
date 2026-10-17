@@ -143,3 +143,13 @@ A seleção evita repetir o padrão imediatamente anterior. O deslocamento entre
 A simulação tem uma semente por partida (`game.seed`) e histórico limitado aos últimos 12 encontros. `game.start(modo, temasDeRevisao, semente)` reproduz a geração; perguntas usam um fluxo aleatório separado, para que responder não mude o próximo obstáculo. Reproduzir a partida inteira também exige as mesmas entradas do jogador.
 
 Validação: 71 testes aprovados, incluindo 80 rotas de três minutos nos dois modos sem frutas, poderes ou pausas de quiz, controladas por um piloto de teste; verificações de geometria em 11.200 planos; reprodução por semente e percurso completo até a vitória. Isso demonstra viabilidade para essas amostras, não garante conforto humano nem cobre todas as sementes. Curvas de coleta podem antecipar os 200 pontos; as subidas e descidas mantêm uma fruta para evitar excesso de recompensa. O equilíbrio fino de poderes e a duração da jornada serão tratados nas etapas 7 e 8. Teste interativo no navegador continua pendente.
+
+### Etapa 6 — encontros com animais
+
+`js/animals.mjs` centraliza as fases dos encontros. Gaviões aguardam o aviso sem deslocamento, atravessam pela reta anunciada e tornam-se inofensivos depois de ultrapassar a ave. O mergulho mantém os pontos inicial e final definidos no nascimento; não há perseguição nem mudança de alvo. O aviso mostra tipo de encontro e segundos restantes. Ao tocar o escudo, o gavião se afasta para a direita, com orientação visual correspondente, e sai da simulação em até dois segundos.
+
+Cobras passam por observação, aviso de ocupação, proximidade, saída e afastamento. O aviso distingue galho e tronco, em fonte independente da escala do mundo. Elas não estendem a colisão nem atacam de surpresa: o perigo é o contato com a posição ocupada. O escudo mantém o afastamento sem pontos por atingir fauna. Gaviões continuam isolados da madeira para preservar uma rota livre.
+
+Três borboletas pequenas e discretas compõem a camada distante. São decorativas, sem brilho de coleta, colisão ou sorteio que altere os encontros; ficam estáticas com movimento reduzido. As instruções distinguem essa fauna dos encontros interativos.
+
+Validação: 75 testes aprovados e build concluído. Inclui correspondência entre aviso e trajetória, ausência de reposicionamento do alvo, saída/afastamento, colisões fixas das cobras, congelamento na pausa e as 80 simulações de três minutos da etapa anterior. A avaliação visual e de conforto no navegador permanece pendente.

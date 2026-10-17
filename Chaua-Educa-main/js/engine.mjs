@@ -1,3 +1,4 @@
+import { advanceHawk, advanceSnake } from './animals.mjs';
 import { planEncounter, seededRandom } from './encounters.mjs';
 import { FRUITS } from './fruits.mjs';
 import { QUESTIONS } from './questions.mjs';
@@ -151,6 +152,7 @@ export class Game {
             this.invincible = CONTACT.grace;
             if (host.kind === 'wood') host.contacted = true;
             if (animal) {
+                entity.phase = 'retreat';
                 entity.retreat = true;
                 entity.retreatTime = 0;
                 entity.harmless = true;
@@ -329,13 +331,13 @@ export class Game {
             const dive = this.elapsed > 55 && n % 2 === 0;
             const y = dive ? 100 : center < 320 ? 460 : 170;
             this.entities.push({ id: this.nextId++, kind: 'hawk', solo: true, x, y, startX: x, targetX: this.x - 60, startY: y, targetY: dive ? 420 : y,
-                warning: Math.max(1.7, travel * .25), age: 0, dive, w: 66, h: 34 });
+                warning: Math.max(1.7, travel * .25), phase:'warning', age: 0, dive, w: 66, h: 34 });
         } else {
             const variants = ['plain', 'broken', 'hollow', 'branch'];
             const variant = plan.variant ?? (this.elapsed > 17 ? variants[n % variants.length] : 'plain');
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false, encounter:plan.id };
-            if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, retreat: false };
-            if (variant === 'branch') wood.snake = { y: wood.bottom + 12, branch: true, retreat: false };
+            if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, phase:'watching', retreat: false };
+            if (variant === 'branch') wood.snake = { y: wood.bottom + 12, branch: true, phase:'watching', retreat: false };
             this.entities.push(wood);
         }
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
@@ -388,17 +390,13 @@ export class Game {
         for (const e of this.entities) {
             if (this.state !== 'playing') break;
             if (e.kind === 'hawk') {
-                e.age += dt;
-                if (e.warning > 0) { e.warning -= dt; continue; }
-                e.x -= (this.speed + 50) * dt;
-                if (e.retreat) { e.x += (this.speed + 200) * dt; e.y += e.retreatY * dt; }
-                else e.y = e.startY + (e.targetY - e.startY) * Math.min(1, (e.startX - e.x) / (e.startX - e.targetX));
-                if (!e.harmless && overlaps(this.body, { x: e.x - 30, y: e.y - 13, w: 60, h: 26 })) this.collide(e, true);
+                advanceHawk(e,dt,this.speed,this.x);
+                if (e.phase !== 'warning' && !e.harmless && overlaps(this.body, { x: e.x - 30, y: e.y - 13, w: 60, h: 26 })) this.collide(e, true);
                 continue;
             }
             e.x -= this.speed * dt;
             if (e.kind === 'wood') {
-                if (e.snake?.retreat) e.snake.retreatTime += dt;
+                advanceSnake(e,dt,this.x);
                 if (e.snake && !e.snake.retreat) {
                     if (this.snakeRects(e).some(rect => overlaps(this.body, rect))) this.collide(e.snake, true, e);
                 }
@@ -408,7 +406,7 @@ export class Game {
                 if (!e.scored && e.x + 85 < this.x - 20) { e.scored = true; if (!e.broken && !e.contacted) this.addScore(1); }
             } else if (!e.collected && overlaps(this.body, { x: e.x - 18, y: e.y - 18, w: 36, h: 36 })) this.collect(e);
         }
-        this.entities = this.entities.filter(e => e.x > -150 && e.x < this.width + 800 && !e.collected);
+        this.entities = this.entities.filter(e => e.x > -150 && e.x < this.width + 800 && !e.collected && !e.finished);
         this.advanceEffects(dt);
         this.maybeOpenQuiz();
         if (this.score >= VICTORY_SCORE && this.state === 'playing' && !this.quizDue) this.end(true, 'Você completou a aventura do Chauá!');

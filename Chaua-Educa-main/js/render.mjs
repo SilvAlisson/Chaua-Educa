@@ -200,6 +200,17 @@ export class Renderer {
         this.background(game.elapsed, game.distance, game.stage, false, reduced);
         const view = flightViewport(this.w, this.h, this.safeInsets);
         const s = view.scale;
+        // Tiny, muted butterflies stay in the distant layer; no pickup glow or collision.
+        c.save();c.globalAlpha=.32;
+        for(let i=0;i<3;i++) {
+            const t=reduced?0:game.elapsed;
+            const bx=view.x+view.w*(.38+i*.2)+Math.sin(t*.3+i)*12;
+            const by=view.y+view.h*.11+Math.sin(t*.5+i*2)*7;
+            const wing=reduced?3:1.2+Math.abs(Math.sin(t*5+i))*2;
+            oval(c,bx-wing,by,wing,2.5,'#687f6a',-.45);
+            oval(c,bx+wing,by,wing,2.5,'#687f6a',.45);
+        }
+        c.restore();
         c.save(); c.beginPath(); c.rect(view.x,view.y,view.w,view.h); c.clip();
         c.translate(view.x-view.worldLeft*s,view.y); c.scale(s, s);
         c.beginPath(); c.rect(0,0,WIDTH,HEIGHT); c.clip();
@@ -237,7 +248,7 @@ export class Renderer {
                 if (e.warning > 0) {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
                     c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
-                } else this.hawk(e.x, e.y, reduced ? 0 : game.elapsed, false, e.dive ? -Math.atan2(e.targetY - e.startY, e.startX - e.targetX) : 0);
+                } else this.hawk(e.x, e.y, reduced ? 0 : game.elapsed, false, e.retreat ? Math.atan2(e.retreatY || -180,150) : e.dive ? -Math.atan2(e.targetY - e.startY, e.startX - e.targetX) : 0, !!e.retreat);
             } else if (!e.collected) this.pickup(e, game.elapsed, reduced);
         }
         if (game.shield || game.invincible > 0) {
@@ -278,7 +289,15 @@ export class Renderer {
             c.fillText(e.dive?'MERGULHO':'TRAVESSIA',p.x+58,p.y+15);
             c.beginPath();c.moveTo(p.x+19,p.y+8);c.lineTo(p.x+10,p.y+(e.dive?17:8));
             c.lineTo(p.x+10,p.y+11);c.moveTo(p.x+10,p.y+(e.dive?17:8));c.lineTo(p.x+16,p.y+(e.dive?17:13));c.stroke();
-            c.font='700 11px Nunito';c.fillText('Gavião',p.x+54,p.y+29);c.restore();
+            c.font='700 11px Nunito';c.fillText(`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`,p.x+54,p.y+29);c.restore();
+        }
+        for(const e of game.entities) if(e.kind==='wood' && e.snake?.phase==='warning') {
+            const x=Math.max(view.x+4,Math.min(view.x+view.w-140,view.x+(e.x-view.worldLeft)*s-30));
+            const y=Math.min(view.y+view.h-29,view.y+(e.bottom+35)*s);
+            c.save();c.fillStyle='#fff0d9';c.strokeStyle='#70513d';c.lineWidth=1;
+            c.beginPath();c.roundRect(x,y,136,25,8);c.fill();c.stroke();
+            c.font='800 12px Nunito';c.fillStyle='#49372c';c.textAlign='center';
+            c.fillText(e.snake.branch?'Cobra no galho':'Cobra no tronco',x+68,y+17);c.restore();
         }
         if (game.state === 'ended' && game.won) {
             for (let i = 0; i < 32; i++) {
@@ -370,11 +389,11 @@ export class Renderer {
         }
     }
 
-    hawk(x, y, time, warning, angle = 0) {
+    hawk(x, y, time, warning, angle = 0, retreat = false) {
         const image=images.get(`hawk-${warning||time%5>2.4?1:Math.floor(time*6)%2}`);
         if (!image) return;
         const c=this.c, factor=(warning?49:110)/image.naturalWidth;
-        c.save(); c.translate(x,y); c.rotate(angle);
+        c.save(); c.translate(x,y); c.rotate(angle); if(retreat)c.scale(-1,1);
         c.drawImage(image,-image.naturalWidth*factor*.43,-image.naturalHeight*factor*.66,image.naturalWidth*factor,image.naturalHeight*factor);
         c.restore();
     }
