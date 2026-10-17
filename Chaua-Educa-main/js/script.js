@@ -31,6 +31,7 @@ function toast(text) {
 export const game = new Game({ onEvent(event) {
     sound(event.type);
     if (event.type === 'fruit') DB.unlock(event.fruit);
+    if (['correct','incorrect'].includes(event.type)) DB.recordDiscovery(player,event.questionId,event.type==='correct');
     const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · proteção breve para retomar o voo', quiet: 'Uma clareira. Recupere o fôlego.' };
     if (messages[event.type]) toast(messages[event.type]);
     if (event.type === 'points') {
@@ -68,7 +69,7 @@ function start() {
     closeDialogs(); clearInputs();
     cancelAnimationFrame(resultAnimation);
     app.classList.add('in-flight'); $('#home').hidden = true; $('#hud').hidden = false;
-    resize(); game.start(selectedMode); previousState = ''; clock.reset(); lastTime = 0;
+    resize(); game.start(selectedMode, DB.reviewTopics(player)); previousState = ''; clock.reset(); lastTime = 0;
     $('#score-bonus').textContent = ''; $('#toast').classList.remove('visible'); toastUntil = 0;
     $('#screen-reader-status').textContent = 'O voo vai começar. Toque, seta para cima ou espaço para bater asas. Solte para descer.';
     // Remove focus from the submitting/restarting button, avoiding Space clicks.
@@ -145,7 +146,7 @@ function answer(value) {
     if (result === null) return;
     $('#answer-true').disabled = true; $('#answer-false').disabled = true;
     const feedback = $('#answer-feedback');
-    feedback.textContent = result ? `Boa descoberta! +${2 * game.quizMultiplier} pontos.` : `A afirmação é ${game.question.answer ? 'verdadeira' : 'falsa'}. Guarde essa descoberta para o próximo voo.`;
+    feedback.textContent = result ? `Boa descoberta! +${2 * game.quizMultiplier} pontos.` : `A afirmação é ${game.question.answer ? 'verdadeira' : 'falsa'}. ${game.mode === 'tranquilo' ? 'Você pode continuar o voo.' : 'No Desafio, esta resposta encerra o voo.'}`;
     feedback.textContent += ` ${game.question.explanation}`;
     const source = SOURCES[game.question.source];
     const link = document.createElement('a'); link.href = source.url; link.textContent = ' Fonte: ' + source.label; link.target = '_blank'; link.rel = 'noopener noreferrer'; feedback.append(link);
@@ -214,6 +215,7 @@ function syncUI() {
         if (game.state === 'quiz') {
             $('#question-text').textContent = game.question.text;
             $('#quiz-bonus').textContent = game.quizMultiplier === 2 ? 'Pena dourada garantida nesta resposta: +4 pontos ao acertar.' : 'Uma resposta certa vale +2 pontos.';
+            $('#quiz-bonus').textContent += game.mode === 'tranquilo' ? ' Amigável: errar permite continuar.' : ' Desafio: errar encerra o voo.';
             $('#answer-feedback').textContent = ''; $('#quiz-continue').hidden = true;
             $('#answer-true').disabled = false; $('#answer-false').disabled = false;
             openDialog('#quiz-dialog');

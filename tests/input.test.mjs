@@ -29,7 +29,7 @@ test('normal capture loss preserves a released tap; cancellation removes pending
 });
 test('pause and quiz clear pending input; fresh countdown input works on resume',()=>{
  const {g,input,events}=setup();g.flapCooldown=.08;input.press('Space');input.release('Space');g.pause();input.clear();g.resume();g.countdown=STEP;g.tick(STEP);ticks(g,12);assert.equal(events.length,0);
- g.flapCooldown=.08;input.press('Space');input.release('Space');g.fruits=1;g.collect({kind:'fruit',variety:0,x:g.x,y:g.y});input.clear();assert.equal(g.pendingTap,0);
+ g.flapCooldown=.08;input.press('Space');input.release('Space');g.fruits=1;g.collect({kind:'fruit',variety:0,x:g.x,y:g.y});g.elapsed=g.nextQuizAt;g.maybeOpenQuiz();input.clear();assert.equal(g.pendingTap,0);
  g.answer(g.question.answer);g.continueQuiz();input.press('pointer-1');g.countdown=STEP;g.tick(STEP);assert.equal(events.filter(e=>e==='flap').length,1);assert.ok(g.vy<0);
 });
 test('buffered tap advances identically at 30, 60, 120 and 240Hz',()=>{

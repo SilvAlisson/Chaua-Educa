@@ -7,6 +7,7 @@ export const STEP = 1 / 120;
 export const FEATHER_SECONDS = 10;
 export const CONTACT = Object.freeze({top:20, bottom:HEIGHT-25, recoveryMargin:36, grace:1.6});
 export const VICTORY_SCORE = 200;
+export const QUIZ_INTERVAL = 30;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
     holdLift: 230, staminaLift: 50, flapInterval: .22, inputBuffer: .12,
@@ -64,7 +65,7 @@ export class Game {
             flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
             sequence: 0, lastGap: 320, question: null, questionPool: [],
-            answerResult: null, reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0,
+            answerResult: null, quizPending: false, nextQuizAt: QUIZ_INTERVAL, reviewIds: [], reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0,
         });
         this.snapshot();
     }
@@ -72,7 +73,7 @@ export class Game {
     get x() { return Math.max(85, Math.min(220, this.width * .23)); }
     get body() { return { x: this.x - 18, y: this.y - 18, w: 36, h: 36 }; }
     get speed() { return FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45); }
-    start(mode = 'aventura') { this.reset(mode); this.state = 'countdown'; }
+    start(mode = 'aventura', reviewIds = []) { this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
 
     press() {
         if (!['playing', 'countdown'].includes(this.state) || this.held) return;
@@ -183,11 +184,14 @@ export class Game {
         const right = value === this.question.answer;
         this.answerResult = right;
         if (right) { this.correct++; this.addScore(2, this.quizMultiplier); }
-        this.onEvent({ type: right ? 'correct' : 'incorrect' });
+        this.onEvent({ type: right ? 'correct' : 'incorrect', questionId:this.question.id });
+        this.reviewIds = this.reviewIds.filter(id=>id!==this.question.id);
+        if (!right) this.reviewIds.push(this.question.id);
     }
 
     continueQuiz() {
         if (this.state !== 'quiz' || this.answerResult === null) return;
+        this.nextQuizAt = this.elapsed + QUIZ_INTERVAL;
         if (!this.answerResult && this.mode !== 'tranquilo') this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?');
         else if (this.score >= VICTORY_SCORE) this.end(true, 'Você completou a aventura do Chauá!');
         else { this.state = 'countdown'; this.countdown = 1.5; this.cancelInput(); this.snapshot(); }
@@ -202,15 +206,30 @@ export class Game {
         this.onEvent({ type: 'fruit', fruit: FRUITS[entity.variety ?? 0].id });
         this.collectPulse=.26;
         this.burst(entity.x, entity.y, multiplier===2?'#ffe39a':'#bce77f', 12);
-        if (this.fruits % 2 === 0) {
-            if (!this.questionPool.length) this.questionPool = QUESTIONS.map((_, i) => i);
-            const index = Math.floor(this.random() * this.questionPool.length);
-            this.question = QUESTIONS[this.questionPool.splice(index, 1)[0]];
-            this.quizMultiplier = multiplier;
-            this.answerResult = null;
-            this.state = 'quiz';
-            this.cancelInput();
-        }
+        this.quizPending = true; // One pending discovery, regardless of fruit count.
+    }
+
+    get quizDue() { return this.quizPending && this.elapsed >= this.nextQuizAt; }
+
+    maybeOpenQuiz() {
+        if (this.state !== 'playing' || !this.quizDue) return false;
+        // Drain existing encounters before the pause; nothing dangerous remains ahead.
+        const danger = this.entities.some(e =>
+            (e.kind === 'wood' && e.x + 85 > this.x - 36) ||
+            (e.kind === 'hawk' && !e.harmless && e.x + 30 > this.x - 36));
+        if (danger || this.y < 120 || this.y > HEIGHT - 120 || Math.abs(this.vy) > 160) return false;
+        if (!this.questionPool.length) this.questionPool = QUESTIONS.map((_,i)=>i);
+        const review = this.questionPool.find(i=>this.reviewIds.includes(QUESTIONS[i].id));
+        const index = review === undefined ? Math.floor(this.random()*this.questionPool.length) : this.questionPool.indexOf(review);
+        this.question = QUESTIONS[this.questionPool.splice(index,1)[0]];
+        // Capture the power at the actual discovery, then freeze it with the flight.
+        this.quizMultiplier = this.feather > 0 ? 2 : 1;
+        this.quizPending = false;
+        this.answerResult = null;
+        this.state = 'quiz';
+        this.cancelInput();
+        this.nextSpawn = Math.max(this.nextSpawn, 1.5);
+        return true;
     }
 
     burst(x, y, color, count) {
@@ -361,7 +380,7 @@ export class Game {
             if (this.state !== 'playing') return;
         }
         this.nextSpawn -= dt;
-        if (this.nextSpawn <= 0) this.spawn();
+        if (this.nextSpawn <= 0 && !this.quizDue) this.spawn();
         for (const e of this.entities) {
             if (this.state !== 'playing') break;
             if (e.kind === 'hawk') {
@@ -387,6 +406,7 @@ export class Game {
         }
         this.entities = this.entities.filter(e => e.x > -150 && e.x < this.width + 800 && !e.collected);
         this.advanceEffects(dt);
-        if (this.score >= VICTORY_SCORE && this.state === 'playing') this.end(true, 'Você completou a aventura do Chauá!');
+        this.maybeOpenQuiz();
+        if (this.score >= VICTORY_SCORE && this.state === 'playing' && !this.quizDue) this.end(true, 'Você completou a aventura do Chauá!');
     }
 }

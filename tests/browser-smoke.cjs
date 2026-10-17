@@ -58,7 +58,7 @@ async function begin(page, name = 'Guardião da mata') {
         await model(page,g=>{g.y=300;g.vy=0;g.entities=[{kind:'wood',x:g.x-10,top:350,bottom:550,variant:'plain'}];});
         await page.waitForFunction(()=>document.querySelector('#shield-status span').textContent === 'Sem escudo');
         assert.equal(await model(page,g=>g.entities[0].contacted && !g.entities[0].broken),true);
-        await model(page,g=>{g.entities=[];g.y=300;g.vy=0;g.fruits=1;g.feather=2;g.collect({kind:'fruit',x:g.x,y:g.y});});
+        await model(page,g=>{g.entities=[];g.y=300;g.vy=0;g.fruits=1;g.feather=2;g.collect({kind:'fruit',x:g.x,y:g.y});g.elapsed=g.nextQuizAt;g.maybeOpenQuiz();});
         await page.locator('#quiz-dialog').waitFor({state:'visible'});
         assert.match(await page.locator('#quiz-bonus').innerText(),/garantida/);
         const quizTime = await model(page,g=>g.feather); await page.waitForTimeout(250);

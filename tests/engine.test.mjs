@@ -44,7 +44,7 @@ test('pauses freeze countdown, physics, warnings and powers without catch-up', (
 
 test('quiz freezes timers and guarantees the captured multiplier on its answer', () => {
     const game = flight({random:()=>.2}); game.feather = .01; game.fruits = 1;
-    game.collect({kind:'fruit',x:game.x,y:game.y});
+    game.collect({kind:'fruit',x:game.x,y:game.y});game.elapsed=game.nextQuizAt;game.maybeOpenQuiz();
     assert.equal(game.state, 'quiz'); assert.equal(game.score, 6);
     const time = game.feather; advance(game, 20); assert.equal(game.feather, time);
     game.feather = 0; game.answer(game.question.answer); game.answer(game.question.answer);
@@ -55,7 +55,7 @@ test('quiz freezes timers and guarantees the captured multiplier on its answer',
 test('questions do not repeat until the whole pool has been used', () => {
     const game = flight({random:()=>0}), seen = new Set();
     for (let i = 0; i < QUESTIONS.length; i++) {
-        game.state = 'playing'; game.fruits = 1; game.collect({kind:'fruit',x:0,y:0});
+        game.state = 'playing'; game.fruits = 1; game.collect({kind:'fruit',x:0,y:0});game.elapsed=game.nextQuizAt;game.maybeOpenQuiz();
         assert.ok(!seen.has(game.question.text)); seen.add(game.question.text);
         game.answer(game.question.answer); game.continueQuiz();
     }
@@ -116,9 +116,9 @@ test('generation introduces snakes and hawks gradually and preserves open routes
 });
 
 test('wrong answers end distinctly; a correct final answer can win', () => {
-    const wrong = flight(); wrong.fruits=1; wrong.collect({kind:'fruit',x:0,y:0}); wrong.answer(!wrong.question.answer); wrong.continueQuiz();
+    const wrong = flight(); wrong.fruits=1; wrong.collect({kind:'fruit',x:0,y:0});wrong.elapsed=wrong.nextQuizAt;wrong.maybeOpenQuiz(); wrong.answer(!wrong.question.answer); wrong.continueQuiz();
     assert.equal(wrong.state,'ended'); assert.equal(wrong.won,false); assert.match(wrong.reason,/resposta/);
-    const right = flight(); right.score=198; right.fruits=1; right.collect({kind:'fruit',x:0,y:0});
+    const right = flight(); right.score=198; right.fruits=1; right.collect({kind:'fruit',x:0,y:0});right.elapsed=right.nextQuizAt;right.maybeOpenQuiz();
     assert.equal(right.state,'quiz'); right.answer(right.question.answer); right.continueQuiz();
     assert.equal(right.state,'ended'); assert.equal(right.won,true);
 });
@@ -138,7 +138,8 @@ test('desktop and portrait routes are flyable through the full progression', () 
         }
         assert.equal(game.won,true,`width ${width}: ${game.reason}`);
         assert.ok(sawSnake && sawHawk && sawDive);
-        assert.ok(game.fruits>10 && game.correct>5);
+        assert.ok(game.fruits>10 && game.correct>=2);
+        assert.ok(game.correct<=Math.floor(game.elapsed/30));
     }
 });
 

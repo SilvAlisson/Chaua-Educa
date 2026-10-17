@@ -42,6 +42,24 @@ export default class DB {
         catch { this.storageAvailable = false; }
     }
 
+    static reviewTopics(player) {
+        const records = this.readObject('chaua-discoveries', []);
+        const row = Array.isArray(records) ? records.find(r=>r?.player===player) : null;
+        return Array.isArray(row?.mistakes) ? row.mistakes.filter(id=>typeof id==='string') : [];
+    }
+
+    static recordDiscovery(player, id, right) {
+        if (!player || typeof id !== 'string') return;
+        const stored = this.readObject('chaua-discoveries', []);
+        const records = Array.isArray(stored) ? stored.filter(r=>r && typeof r.player==='string' && r.player!==player) : [];
+        const mistakes = this.reviewTopics(player).filter(topic=>topic!==id);
+        if (!right) mistakes.push(id);
+        records.push({player,mistakes});
+        this.memory.set('chaua-discoveries',records);
+        try { localStorage.setItem('chaua-discoveries',JSON.stringify(records)); }
+        catch { this.storageAvailable=false; }
+    }
+
     static upsertPlayerScore(playerName, score, mode = 'aventura') {
         const data = this.get();
         const previous = data.find(p => p.playerName === playerName && p.mode === mode);

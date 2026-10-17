@@ -24,7 +24,7 @@ test('resume grants countdown with frozen physics and powers',()=>{
  assert.equal(g.state,'countdown');assert.equal(g.y,500);assert.equal(g.feather,8);
 });
 test('tranquilo can learn from a wrong answer and safely resume',()=>{
- const g=new Game();g.start('tranquilo');g.state='playing';g.fruits=1;g.collect({kind:'fruit',variety:0,x:0,y:0});g.answer(!g.question.answer);g.continueQuiz();
+ const g=new Game();g.start('tranquilo');g.state='playing';g.fruits=1;g.collect({kind:'fruit',variety:0,x:0,y:0});g.elapsed=g.nextQuizAt;g.maybeOpenQuiz();g.answer(!g.question.answer);g.continueQuiz();
  assert.equal(g.state,'countdown');assert.equal(g.correct,0);assert.equal(g.score,3);
  assert.ok(g.question.explanation.length>20);
 });
