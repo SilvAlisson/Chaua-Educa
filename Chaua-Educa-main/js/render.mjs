@@ -219,6 +219,17 @@ export class Renderer {
             c.save();c.globalAlpha=game.powerFade/.5;c.strokeStyle='#ebd586';c.lineWidth=2;
             c.beginPath();c.arc(game.x,game.y,reduced?48:48+(1-game.powerFade/.5)*22,0,TAU);c.stroke();c.restore();
         }
+        // Collection trails suggest optional trajectories, never solid obstacles.
+        const routes=new Map();
+        for(const e of game.entities) if(e.kind==='fruit' && e.route!==undefined && !e.collected) {
+            if(!routes.has(e.route))routes.set(e.route,[]);
+            routes.get(e.route).push(e);
+        }
+        for(const fruit of routes.values()) if(fruit.length>1) {
+            fruit.sort((a,b)=>a.x-b.x);c.save();c.strokeStyle=fruit[0].optional?'#f4d77caa':'#e9f3cf99';
+            c.lineWidth=2;c.setLineDash([4,8]);c.beginPath();c.moveTo(fruit[0].x,fruit[0].y);
+            for(const f of fruit.slice(1))c.lineTo(f.x,f.y);c.stroke();c.restore();
+        }
         for (const e of game.entities) {
             if (e.kind === 'wood') {
                 this.obstacle(e, game, reduced);

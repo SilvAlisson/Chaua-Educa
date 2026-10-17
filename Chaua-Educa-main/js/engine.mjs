@@ -1,3 +1,4 @@
+import { planEncounter, seededRandom } from './encounters.mjs';
 import { FRUITS } from './fruits.mjs';
 import { QUESTIONS } from './questions.mjs';
 
@@ -33,10 +34,11 @@ export class FlightClock {
 
 // Only flight time advances physics, spawns, powers and warnings.
 export class Game {
-    constructor({ random = Math.random, onEvent = () => {} } = {}) {
+    constructor({ random, seed = Math.floor(Math.random()*4294967296), onEvent = () => {} } = {}) {
         this.width = WIDTH;
         this.reducedMotion = false;
-        this.random = random;
+        this.seed = seed >>> 0;
+        this.randomOverride = random;
         this.onEvent = onEvent;
         this.reset();
     }
@@ -59,12 +61,14 @@ export class Game {
     }
 
     reset(mode = 'aventura') {
+        this.random = this.randomOverride ?? seededRandom(this.seed ^ 0x9e3779b9);
+        this.encounterRandom = this.randomOverride ?? seededRandom(this.seed);
         Object.assign(this, {
             mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, invincible: 0, held: false, holdAge: 0,
             flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
-            sequence: 0, lastGap: 320, question: null, questionPool: [],
+            sequence: 0, lastGap: 320, lastPattern: null, encounterHistory: [], question: null, questionPool: [],
             answerResult: null, quizPending: false, nextQuizAt: QUIZ_INTERVAL, reviewIds: [], reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0,
         });
         this.snapshot();
@@ -73,7 +77,7 @@ export class Game {
     get x() { return Math.max(85, Math.min(220, this.width * .23)); }
     get body() { return { x: this.x - 18, y: this.y - 18, w: 36, h: 36 }; }
     get speed() { return FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45); }
-    start(mode = 'aventura', reviewIds = []) { this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
+    start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
 
     press() {
         if (!['playing', 'countdown'].includes(this.state) || this.held) return;
@@ -314,9 +318,12 @@ export class Game {
         const x = this.width + 80;
         const travel = (x - this.x) / this.speed;
         const profile = FLIGHT[this.mode];
-        const gap = Math.max(profile.minGap, profile.gap - n * 1.5);
-        const center = Math.max(200, Math.min(440, this.lastGap + (this.random() - .5) * 110));
+        const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,random:this.encounterRandom});
+        const {gap,center}=plan;
         this.lastGap = center;
+        this.lastPattern = plan.id;
+        this.encounterHistory.push({sequence:n,pattern:soloHawk?'hawk':plan.id,center,gap,elapsed:this.elapsed});
+        if(this.encounterHistory.length>12)this.encounterHistory.shift();
         const hawkAlone = soloHawk;
         if (hawkAlone) {
             const dive = this.elapsed > 55 && n % 2 === 0;
@@ -325,20 +332,17 @@ export class Game {
                 warning: Math.max(1.7, travel * .25), age: 0, dive, w: 66, h: 34 });
         } else {
             const variants = ['plain', 'broken', 'hollow', 'branch'];
-            const variant = this.elapsed > 17 ? variants[n % variants.length] : 'plain';
-            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false };
+            const variant = plan.variant ?? (this.elapsed > 17 ? variants[n % variants.length] : 'plain');
+            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false, encounter:plan.id };
             if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, retreat: false };
             if (variant === 'branch') wood.snake = { y: wood.bottom + 12, branch: true, retreat: false };
             this.entities.push(wood);
-            if (this.elapsed > 92 && n % 3 === 0) this.entities.push({
-                id: this.nextId++, kind: 'hawk', x: x + 180, startX: x + 180, targetX: this.x - 60, y: center < 320 ? 600 : 40,
-                startY: center < 320 ? 600 : 40, targetY: center < 320 ? 600 : 40,
-                warning: 2, age: 0, dive: false, w: 66, h: 34,
-            });
         }
-        this.entities.push({ id: this.nextId++, kind: 'fruit', x: x + 15, y: center, variety: n % FRUITS.length });
+        const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
+        for(const [index,point] of fruits.entries()) this.entities.push({ id: this.nextId++, kind:'fruit', x:x+point.x, y:point.y,
+            variety:(n+index)%FRUITS.length, route:n, optional:!hawkAlone&&plan.optional });
         if (n % 4 === 0 || n % 4 === 2) this.entities.push({ id: this.nextId++, kind: n % 4 === 0 ? 'shield' : 'feather', x: x - 120, y: center });
-        this.nextSpawn = Math.max(1.65, 2.15 - this.elapsed * .003);
+        this.nextSpawn = plan.interval;
     }
 
     tick(dt) {

@@ -132,3 +132,14 @@ A coleta não interrompe mais o voo nem acumula perguntas. O intervalo mínimo �
 Temas errados ficam registrados localmente por nome e são priorizados entre as perguntas ainda não usadas. Acertar retira o tema da revisão. Não há repetição antes de esgotar o banco durante o mesmo voo; ampliação e formulações alternativas pertencem à etapa de conteúdo científico. Falha no armazenamento mantém o registro apenas em memória.
 
 Validação: 67 testes aprovados e build concluído, incluindo as duas consequências do erro, agendamento seguro, ausência de fila de perguntas, multiplicador, revisão por jogador e percurso completo. A execução interativa no navegador permanece pendente.
+
+
+### Etapa 5 — encontros e trajetórias
+
+`js/encounters.mjs` reúne sete padrões: central, passagem ampla, subida, descida, curva de coleta, galho antecipado e coleta opcional próxima da borda. Cada padrão define desbloqueio, variação de altura, abertura, intervalo e posições dos frutos. Curvas e desvios opcionais recebem trilhas discretas; seguir pelo centro continua sendo uma alternativa sem exigir poder. São escolhas de trajetória dentro da passagem, não bifurcações com corredores fisicamente separados.
+
+A seleção evita repetir o padrão imediatamente anterior. O deslocamento entre centros é limitado pelo tempo estimado para sair da madeira e corrigir o voo, com teto de 55 unidades. Frutos ficam pelo menos 48 unidades afastados das bordas superior e inferior da abertura. Clareiras e a drenagem de encontros para quiz continuam funcionando. Gaviões permanecem isolados da madeira nesta etapa: combinações simultâneas voltam a ser avaliadas na etapa de comportamentos dos animais.
+
+A simulação tem uma semente por partida (`game.seed`) e histórico limitado aos últimos 12 encontros. `game.start(modo, temasDeRevisao, semente)` reproduz a geração; perguntas usam um fluxo aleatório separado, para que responder não mude o próximo obstáculo. Reproduzir a partida inteira também exige as mesmas entradas do jogador.
+
+Validação: 71 testes aprovados, incluindo 80 rotas de três minutos nos dois modos sem frutas, poderes ou pausas de quiz, controladas por um piloto de teste; verificações de geometria em 11.200 planos; reprodução por semente e percurso completo até a vitória. Isso demonstra viabilidade para essas amostras, não garante conforto humano nem cobre todas as sementes. Curvas de coleta podem antecipar os 200 pontos; as subidas e descidas mantêm uma fruta para evitar excesso de recompensa. O equilíbrio fino de poderes e a duração da jornada serão tratados nas etapas 7 e 8. Teste interativo no navegador continua pendente.

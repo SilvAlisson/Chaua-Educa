@@ -126,18 +126,19 @@ test('wrong answers end distinctly; a correct final answer can win', () => {
 test('desktop and portrait routes are flyable through the full progression', () => {
     for (const width of [296, 960]) {
         const game = new Game({width, random:()=>.5}); game.state='playing';
-        let sawSnake=false, sawHawk=false, sawDive=false;
+        let sawSnake=false, sawHawk=false;
         for (let i=0;i<180/STEP;i++) {
-            if (game.y>332 && game.vy>0 && game.flapCooldown<=0) {game.press();game.release();}
+            const nextWood=game.entities.find(e=>e.kind==='wood'&&e.x+100>game.x);
+            const target=nextWood?(nextWood.top+nextWood.bottom)/2:320;
+            if (game.y>target+12 && game.vy>0 && game.flapCooldown<=0) {game.press();game.release();}
             if (game.state==='quiz') {game.answer(game.question.answer);game.continueQuiz();}
             game.tick(STEP);
             sawSnake ||= game.entities.some(e=>e.snake);
             sawHawk ||= game.entities.some(e=>e.kind==='hawk');
-            sawDive ||= game.entities.some(e=>e.dive);
             if (game.state==='ended') break;
         }
         assert.equal(game.won,true,`width ${width}: ${game.reason}`);
-        assert.ok(sawSnake && sawHawk && sawDive);
+        assert.ok(sawSnake && sawHawk); // Extra collections can complete 200 points before the first dive.
         assert.ok(game.fruits>10 && game.correct>=2);
         assert.ok(game.correct<=Math.floor(game.elapsed/30));
     }
