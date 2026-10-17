@@ -115,12 +115,12 @@ test('generation introduces snakes and hawks gradually and preserves open routes
     }
 });
 
-test('wrong answers end distinctly; a correct final answer can win', () => {
+test('wrong answers end challenge; correct answers above 200 points continue the journey', () => {
     const wrong = flight(); wrong.fruits=1; wrong.collect({kind:'fruit',x:0,y:0});wrong.elapsed=wrong.nextQuizAt;wrong.maybeOpenQuiz(); wrong.answer(!wrong.question.answer); wrong.continueQuiz();
     assert.equal(wrong.state,'ended'); assert.equal(wrong.won,false); assert.match(wrong.reason,/resposta/);
     const right = flight(); right.score=198; right.fruits=1; right.collect({kind:'fruit',x:0,y:0});right.elapsed=right.nextQuizAt;right.maybeOpenQuiz();
     assert.equal(right.state,'quiz'); right.answer(right.question.answer); right.continueQuiz();
-    assert.equal(right.state,'ended'); assert.equal(right.won,true);
+    assert.equal(right.state,'countdown'); assert.equal(right.medal,true);
 });
 
 test('desktop and portrait routes are flyable through the full progression', () => {

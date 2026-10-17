@@ -1,4 +1,4 @@
-export const RULES_VERSION = 'floresta-v3';
+export const RULES_VERSION = 'floresta-v4';
 export default class DB {
     static dbName = `db-chaua-${RULES_VERSION}`;
     static storageAvailable = true;
@@ -24,8 +24,10 @@ export default class DB {
 
     static previousScores() {
         const data = this.readObject('chaua-educa-v2', {});
-        const forest=this.readObject('db-chaua-floresta-v2',[]);
-        const archived=(Array.isArray(forest)?forest:[]).filter(s=>s && typeof s.playerName==='string' && Number.isFinite(s.score_val) && s.score_val>=0).map(s=>({...s,ruleset:'floresta-v2'}));
+        const archived=['floresta-v2','floresta-v3'].flatMap(ruleset=>{
+            const forest=this.readObject(`db-chaua-${ruleset}`,[]);
+            return (Array.isArray(forest)?forest:[]).filter(s=>s && typeof s.playerName==='string' && Number.isFinite(s.score_val) && s.score_val>=0).map(s=>({...s,ruleset}));
+        });
         return (Array.isArray(data?.scores) ? data.scores : [])
             .filter(s => s && typeof s.name === 'string' && Number.isFinite(s.score) && s.score >= 0)
             .map(s => ({playerName:s.name, score_val:s.score, mode:s.mode, ruleset:s.ruleset})).concat(archived);

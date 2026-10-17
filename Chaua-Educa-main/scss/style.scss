@@ -1669,3 +1669,5 @@ dialog[open]::backdrop { animation: forest-backdrop .25s ease both; }
 .score-details { margin: 0 0 18px; text-align: center; font-size: 13px; color: var(--muted); }
 .score-details summary { cursor: pointer; padding: 10px; font-weight: 800; color: var(--ink); }
 .score-details p { margin: 4px 0; font-size: 13px; line-height: 1.6; }
+
+.result .journey-result { font-size: 13px; font-weight: 800; color: var(--green); margin-top: 8px; }

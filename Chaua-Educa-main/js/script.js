@@ -1,9 +1,10 @@
+import { JOURNEY_LENGTH } from './journey.mjs';
 import { FlightInput } from './input.mjs';
 import { ForestAudio } from './audio.mjs';
 import { SOURCES } from './questions.mjs';
 import { FRUITS } from './fruits.mjs';
 import DB from './database.js';
-import { Game, FlightClock, HEIGHT, STAGES, VICTORY_SCORE } from './engine.mjs';
+import { Game, FlightClock, HEIGHT, STAGES } from './engine.mjs';
 import { Renderer, drawBird } from './render.mjs';
 
 const $ = selector => document.querySelector(selector);
@@ -33,6 +34,9 @@ export const game = new Game({ onEvent(event) {
     if (event.type === 'fruit') DB.unlock(event.fruit);
     if (['correct','incorrect'].includes(event.type)) DB.recordDiscovery(player,event.questionId,event.type==='correct');
     const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · proteção breve para retomar o voo', quiet: 'Uma clareira. Recupere o fôlego.' };
+    if(event.type==='stage')toast(event.message);
+    if(event.type==='refuge')toast('O bando espera no centro: alinhe o voo para pousar.');
+    if(event.type==='medal')toast('200 pontos · medalha conquistada! Continue até o abrigo.');
     if (messages[event.type]) toast(messages[event.type]);
     if(event.type==='shield-kept')toast('Seu escudo já está pronto · proteção mantida');
     if(event.type==='feather' && event.renewed)toast('Pena renovada · mais 10s de pontos ×2');
@@ -53,7 +57,7 @@ function resize() {
     const style=getComputedStyle(app);
     renderer.safeInsets=Object.fromEntries(['top','right','bottom','left'].map(side=>[side,parseFloat(style.getPropertyValue(`--safe-${side}`))||0]));
     const orientation=renderer.w>renderer.h?'landscape':'portrait';
-    if(lastOrientation && lastOrientation!==orientation && ['playing','countdown'].includes(game.state)) {
+    if(lastOrientation && lastOrientation!==orientation && ['playing','countdown','arrival'].includes(game.state)) {
         clearInputs(); game.pause(); clock.reset(); syncUI();
     }
     lastOrientation=orientation;
@@ -125,7 +129,7 @@ window.addEventListener('keydown', event => {
         if (['v', 'f'].includes(event.key.toLowerCase()) && !event.repeat) { event.preventDefault(); answer(event.key.toLowerCase() === 'v'); }
         return;
     }
-    if (!['playing', 'countdown'].includes(game.state)) return;
+    if (!['playing', 'countdown','arrival'].includes(game.state)) return;
     if (['Escape', 'p', 'P'].includes(event.key) && !event.repeat) { event.preventDefault(); clearInputs(); game.pause(); syncUI(); return; }
     if (['ArrowUp', 'Space'].includes(event.code)) { event.preventDefault(); if (!event.repeat) hold(event.code); }
 });
@@ -166,9 +170,10 @@ function result() {
     clearInputs();
     const record = DB.upsertPlayerScore(player, game.score, selectedMode);
     const panel = $('#result-dialog .result'); panel.classList.toggle('victory', game.won);
-    $('#result-title').textContent = game.won ? 'A floresta celebra você!' : 'Opa! Vamos de novo?';
-    $('#result-eyebrow').textContent = game.won ? 'UM VOO PARA GUARDAR' : 'CADA VOO É UM COMEÇO';
+    $('#result-title').textContent = game.won ? 'Você encontrou o bando!' : 'Opa! Vamos de novo?';
+    $('#result-eyebrow').textContent = game.won ? 'O BANDO ESTÁ REUNIDO' : 'CADA VOO É UM COMEÇO';
     $('#result-reason').textContent = game.reason;
+    $('#journey-result').textContent=game.won?`Jornada concluída${game.medal?' · medalha de 200 pontos':''}`:`${Math.floor(game.distance/JOURNEY_LENGTH*100)}% do caminho · ${STAGES[game.stage]}`;
     $('#new-record').hidden = !record || game.score === 0;
     $('#score-breakdown').textContent=`Passagens ${game.scoreBreakdown.passage} · Frutas ${game.scoreBreakdown.fruit} · Respostas ${game.scoreBreakdown.quiz} · Trilhas ${game.scoreBreakdown.route}. Valores já incluem a pena ×2.`;
     $('#result-fruits').textContent = game.fruits; $('#result-correct').textContent = game.correct;
@@ -231,7 +236,9 @@ function syncUI() {
     if (game.state === 'countdown') $('#count-number').textContent = Math.max(1, Math.ceil(game.countdown));
     $('#score').textContent = game.score;
     $('#stage-name').textContent = STAGES[game.stage];
-    $('#progress-fill').style.width = `${Math.min(100, game.score / VICTORY_SCORE * 100)}%`;
+    $('#journey-destination').textContent=game.refuge?'Alinhe o voo com o bando':`Abrigo · ${Math.floor(game.distance/JOURNEY_LENGTH*100)}%`;
+    $('#progress-track').setAttribute('aria-valuenow',String(Math.floor(game.distance/JOURNEY_LENGTH*100)));
+    $('#progress-fill').style.width = `${Math.min(100, game.distance / JOURNEY_LENGTH * 100)}%`;
     $('#energy').value = game.stamina;
     $('#shield-status').classList.toggle('active', game.shield);
     $('#shield-status span').textContent = game.shield ? 'Escudo pronto' : 'Sem escudo';

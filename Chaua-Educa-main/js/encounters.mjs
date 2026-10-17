@@ -1,3 +1,4 @@
+import {JOURNEY} from './journey.mjs';
 // Declarative encounter vocabulary. Coordinates are always logical world units.
 export const ENCOUNTERS = Object.freeze([
     {id:'central', unlock:0, shift:0, extraGap:0, interval:0, fruitOffsets:[[15,0]]},
@@ -17,8 +18,8 @@ export function seededRandom(seed) {
         return ((t^(t>>>14))>>>0)/4294967296;
     };
 }
-export function planEncounter({sequence,elapsed,lastCenter,lastPattern,profile,speed,random}) {
-    const eligible=ENCOUNTERS.filter(p=>p.unlock<=elapsed && p.id!==lastPattern);
+export function planEncounter({sequence,elapsed,lastCenter,lastPattern,profile,speed,stage=0,random}) {
+    const eligible=ENCOUNTERS.filter(p=>p.unlock<=elapsed && p.id!==lastPattern).flatMap(p=>JOURNEY[stage].patterns.includes(p.id)?[p,p]:[p]);
     const pattern=sequence===0?ENCOUNTERS[0]:eligible[Math.min(eligible.length-1,Math.floor(random()*eligible.length))];
     const interval=Math.max(1.65,2.15-elapsed*.003)+pattern.interval;
     // Conservative travel budget after clearing 160 units of wood/branches,

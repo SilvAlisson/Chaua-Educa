@@ -1,3 +1,4 @@
+import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
 import { offerPower, POWER_BALANCE } from './powers.mjs';
 import { advanceHawk, advanceSnake } from './animals.mjs';
 import { planEncounter, seededRandom } from './encounters.mjs';
@@ -17,19 +18,19 @@ export const FLIGHT = Object.freeze({
     aventura: {speed: 245, gap: 185, minGap: 155},
     tranquilo: {speed: 205, gap: 220, minGap: 190},
 });
-export const STAGES = ['Primeiras asas', 'Entre raízes', 'Céu compartilhado', 'Coração da mata'];
+export const STAGES = JOURNEY.map(s=>s.name);
 export const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 export class FlightClock {
     constructor(game) { this.game = game; this.accumulator = 0; }
     reset() { this.accumulator = 0; }
     advance(seconds) {
-        if (!['playing', 'countdown', 'impact'].includes(this.game.state)) return this.reset();
+        if (!['playing', 'countdown', 'impact', 'arrival'].includes(this.game.state)) return this.reset();
         this.accumulator += Math.min(.25, Math.max(0, seconds));
         while (this.accumulator + 1e-10 >= STEP) {
             this.game.tick(STEP);
             this.accumulator -= STEP;
-            if (!['playing', 'countdown', 'impact'].includes(this.game.state)) { this.reset(); break; }
+            if (!['playing', 'countdown', 'impact', 'arrival'].includes(this.game.state)) { this.reset(); break; }
         }
     }
 }
@@ -46,13 +47,14 @@ export class Game {
     }
 
     snapshot() {
-        this.previous = { y: this.y, angle: this.angle, entities: new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y}])) };
+        this.previous = { arrivalOffset:this.arrival?.offset||0, y: this.y, angle: this.angle, entities: new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y}])) };
     }
 
     visual(alpha) {
-        if (this.state !== 'playing' || !this.previous) return this;
+        if (!['playing','arrival'].includes(this.state) || !this.previous) return this;
         const lerp = (a,b) => a + (b-a) * Math.max(0, Math.min(1, alpha));
         const view = Object.create(this);
+        if(this.arrival)view.arrival={...this.arrival,offset:lerp(this.previous.arrivalOffset,this.arrival.offset)};
         view.y = lerp(this.previous.y, this.y);
         view.angle = lerp(this.previous.angle, this.angle);
         view.entities = this.entities.map(e => {
@@ -67,6 +69,7 @@ export class Game {
         this.encounterRandom = this.randomOverride ?? seededRandom(this.seed);
         this.powerRandom = this.randomOverride ?? seededRandom(this.seed ^ 0x85ebca6b);
         Object.assign(this, {
+            stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
             scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:0,nextShield:0,nextFeather:18},
             mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, invincible: 0, held: false, holdAge: 0,
@@ -78,7 +81,7 @@ export class Game {
         this.snapshot();
     }
 
-    get x() { return Math.max(85, Math.min(220, this.width * .23)); }
+    get x() { return Math.max(85, Math.min(220, this.width * .23))+(this.arrival?.offset||0); }
     get body() { return { x: this.x - 18, y: this.y - 18, w: 36, h: 36 }; }
     get speed() { return FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45); }
     start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
@@ -108,16 +111,17 @@ export class Game {
     }
 
     pause() {
-        if (!['playing', 'countdown'].includes(this.state)) return;
+        if (!['playing', 'countdown','arrival'].includes(this.state)) return;
         this.beforePause = this.state;
         this.state = 'paused';
         this.cancelInput();
     }
-    resume() { if (this.state === 'paused') { this.countdown = Math.max(1.5, this.beforePause === 'countdown' ? this.countdown : 0); this.state = 'countdown'; this.snapshot(); } }
+    resume() { if (this.state === 'paused') { this.afterCountdown=this.beforePause==='arrival'?'arrival':this.beforePause==='countdown'?this.afterCountdown:'playing'; this.countdown = Math.max(1.5, this.beforePause === 'countdown' ? this.countdown : 0); this.state = 'countdown'; this.snapshot(); } }
 
     addScore(value, multiplier = this.feather > 0 ? 2 : 1, source = 'passage') {
         this.score += value * multiplier;
         this.scoreBreakdown[source] += value * multiplier;
+        if(!this.medal && this.score>=VICTORY_SCORE){this.medal=true;this.onEvent({type:'medal'});}
         this.onEvent({ type: 'points', value: value * multiplier });
         this.popups.push({x:this.x+28,y:this.y-30,text:`+${value*multiplier}`,gold:multiplier===2,life:.85});
         if(this.popups.length>6)this.popups.shift();
@@ -208,7 +212,6 @@ export class Game {
         if (this.state !== 'quiz' || this.answerResult === null) return;
         this.nextQuizAt = this.elapsed + QUIZ_INTERVAL;
         if (!this.answerResult && this.mode !== 'tranquilo') this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?');
-        else if (this.score >= VICTORY_SCORE) this.end(true, 'Você completou a aventura do Chauá!');
         else { this.state = 'countdown'; this.countdown = 1.5; this.cancelInput(); this.snapshot(); }
     }
 
@@ -237,7 +240,7 @@ export class Game {
     get quizDue() { return this.quizPending && this.elapsed >= this.nextQuizAt; }
 
     maybeOpenQuiz() {
-        if (this.state !== 'playing' || !this.quizDue) return false;
+        if (this.state !== 'playing' || !this.quizDue || this.refuge) return false;
         // Drain existing encounters before the pause; nothing dangerous remains ahead.
         const danger = this.entities.some(e =>
             (e.kind === 'wood' && e.x + 85 > this.x - 36) ||
@@ -245,7 +248,9 @@ export class Game {
         if (danger || this.y < 120 || this.y > HEIGHT - 120 || Math.abs(this.vy) > 160) return false;
         if (!this.questionPool.length) this.questionPool = QUESTIONS.map((_,i)=>i);
         const review = this.questionPool.find(i=>this.reviewIds.includes(QUESTIONS[i].id));
-        const index = review === undefined ? Math.floor(this.random()*this.questionPool.length) : this.questionPool.indexOf(review);
+        const themed=this.questionPool.filter(i=>JOURNEY[this.stage].topics.includes(QUESTIONS[i].topic));
+        const candidates=themed.length?themed:this.questionPool;
+        const index=review===undefined?this.questionPool.indexOf(candidates[Math.floor(this.random()*candidates.length)]):this.questionPool.indexOf(review);
         this.question = QUESTIONS[this.questionPool.splice(index,1)[0]];
         // Capture the power at the actual discovery, then freeze it with the flight.
         this.quizMultiplier = this.feather > 0 ? 2 : 1;
@@ -339,8 +344,10 @@ export class Game {
         const x = this.width + 80;
         const travel = (x - this.x) / this.speed;
         const profile = FLIGHT[this.mode];
-        const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,random:this.encounterRandom});
+        const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,stage:this.stage,random:this.encounterRandom});
         const {gap,center}=plan;
+        if(this.stage===2)plan.interval+=.4;
+        if(this.stage===3)plan.interval+=.2;
         this.lastGap = center;
         this.lastPattern = plan.id;
         this.encounterHistory.push({sequence:n,pattern:soloHawk?'hawk':plan.id,center,gap,elapsed:this.elapsed});
@@ -353,7 +360,7 @@ export class Game {
                 warning: Math.max(1.7, travel * .25), phase:'warning', age: 0, dive, w: 66, h: 34 });
         } else {
             const variants = ['plain', 'broken', 'hollow', 'branch'];
-            const variant = plan.variant ?? (this.elapsed > 17 ? variants[n % variants.length] : 'plain');
+            const variant = plan.variant ?? (this.stage===1 && n%2===0?'hollow':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false, route:n, encounter:plan.id };
             if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, phase:'watching', retreat: false };
             if (variant === 'branch') wood.snake = { y: wood.bottom + 12, branch: true, phase:'watching', retreat: false };
@@ -368,8 +375,27 @@ export class Game {
         this.nextSpawn = plan.interval;
     }
 
+    advanceJourney(dt) {
+        if(this.distance<JOURNEY_LENGTH)return;
+        const danger=this.entities.some(e=>(e.kind==='wood'&&e.x+85>this.x-36)||(e.kind==='hawk'&&!e.harmless&&e.x+30>this.x-36));
+        if(danger || (this.quizDue&&!this.refuge))return;
+        if(!this.refuge){this.refuge={x:800,y:320};this.onEvent({type:'refuge'});}
+        this.refuge.x=Math.max(330,this.refuge.x-this.speed*dt);
+        if(this.refuge.x<=330 && Math.abs(this.y-this.refuge.y)<=60) {
+            this.state='arrival';this.arrival={age:0,offset:0,fromY:this.y};this.cancelInput();this.snapshot();
+        }
+    }
+
     tick(dt) {
         this.snapshot();
+        if(this.state==='arrival') {
+            this.arrival.age=this.reducedMotion?ARRIVAL_SECONDS:Math.min(ARRIVAL_SECONDS,this.arrival.age+dt);
+            const t=this.arrival.age/ARRIVAL_SECONDS, ease=t*t*(3-2*t);
+            this.arrival.offset=110*ease;this.y=this.arrival.fromY+(320-this.arrival.fromY)*ease;
+            this.angle=0;this.advanceEffects(dt);
+            if(t>=1)this.end(true,'Você chegou ao abrigo e reencontrou o bando!');
+            return;
+        }
         if(this.state==='impact') {
             this.advanceEffects(dt);this.impactRemaining-=dt;
             if(this.impactRemaining<=1e-10 || this.reducedMotion)this.state='ended';
@@ -378,16 +404,18 @@ export class Game {
         if (this.state === 'countdown') {
             this.countdown -= dt;
             if (this.countdown <= 1e-10) {
-                this.state = 'playing';
+                this.state = this.afterCountdown;
                 // A fresh held command starts immediately; old cooldown must not delay resume.
-                if (this.held) { this.flapCooldown = 0; this.flap(true); }
+                if (this.held && this.state==='playing') { this.flapCooldown = 0; this.flap(true); }
             }
             return;
         }
         if (this.state !== 'playing') return;
         this.elapsed += dt;
-        this.distance += this.speed*dt;
-        this.stage = Math.min(3, Math.floor(this.elapsed / 20));
+        this.distance = Math.min(JOURNEY_LENGTH,this.distance+this.speed*dt);
+        const nextStage=journeyStage(this.distance);
+        if(nextStage!==this.stage){this.stage=nextStage;this.stageAge=0;this.onEvent({type:'stage',message:JOURNEY[this.stage].message});}
+        this.stageAge+=dt;
         const previousFeather=this.feather;
         this.feather = Math.max(0, this.feather - dt);
         if(previousFeather>0 && this.feather===0){this.powerFade=.5;this.onEvent({type:'feather-end'});}
@@ -407,7 +435,7 @@ export class Game {
             if (this.state !== 'playing') return;
         }
         this.nextSpawn -= dt;
-        if (this.nextSpawn <= 0 && !this.quizDue) this.spawn();
+        if (this.nextSpawn <= 0 && !this.quizDue && this.distance<JOURNEY_LENGTH) this.spawn();
         for (const e of this.entities) {
             if (this.state !== 'playing') break;
             if (e.kind === 'hawk') {
@@ -431,6 +459,6 @@ export class Game {
         for(const id of this.routes.keys())if(!this.entities.some(e=>e.kind==='fruit'&&e.route===id))this.routes.delete(id);
         this.advanceEffects(dt);
         this.maybeOpenQuiz();
-        if (this.score >= VICTORY_SCORE && this.state === 'playing' && !this.quizDue) this.end(true, 'Você completou a aventura do Chauá!');
+        if(this.state==='playing')this.advanceJourney(dt);
     }
 }

@@ -81,12 +81,12 @@ export class Renderer {
     }
     base() { this.c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); this.c.clearRect(0, 0, this.w, this.h); }
 
-    background(time, offset = 0, stage = 0, home = false, reduced = false) {
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const bg = c.createLinearGradient(0, 0, 0, h);
-        const palette = ['#dbe7b5', '#dde0a1', '#e6d8a0', '#e7d2a1'];
-        const light = reduced ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], Math.min(1, Math.max(0, (time - stage * 20) / 4)));
+        const palette = ['#dbe7b5', '#dde0a1', '#e6d8a0', '#d9e9b7'];
+        const light = reduced ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], stageMix);
         bg.addColorStop(0, light); bg.addColorStop(.5, '#abc68d'); bg.addColorStop(1, '#355f45');
         c.fillStyle = bg; c.fillRect(0, 0, w, h);
         // Filtered sunlight through distant crowns.
@@ -109,7 +109,8 @@ export class Renderer {
             const scale=Math.max(w/forest.naturalWidth,h/forest.naturalHeight)*1.08;
             const fw=forest.naturalWidth*scale, fh=forest.naturalHeight*scale;
             const drift=reduced?0:Math.sin(time*.035)*Math.min(24,(fw-w)/2);
-            c.drawImage(forest,(w-fw)/2+drift,(h-fh)/2,fw,fh);
+            c.save();c.globalAlpha=stage===2?1-.4*stageMix:stage===3?.6+.4*stageMix:1;
+            c.drawImage(forest,(w-fw)/2+drift,(h-fh)/2,fw,fh);c.restore();
 
         }
         // Low-contrast tree layers are behind gameplay, at distinct parallax speeds.
@@ -125,8 +126,8 @@ export class Renderer {
             }
             c.restore();
         }
-        const transition=Math.max(0,Math.min(1,(time-stage*20)/4));
-        const tint=['#bdcf8c','#e4c16b','#507b63','#c39d5f'];
+        const transition=stageMix;
+        const tint=['#bdcf8c','#e4c16b','#507b63','#92bf74'];
         c.save();c.globalAlpha=.10;c.fillStyle=mixColor(tint[Math.max(0,stage-1)],tint[stage],transition);c.fillRect(0,0,w,h);c.restore();
         // Sunlight and shade breathe slowly with the same wind as leaves and vines.
         c.fillStyle = '#ffffcb10';
@@ -197,7 +198,7 @@ export class Renderer {
     game(game, reduced, visualTime = 0) {
         this.base();
         const c = this.c;
-        this.background(game.elapsed, game.distance, game.stage, false, reduced);
+        this.background(game.elapsed, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4));
         const view = flightViewport(this.w, this.h, this.safeInsets);
         const s = view.scale;
         // Tiny, muted butterflies stay in the distant layer; no pickup glow or collision.
@@ -264,7 +265,18 @@ export class Renderer {
             c.restore();
         }
 
-        drawBird(c, { x: game.x, y: game.y, scale: .78, angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: game.elapsed, reaction:game.collectPulse, reduced });
+        if(game.refuge) {
+            const r=game.refuge;
+            this.trunk('hollow',SPECIAL.hollow,r.x+90,350,false);
+            this.wood({x:r.x-30,y:352,w:140,h:16},1);
+            drawBird(c,{x:r.x+50,y:332,scale:.40,perched:true,reduced});
+            drawBird(c,{x:r.x+85,y:330,scale:.36,perched:true,reduced});
+            if(game.state==='playing') {
+                c.save();c.strokeStyle='#fff3ba';c.lineWidth=3;c.setLineDash([6,6]);
+                c.beginPath();c.ellipse(r.x,r.y,48,60,0,0,TAU);c.stroke();c.restore();
+            }
+        }
+        drawBird(c, { x: game.x, y: game.y, scale: .78, perched:game.state==='ended'&&game.won, angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: game.elapsed, reaction:game.collectPulse, reduced });
         if (!reduced) for (const p of game.particles) {
             c.globalAlpha=Math.max(0,p.life/(p.maxLife??.7));
             if(p.feather)feather(c,p.x,p.y,7,p.rotation,p.color);

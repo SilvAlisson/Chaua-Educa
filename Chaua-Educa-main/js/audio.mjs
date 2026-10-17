@@ -55,7 +55,7 @@ export class ForestAudio {
     update(state,visible,time,stage) {
         if(!this.context || this.context.state==='closed')return;
         try {
-        const active=this.enabled&&visible&&['menu','playing','countdown'].includes(state);
+        const active=this.enabled&&visible&&['menu','playing','countdown','arrival'].includes(state);
         const c=this.context;
         if(active!==this.active) {
             this.active=active;this.ambient.gain.setTargetAtTime(active ? .2 : 0,c.currentTime,.25);

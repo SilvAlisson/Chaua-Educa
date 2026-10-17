@@ -1901,3 +1901,10 @@ dialog[open]::backdrop {
   font-size: 13px;
   line-height: 1.6;
 }
+
+.result .journey-result {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--green);
+  margin-top: 8px;
+}
