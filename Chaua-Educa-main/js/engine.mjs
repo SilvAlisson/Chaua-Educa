@@ -5,6 +5,7 @@ export const WIDTH = 960;
 export const HEIGHT = 640;
 export const STEP = 1 / 120;
 export const FEATHER_SECONDS = 10;
+export const CONTACT = Object.freeze({top:20, bottom:HEIGHT-25, recoveryMargin:36, grace:1.6});
 export const VICTORY_SCORE = 200;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
@@ -119,28 +120,51 @@ export class Game {
         this.burst(this.x, this.y, kind === 'shield' ? '#aedf8d' : '#ffd76b', 12);
     }
 
+    recover(host, boundary) {
+        // Keep the visual interpolation from drawing a rescue through solid wood.
+        if (Number.isFinite(host?.top) && Number.isFinite(host?.bottom)) {
+            this.y = (host.top + host.bottom) / 2;
+            this.vy = 0;
+        } else if (boundary) {
+            this.y = boundary === 'top' ? CONTACT.top + CONTACT.recoveryMargin : CONTACT.bottom - CONTACT.recoveryMargin;
+            this.vy = boundary === 'top' ? 120 : -180;
+        }
+        this.previous.y = this.y;
+    }
+
+    boundaryContact(side) {
+        if (this.invincible > 0) { this.recover(null, side); return; }
+        this.collide({kind:'boundary', side});
+    }
+
     collide(entity, animal = false, host = entity) {
         if (this.state !== 'playing' || this.invincible > 0) return;
-        this.hit = {id:host.id, age:0};
+        const boundary = entity.kind === 'boundary' ? entity.side : null;
+        this.hit = boundary ? null : {id:host.id, age:0};
         if (this.shield) {
             this.shield = false;
-            this.invincible = 1.6;
+            this.invincible = CONTACT.grace;
+            if (host.kind === 'wood') host.contacted = true;
             if (animal) {
                 entity.retreat = true;
                 entity.retreatTime = 0;
                 entity.harmless = true;
                 entity.retreatY = entity.y < this.y ? -180 : 180;
-            } else {
-                entity.broken = true;
-                entity.brokenSide = entity.hitSide;
-                entity.breakFx={side:entity.hitSide,age:0};
-                this.woodBurst(this.x,this.y);
-                const snakeSide = 'bottom';
-                if (entity.snake && (!entity.brokenSide || entity.brokenSide === snakeSide)) { entity.snake.retreat = true; entity.snake.retreatTime = 0; }
+            } else if (!boundary) {
+                // Only the dry protruding branch breaks; living trunks remain intact.
+                if (entity.hitPart === 'dry-branch') {
+                    entity.dryBranchBroken = true;
+                    this.woodBurst(this.x, this.y);
+                } else this.burst(this.x, this.y, '#9aba67', 8);
             }
-            this.onEvent({ type: 'shield-break', animal });
             this.featherBurst(['#d6edb0','#7ead5a','#e9f4ca'],12);
-        } else this.end(false, animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra do galho.') : 'Você esbarrou na madeira.', true);
+            this.recover(host, boundary);
+            this.onEvent({ type: 'shield-break', animal, boundary });
+        } else {
+            const reason = boundary ? (boundary === 'top' ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!')
+                : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra do galho.') : 'Você esbarrou na madeira.';
+            this.end(false, reason, true);
+        }
     }
 
     end(won, reason, collision = false) {
@@ -242,7 +266,7 @@ export class Game {
         solids.push({ x, y: bottom, w: 58, h: HEIGHT - bottom });
         if (variant === 'branch') solids.push({ x: x - 70, y: bottom + 30, w: 78, h: 18 });
         if (variant === 'hollow') solids.push({x:x-22,y:bottom+140,w:24,h:30});
-        if (variant === 'broken') solids.push({ x: x + 52, y: top - 35, w: 26, h: 18 });
+        if (variant === 'broken' && !entity.dryBranchBroken) solids.push({ x: x + 52, y: top - 35, w: 26, h: 18, part:'dry-branch' });
         return solids.filter(rect => !entity.broken || (rect.y >= entity.bottom ? 'bottom' : 'top') !== entity.brokenSide);
     }
 
@@ -332,9 +356,9 @@ export class Game {
         this.y += this.vy * dt;
         const targetAngle = Math.max(-.23, Math.min(.28, this.vy / 750));
         this.angle += (targetAngle - this.angle) * (1 - Math.exp(-8 * dt));
-        if (this.y < 20 || this.y > HEIGHT - 25) {
-            this.end(false, this.y < 20 ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!', true);
-            return;
+        if (this.y < CONTACT.top || this.y > CONTACT.bottom) {
+            this.boundaryContact(this.y < CONTACT.top ? 'top' : 'bottom');
+            if (this.state !== 'playing') return;
         }
         this.nextSpawn -= dt;
         if (this.nextSpawn <= 0) this.spawn();
@@ -356,8 +380,9 @@ export class Game {
                     if (this.snakeRects(e).some(rect => overlaps(this.body, rect))) this.collide(e.snake, true, e);
                 }
                 const woodHit = this.woodRects(e).find(rect => overlaps(this.body, rect));
-                if (woodHit) { e.hitSide = woodHit.y >= e.bottom ? 'bottom' : 'top'; this.collide(e); }
-                if (!e.scored && e.x + 85 < this.x - 20) { e.scored = true; if (!e.broken) this.addScore(1); }
+                if (woodHit) { e.hitPart = woodHit.part; e.hitSide = woodHit.y >= e.bottom ? 'bottom' : 'top'; this.collide(e); }
+                if (this.state !== 'playing') break;
+                if (!e.scored && e.x + 85 < this.x - 20) { e.scored = true; if (!e.broken && !e.contacted) this.addScore(1); }
             } else if (!e.collected && overlaps(this.body, { x: e.x - 18, y: e.y - 18, w: 36, h: 36 })) this.collect(e);
         }
         this.entities = this.entities.filter(e => e.x > -150 && e.x < this.width + 800 && !e.collected);

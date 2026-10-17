@@ -18,7 +18,7 @@ A nova aventura mantém o objetivo educativo do Chauá e acrescenta voo com plan
 
 - **Voo:** toque na área do jogo ou no botão Voar, ou use ↑/espaço. Um toque bate as asas; segurar repete em cadência e consome fôlego; soltar faz descer e recupera energia. A inclinação é limitada e suave. Colisões e os limites superior e inferior encerram o voo sem proteção de cenário.
 - **Ritmo:** troncos, troncos ocos, galhos quebrados, cobras, gaviões em travessia e, depois, mergulhos. Avisos mostram as trajetórias dos gaviões. Os primeiros encontros são isolados; combinações mantêm a passagem livre. Clareiras dão intervalos para respirar.
-- **Escudo de penas:** absorve um contato e concede 1,6 s para sair da colisão. Quebra madeira sem dar pontos de destruição ou afasta um animal sem destruí-lo. Recolher mais escudos não acumula vidas. Não protege dos limites do cenário nem de resposta incorreta.
+- **Escudo de penas:** absorve um contato e concede 1,6 s para sair da colisão. Reposiciona o Chauá na passagem sem destruir troncos vivos; apenas o galho seco saliente pode se quebrar. Afasta animais sem destruí-los e protege dos limites superior e inferior. Contatos protegidos não dão pontos de passagem. Recolher mais escudos não acumula vidas. Não protege de resposta incorreta.
 - **Pena dourada:** dobra os pontos por 10 s de voo. Outra pena renova o tempo; não aumenta o multiplicador. Pausas e perguntas congelam o relógio. O bônus de uma resposta é definido na coleta que abriu o quiz.
 - **Aprendizado:** uma passagem vale 1 ponto; um fruto, 3; uma resposta correta, 2. A cada dois frutos, aparece um quiz. A resposta incorreta é explicada: na Aventura encerra o voo; no Voo tranquilo permite continuar. As oito perguntas restauradas da versão anterior incluem explicação e fonte e não se repetem até esgotar a lista. Com 200 pontos, há uma celebração de vitória.
 - **Ranking:** aventura e voo tranquilo têm classificações próprias em `db-chaua-floresta-v2`. O ranking clássico continua intacto em `db-chaua` e pode ser consultado separadamente. Dados ficam no navegador; se o armazenamento estiver indisponível, os novos resultados ficam só na sessão.
@@ -91,7 +91,7 @@ Movimento reduzido mantém os indicadores estáticos, omite partículas/tremor e
 - Vento e cantos sintetizados localmente, com sons de asas, coleta e poderes. O botão de som controla tudo. O contexto de áudio só é criado após interação com som habilitado; ambiente silencia em pausas, quiz, resultado e ao perder foco. Não há downloads de áudio nem timers permanentes.
 - Coletas exibem partículas, pontos próximos ao papagaio, reação breve do personagem e do contador. Pontos dobrados usam dourado. As asas têm transição curta entre poses e a cauda tem movimento secundário discreto.
 - Cobras movimentam a região da cabeça e mostram a língua ocasionalmente; o resto do tronco e a colisão permanecem estáticos. Gaviões alternam batidas e planeio.
-- Madeira destruída pelo escudo desaparece em 0,24 s com fragmentos de casca e folhas. A proteção temporária tem contorno azul tracejado, diferente das penas do escudo. A aura ×2 encolhe nos três segundos finais e termina com um anel e aviso sonoro suaves.
+- O galho seco atingido pelo escudo se desfaz em lascas; troncos vivos mantêm a geometria e reagem com tremor e partículas. A proteção temporária tem contorno azul tracejado, diferente das penas do escudo. A aura ×2 encolhe nos três segundos finais e termina com um anel e aviso sonoro suaves.
 - Limite de 96 partículas e seis indicadores de pontos; efeitos cosméticos não consomem a aleatoriedade da partida. Pausas congelam relógios e efeitos; movimento reduzido remove animações decorativas e deslocamento dos pontos.
 
 Validação: 43 testes automatizados, build SCSS e inspeção de imagens renderizadas com Canvas nativo/Skia usando os assets reais. Uma cena de 960 × 640 levou cerca de 1,4 ms por renderização neste ambiente (60 quadros); esse número não representa FPS do navegador ou de um notebook específico. Interface DOM, áudio audível e sensação ao jogar ainda precisam de avaliação no navegador.
@@ -105,3 +105,10 @@ Validação: 43 testes automatizados, build SCSS e inspeção de imagens renderi
 - Pausa, quiz, cancelamento do toque e saída limpam comandos pendentes. Uma perda de captura normal após soltar não apaga um toque válido.
 - Gravidade, queda, inclinação e força de subida permanecem nas curvas já ajustadas. O fôlego suaviza a subida sustentada, sem tornar o controle ineficaz.
 - Validação: 51 testes automatizados aprovados e build Sass concluído. O roteiro de navegador inclui segurar na contagem; sua execução depende de Chromium disponível e ainda precisa ser conferida em aparelho real.
+
+
+### Etapa 2 — colisões e recuperação
+
+O escudo também protege teto e chão, reposicionando a ave 36 unidades para dentro e corrigindo a velocidade. Durante os 1,6 s de proteção temporária, os limites continuam recuperando o voo sem consumir outro escudo. No contato com troncos, a ave retorna ao centro da passagem; a interpolação é sincronizada para não desenhá-la atravessando madeira. Cobras se afastam e a árvore permanece intacta. Somente a saliência seca da variante quebrada perde sua colisão quando atingida diretamente. Galhos, cavidades e margens tolerantes existentes foram preservados.
+
+Contatos simultâneos não emitem derrotas ou consumos duplicados. Partículas de lasca e brilho agora têm desenho próprio. Validação: 57 testes aprovados e build concluído; a inspeção interativa em navegador e aparelho real permanece pendente.

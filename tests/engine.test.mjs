@@ -67,14 +67,15 @@ test('feathers refresh ten seconds and never multiply to four', () => {
     assert.equal(game.feather, 10); game.addScore(3); assert.equal(game.score, 6);
 });
 
-test('one shield breaks wood, grants escape time and no destruction points', () => {
+test('one shield preserves living wood, grants escape time and no contact points', () => {
     const game = flight(), obstacle = wood(game); game.entities = [obstacle];
     game.power('shield'); game.power('shield'); game.tick(STEP);
-    assert.equal(game.shield, false); assert.equal(obstacle.broken, true); assert.ok(game.invincible > 1.5); assert.equal(game.state, 'playing');
-    assert.equal(obstacle.brokenSide, 'top');
+    assert.equal(game.shield, false); assert.equal(obstacle.broken, undefined); assert.ok(game.invincible > 1.5); assert.equal(game.state, 'playing');
+    assert.equal(obstacle.contacted, true);
+    assert.equal(game.y, (obstacle.top + obstacle.bottom) / 2);
     assert.ok(game.woodRects(obstacle).some(rect=>rect.y===obstacle.bottom));
     obstacle.x = game.x - 200; game.tick(STEP); assert.equal(game.score, 0);
-    game.invincible = 0; game.entities = [wood(game)]; game.tick(STEP); assert.equal(game.state, 'impact'); advance(game,.45); assert.equal(game.state, 'ended');
+    game.invincible = 0; game.y=300; game.entities = [wood(game)]; game.tick(STEP); assert.equal(game.state, 'impact'); advance(game,.45); assert.equal(game.state, 'ended');
 });
 
 test('shield repels animals and never destroys them', () => {

@@ -248,6 +248,8 @@ export class Renderer {
         if (!reduced) for (const p of game.particles) {
             c.globalAlpha=Math.max(0,p.life/(p.maxLife??.7));
             if(p.feather)feather(c,p.x,p.y,7,p.rotation,p.color);
+            else if(p.chip) { c.save(); c.translate(p.x,p.y); c.rotate(p.rotation); c.fillStyle=p.color; c.fillRect(-p.size/2,-p.size/4,p.size,p.size/2); c.restore(); }
+            else if(p.spark) oval(c,p.x,p.y,2,2,p.color);
             else leaf(c,p.x,p.y,3,p.life*5,p.color,p.color);
         }
         c.globalAlpha = 1;
@@ -295,7 +297,7 @@ export class Renderer {
                 else this.wood({x:e.x-70,y:e.bottom+30,w:78,h:18},variant);
             }
         }
-        if(e.variant==='broken'&&(!e.broken||e.brokenSide!=='top'))this.wood({x:e.x+52,y:e.top-35,w:26,h:18},variant);
+        if(e.variant==='broken'&&!e.dryBranchBroken&&(!e.broken||e.brokenSide!=='top'))this.wood({x:e.x+52,y:e.top-35,w:26,h:18},variant);
         c.restore();
     }
 
