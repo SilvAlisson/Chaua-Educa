@@ -1,3 +1,4 @@
+import { flightViewport, warningPosition } from './viewport.mjs';
 import { images, loadAssets, BIRD_ANCHORS, TRUNKS, SPECIAL, flightPose } from './assets.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
@@ -197,9 +198,10 @@ export class Renderer {
         this.base();
         const c = this.c;
         this.background(game.elapsed, game.distance, game.stage, false, reduced);
-        const s = Math.min(this.h / HEIGHT, this.w / WIDTH);
-        const worldWidth = WIDTH;
-        c.save(); c.translate((this.w - WIDTH*s)/2, (this.h-HEIGHT*s)/2); c.scale(s, s);
+        const view = flightViewport(this.w, this.h, this.safeInsets);
+        const s = view.scale;
+        c.save(); c.beginPath(); c.rect(view.x,view.y,view.w,view.h); c.clip();
+        c.translate(view.x-view.worldLeft*s,view.y); c.scale(s, s);
         c.beginPath(); c.rect(0,0,WIDTH,HEIGHT); c.clip();
         c.strokeStyle = '#d9edb6'; c.lineWidth = 2; c.strokeRect(0, 1, WIDTH, HEIGHT-2);
         if (game.feather > 0) {
@@ -222,12 +224,8 @@ export class Renderer {
                 this.obstacle(e, game, reduced);
             } else if (e.kind === 'hawk') {
                 if (e.warning > 0) {
-                    const wx = worldWidth - 52;
-                    c.save(); c.strokeStyle = '#684b3c88'; c.lineWidth = 1.5; c.setLineDash([6, 8]);
-                    c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.setLineDash([]);
-                    c.fillStyle = '#fff0c8'; c.beginPath(); c.roundRect(wx - 40, e.startY - 31, 85, 55, 12); c.fill();
-                    this.hawk(wx + 1, e.startY - 2, game.elapsed, true);
-                    c.font = '800 8px Nunito'; c.fillStyle = '#684a32'; c.textAlign = 'center'; c.fillText(e.dive ? 'MERGULHO' : 'TRAVESSIA', wx + 1, e.startY + 17); c.restore();
+                    c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
+                    c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
                 } else this.hawk(e.x, e.y, reduced ? 0 : game.elapsed, false, e.dive ? -Math.atan2(e.targetY - e.startY, e.startX - e.targetX) : 0);
             } else if (!e.collected) this.pickup(e, game.elapsed, reduced);
         }
@@ -260,6 +258,17 @@ export class Renderer {
         }
         this.foreground(game.distance,game.elapsed,reduced);
         c.restore();
+        // Warning labels are CSS-pixel sized, independent of world zoom.
+        for (const e of game.entities) if(e.kind==='hawk' && e.warning>0) {
+            const p=warningPosition(view,e.startY);
+            c.save(); c.fillStyle='#fff0c8'; c.strokeStyle='#684b3c'; c.lineWidth=1.5;
+            c.beginPath();c.roundRect(p.x,p.y,108,36,9);c.fill();c.stroke();
+            c.font='800 12px Nunito';c.textAlign='center';c.fillStyle='#483427';
+            c.fillText(e.dive?'MERGULHO':'TRAVESSIA',p.x+58,p.y+15);
+            c.beginPath();c.moveTo(p.x+19,p.y+8);c.lineTo(p.x+10,p.y+(e.dive?17:8));
+            c.lineTo(p.x+10,p.y+11);c.moveTo(p.x+10,p.y+(e.dive?17:8));c.lineTo(p.x+16,p.y+(e.dive?17:13));c.stroke();
+            c.font='700 11px Nunito';c.fillText('Gavião',p.x+54,p.y+29);c.restore();
+        }
         if (game.state === 'ended' && game.won) {
             for (let i = 0; i < 32; i++) {
                 const t = reduced ? 0 : visualTime * 25;

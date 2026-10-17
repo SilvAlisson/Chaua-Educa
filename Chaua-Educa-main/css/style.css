@@ -1752,3 +1752,133 @@ dialog[open]::backdrop {
     display: none;
   }
 }
+/* Keep interface in reserved bands; world zoom never scales controls or labels. */
+.app {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+.app.in-flight {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.in-flight #forest, .flap-button {
+  touch-action: none;
+}
+
+.hud .score-pill {
+  top: calc(var(--safe-top) + 12px);
+  left: calc(var(--safe-left) + 12px);
+}
+
+.hud .flight-progress {
+  top: calc(var(--safe-top) + 14px);
+}
+
+.hud #pause-button {
+  top: calc(var(--safe-top) + 12px);
+  right: calc(var(--safe-right) + 12px);
+  width: 44px;
+  height: 44px;
+}
+
+.hud .power-bar {
+  top: calc(var(--safe-top) + 70px);
+  left: calc(var(--safe-left) + 12px);
+  flex-direction: row;
+  gap: 8px;
+}
+
+.hud .power-chip {
+  font-size: 12px;
+}
+
+.hud .flight-help {
+  bottom: calc(var(--safe-bottom) + 24px);
+  left: calc(var(--safe-left) + 12px);
+}
+
+.hud .flap-button {
+  right: calc(var(--safe-right) + 16px);
+  bottom: calc(var(--safe-bottom) + 20px);
+  min-width: 104px;
+  min-height: 52px;
+}
+
+.hud .toast {
+  top: auto;
+  bottom: calc(var(--safe-bottom) + 78px);
+  font-size: 12px;
+}
+
+.orientation-hint {
+  display: none;
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .hud .flight-progress {
+    left: 54%;
+    width: 118px;
+  }
+  .hud .flight-progress small {
+    font-size: 10px;
+  }
+  .orientation-hint {
+    display: block;
+    position: absolute;
+    top: calc(var(--safe-top) + 98px);
+    left: 12px;
+    right: 12px;
+    margin: 0;
+    text-align: center;
+    font-size: 11px;
+    color: #244c31;
+  }
+  .hud .power-chip {
+    padding: 5px 8px;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .hud .score-pill {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  .hud .score-pill strong {
+    font-size: 26px;
+  }
+  .hud .score-pill > span:first-child {
+    font-size: 9px;
+  }
+  .hud .flight-progress {
+    display: none;
+  }
+  .hud .power-bar {
+    top: calc(var(--safe-top) + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .hud .power-chip {
+    padding: 6px 8px;
+  }
+  .hud .flap-button {
+    bottom: calc(var(--safe-bottom) + 6px);
+    min-height: 48px;
+    padding: 10px 20px;
+  }
+  .hud .flight-help {
+    bottom: calc(var(--safe-bottom) + 12px);
+  }
+  .hud .flight-help > span:first-child {
+    display: none;
+  }
+  .hud .toast {
+    bottom: calc(var(--safe-bottom) + 12px);
+    max-width: 38%;
+  }
+  .countdown strong {
+    font-size: 72px;
+  }
+}

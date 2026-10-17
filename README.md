@@ -112,3 +112,12 @@ Validação: 43 testes automatizados, build SCSS e inspeção de imagens renderi
 O escudo também protege teto e chão, reposicionando a ave 36 unidades para dentro e corrigindo a velocidade. Durante os 1,6 s de proteção temporária, os limites continuam recuperando o voo sem consumir outro escudo. No contato com troncos, a ave retorna ao centro da passagem; a interpolação é sincronizada para não desenhá-la atravessando madeira. Cobras se afastam e a árvore permanece intacta. Somente a saliência seca da variante quebrada perde sua colisão quando atingida diretamente. Galhos, cavidades e margens tolerantes existentes foram preservados.
 
 Contatos simultâneos não emitem derrotas ou consumos duplicados. Partículas de lasca e brilho agora têm desenho próprio. Validação: 57 testes aprovados e build concluído; a inspeção interativa em navegador e aparelho real permanece pendente.
+
+
+### Etapa 3 — enquadramento e controles móveis
+
+O mundo físico continua em 960 × 640. Em retrato estreito, a câmera mostra as coordenadas horizontais 80–800 (720 unidades), preservando a altura inteira e aumentando a escala em até 33% em relação ao ajuste pela largura anterior. Isso reduz o horizonte horizontal; mesmo na velocidade máxima, a borda direita mantém aproximadamente 1,66 s até o encontro com um gavião e 1,93 s para madeira. Avisos antecipados continuam fixados à borda visível. Paisagem e desktop mostram toda a largura.
+
+Placar, poderes e controles ocupam faixas reservadas, com áreas seguras de tela; os avisos dos gaviões usam 11–12 pixels CSS, sem reduzir a fonte com o mundo. O botão de pausa tem 44 × 44 e o de voo pelo menos 104 × 48 pixels. Rotacionar durante voo ou contagem pausa, limpa entradas e exige retomada com contagem; não altera os tempos ou a física. Há sugestão discreta de paisagem, sem bloquear retrato.
+
+Validação: 61 testes aprovados, build concluído e renderização Canvas nativa inspecionada em 390 × 844. Testes geométricos cobrem 320 × 568, 390 × 844, 768 × 1024, 844 × 390 e 1440 × 960. O roteiro de navegador inclui rotação e congelamento; DOM/CSS, toque e orientação ainda precisam de execução em navegador/aparelho real.

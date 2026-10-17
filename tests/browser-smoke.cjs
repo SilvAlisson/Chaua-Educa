@@ -107,6 +107,17 @@ async function begin(page, name = 'Guardião da mata') {
         await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
         await session.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
         assert.equal(await model(touch,g=>g.held),false);
+        await model(touch,g=>{g.y=300;g.vy=0;g.feather=7;});
+        await touch.setViewportSize({width:844,height:390});
+        await touch.locator('#pause-dialog').waitFor({state:'visible'});
+        const rotated=await model(touch,g=>[g.y,g.feather,g.elapsed]);
+        await touch.waitForTimeout(150);
+        assert.deepEqual(await model(touch,g=>[g.y,g.feather,g.elapsed]),rotated);
+        assert.equal(await model(touch,g=>g.held),false);
+        await touch.setViewportSize({width:390,height:844});
+        await touch.locator('#resume-button').tap();
+        assert.equal(await model(touch,g=>g.state),'countdown');
+        await playing(touch);
         await model(touch,g=>{g.y=300;g.vy=0;g.end(false,'Fim do teste de toque.');});
         await touch.locator('#result-dialog').waitFor({state:'visible'});
         await touch.locator('#result-dialog .back-home').tap();

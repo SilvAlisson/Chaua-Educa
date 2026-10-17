@@ -14,7 +14,7 @@ const dialogs = [...document.querySelectorAll('dialog')];
 let player = '', selectedMode = 'aventura', previousState = '', board = 'aventura';
 let returnToResult = false, lastTime = 0, toastUntil = 0, pointsUntil = 0;
 let resultAnimation = null, soundOn = false;
-let assetsReady = false;
+let assetsReady = false, lastOrientation = null;
 try { soundOn = localStorage.getItem('chaua-sound') === 'true'; } catch { /* Optional preference. */ }
 
 const forestAudio=new ForestAudio();
@@ -46,7 +46,13 @@ const flightInput = new FlightInput(game, held => $('#flap-button').classList.to
 
 function resize() {
     renderer.resize();
-
+    const style=getComputedStyle(app);
+    renderer.safeInsets=Object.fromEntries(['top','right','bottom','left'].map(side=>[side,parseFloat(style.getPropertyValue(`--safe-${side}`))||0]));
+    const orientation=renderer.w>renderer.h?'landscape':'portrait';
+    if(lastOrientation && lastOrientation!==orientation && ['playing','countdown'].includes(game.state)) {
+        clearInputs(); game.pause(); clock.reset(); syncUI();
+    }
+    lastOrientation=orientation;
 }
 new ResizeObserver(resize).observe(app);
 window.addEventListener('resize', resize);
