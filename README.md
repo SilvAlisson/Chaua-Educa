@@ -95,3 +95,13 @@ Movimento reduzido mantém os indicadores estáticos, omite partículas/tremor e
 - Limite de 96 partículas e seis indicadores de pontos; efeitos cosméticos não consomem a aleatoriedade da partida. Pausas congelam relógios e efeitos; movimento reduzido remove animações decorativas e deslocamento dos pontos.
 
 Validação: 43 testes automatizados, build SCSS e inspeção de imagens renderizadas com Canvas nativo/Skia usando os assets reais. Uma cena de 960 × 640 levou cerca de 1,4 ms por renderização neste ambiente (60 quadros); esse número não representa FPS do navegador ou de um notebook específico. Interface DOM, áudio audível e sensação ao jogar ainda precisam de avaliação no navegador.
+
+
+### Etapa 1 — controle de voo confiável
+
+- Comandos nos últimos 120 ms do intervalo entre batidas são aproveitados uma vez, mesmo após soltar. Toques muito antecipados não ficam acumulados.
+- Segurar durante a contagem prepara uma subida imediata; soltar antes do fim cancela essa preparação.
+- Teclado, toque e ativação acessível usam o mesmo controlador. Soltar uma entrada não interrompe outra ainda pressionada.
+- Pausa, quiz, cancelamento do toque e saída limpam comandos pendentes. Uma perda de captura normal após soltar não apaga um toque válido.
+- Gravidade, queda, inclinação e força de subida permanecem nas curvas já ajustadas. O fôlego suaviza a subida sustentada, sem tornar o controle ineficaz.
+- Validação: 51 testes automatizados aprovados e build Sass concluído. O roteiro de navegador inclui segurar na contagem; sua execução depende de Chromium disponível e ainda precisa ser conferida em aparelho real.

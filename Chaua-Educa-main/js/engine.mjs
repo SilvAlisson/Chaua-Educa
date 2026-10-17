@@ -8,7 +8,7 @@ export const FEATHER_SECONDS = 10;
 export const VICTORY_SCORE = 200;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
-    holdLift: 230, staminaLift: 50, flapInterval: .22,
+    holdLift: 230, staminaLift: 50, flapInterval: .22, inputBuffer: .12,
     aventura: {speed: 245, gap: 185, minGap: 155},
     tranquilo: {speed: 205, gap: 220, minGap: 190},
 });
@@ -60,7 +60,7 @@ export class Game {
         Object.assign(this, {
             mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, invincible: 0, held: false, holdAge: 0,
-            flapCooldown: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
+            flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
             sequence: 0, lastGap: 320, question: null, questionPool: [],
             answerResult: null, reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0,
@@ -74,11 +74,15 @@ export class Game {
     start(mode = 'aventura') { this.reset(mode); this.state = 'countdown'; }
 
     press() {
-        if (this.state !== 'playing' || this.held) return;
+        if (!['playing', 'countdown'].includes(this.state) || this.held) return;
         this.held = true;
         this.holdAge = 0;
-        this.flap(true);
+        if (this.state === 'countdown') return;
+        if (this.flapCooldown <= 0) this.flap(true);
+        else if (this.flapCooldown <= FLIGHT.inputBuffer) this.pendingTap = FLIGHT.inputBuffer;
     }
+
+    cancelInput() { this.release(); this.pendingTap = 0; }
 
     release() { this.held = false; this.holdAge = 0; }
 
@@ -88,6 +92,7 @@ export class Game {
         // Fatigue softens sustained climbing without making the control ineffective.
         this.vy = -(tap ? FLIGHT.tapLift : FLIGHT.holdLift + FLIGHT.staminaLift * this.stamina);
         this.flapCooldown = FLIGHT.flapInterval;
+        this.pendingTap = 0;
         this.wing = 1;
         this.onEvent({type:'flap'});
     }
@@ -96,7 +101,7 @@ export class Game {
         if (!['playing', 'countdown'].includes(this.state)) return;
         this.beforePause = this.state;
         this.state = 'paused';
-        this.release();
+        this.cancelInput();
     }
     resume() { if (this.state === 'paused') { this.countdown = Math.max(1.5, this.beforePause === 'countdown' ? this.countdown : 0); this.state = 'countdown'; this.snapshot(); } }
 
@@ -145,7 +150,7 @@ export class Game {
         if(collision) this.featherBurst(['#48965b','#7db852','#3c8b91','#d7b85b'],18);
         this.won = won;
         this.reason = reason;
-        this.release();
+        this.cancelInput();
         this.onEvent({ type: won ? 'win' : 'lose' });
     }
 
@@ -161,7 +166,7 @@ export class Game {
         if (this.state !== 'quiz' || this.answerResult === null) return;
         if (!this.answerResult && this.mode !== 'tranquilo') this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?');
         else if (this.score >= VICTORY_SCORE) this.end(true, 'Você completou a aventura do Chauá!');
-        else { this.state = 'countdown'; this.countdown = 1.5; this.release(); this.snapshot(); }
+        else { this.state = 'countdown'; this.countdown = 1.5; this.cancelInput(); this.snapshot(); }
     }
 
     collect(entity) {
@@ -180,7 +185,7 @@ export class Game {
             this.quizMultiplier = multiplier;
             this.answerResult = null;
             this.state = 'quiz';
-            this.release();
+            this.cancelInput();
         }
     }
 
@@ -302,7 +307,11 @@ export class Game {
         }
         if (this.state === 'countdown') {
             this.countdown -= dt;
-            if (this.countdown <= 1e-10) this.state = 'playing';
+            if (this.countdown <= 1e-10) {
+                this.state = 'playing';
+                // A fresh held command starts immediately; old cooldown must not delay resume.
+                if (this.held) { this.flapCooldown = 0; this.flap(true); }
+            }
             return;
         }
         if (this.state !== 'playing') return;
@@ -316,6 +325,8 @@ export class Game {
         this.flapCooldown = Math.max(0, this.flapCooldown - dt);
         this.wing = Math.max(0, this.wing - dt * 4);
         this.stamina = Math.max(.08, Math.min(1, this.stamina + (this.held ? -.44 : .65) * dt));
+        if (this.pendingTap > 0 && this.flapCooldown === 0) this.flap(true);
+        this.pendingTap = Math.max(0, this.pendingTap - dt);
         if (this.held) { this.holdAge += dt; this.flap(); }
         this.vy = Math.min(FLIGHT.fallLimit, this.vy + FLIGHT.gravity * dt);
         this.y += this.vy * dt;

@@ -35,7 +35,14 @@ async function begin(page, name = 'Guardião da mata') {
         assert.equal(await page.locator('#btnStart').isDisabled(), true);
         await page.locator('#open-guide').click(); await page.locator('#guide-dialog').waitFor({state:'visible'});
         await page.keyboard.press('Escape'); assert.equal(await page.locator('#guide-dialog').isVisible(),false);
-        await begin(page);
+        await page.locator('#inputPlayer').fill('Guardião da mata');
+        await page.locator('#btnStart').click();
+        await page.keyboard.down('Space');
+        assert.equal(await model(page,g=>g.state),'countdown');
+        assert.equal(await model(page,g=>g.held),true);
+        await playing(page);
+        assert.equal(await model(page,g=>g.held && g.vy < 0),true);
+        await page.keyboard.up('Space');
         // Actual keyboard events, including release and glide.
         await page.keyboard.down('Space');
         assert.equal(await model(page,g=>g.held),true);

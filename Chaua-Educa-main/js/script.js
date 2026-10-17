@@ -1,3 +1,4 @@
+import { FlightInput } from './input.mjs';
 import { ForestAudio } from './audio.mjs';
 import { SOURCES } from './questions.mjs';
 import { FRUITS } from './fruits.mjs';
@@ -10,7 +11,6 @@ const app = $('#app');
 const renderer = new Renderer($('#forest'));
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const dialogs = [...document.querySelectorAll('dialog')];
-const flightInputs = new Set();
 let player = '', selectedMode = 'aventura', previousState = '', board = 'aventura';
 let returnToResult = false, lastTime = 0, toastUntil = 0, pointsUntil = 0;
 let resultAnimation = null, soundOn = false;
@@ -42,6 +42,7 @@ export const game = new Game({ onEvent(event) {
     }
 } });
 const clock = new FlightClock(game);
+const flightInput = new FlightInput(game, held => $('#flap-button').classList.toggle('is-held', held));
 
 function resize() {
     renderer.resize();
@@ -50,15 +51,9 @@ function resize() {
 new ResizeObserver(resize).observe(app);
 window.addEventListener('resize', resize);
 
-function clearInputs() { flightInputs.clear(); game.release(); $('#flap-button').classList.remove('is-held'); }
-function hold(source) {
-    if (game.state !== 'playing') return;
-    flightInputs.add(source); game.press(); $('#flap-button').classList.add('is-held');
-}
-function release(source) {
-    flightInputs.delete(source);
-    if (!flightInputs.size) { game.release(); $('#flap-button').classList.remove('is-held'); }
-}
+function clearInputs() { flightInput.clear(); }
+function hold(source) { flightInput.press(source); }
+function release(source) { flightInput.release(source); }
 function closeDialogs() { dialogs.forEach(dialog => { if (dialog.open) dialog.close(); }); }
 function openDialog(id) { const dialog = $(id); if (!dialog.open) dialog.showModal(); }
 
@@ -111,10 +106,10 @@ $('#forest').addEventListener('pointerdown', event => {
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); hold(`pointer-${event.pointerId}`);
 });
 window.addEventListener('pointerup', event => release(`pointer-${event.pointerId}`));
-window.addEventListener('pointercancel', event => release(`pointer-${event.pointerId}`));
-$('#flap-button').addEventListener('lostpointercapture', event => release(`pointer-${event.pointerId}`));
-$('#forest').addEventListener('lostpointercapture', event => release(`pointer-${event.pointerId}`));
-$('#flap-button').addEventListener('click', event => { if (event.detail === 0) { game.press(); game.release(); } });
+window.addEventListener('pointercancel', event => flightInput.cancel(`pointer-${event.pointerId}`));
+$('#flap-button').addEventListener('lostpointercapture', event => flightInput.cancel(`pointer-${event.pointerId}`));
+$('#forest').addEventListener('lostpointercapture', event => flightInput.cancel(`pointer-${event.pointerId}`));
+$('#flap-button').addEventListener('click', event => { if (event.detail === 0) { hold('activation'); release('activation'); } });
 window.addEventListener('keydown', event => {
     if (game.state === 'quiz') {
         if (['v', 'f'].includes(event.key.toLowerCase()) && !event.repeat) { event.preventDefault(); answer(event.key.toLowerCase() === 'v'); }
@@ -208,7 +203,7 @@ document.querySelectorAll('.close-dialog').forEach(button => button.addEventList
 function syncUI() {
     if (game.state !== previousState) {
         app.dataset.state = game.state;
-        clearInputs();
+        if (!(previousState === 'countdown' && game.state === 'playing')) clearInputs();
         if (game.state === 'paused') openDialog('#pause-dialog');
         if (game.state === 'quiz') {
             $('#question-text').textContent = game.question.text;
