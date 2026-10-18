@@ -1,3 +1,4 @@
+import { createTutorial, advanceTutorial } from './tutorial.mjs';
 import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
 import { offerPower, POWER_BALANCE } from './powers.mjs';
 import { advanceHawk, advanceSnake } from './animals.mjs';
@@ -69,7 +70,7 @@ export class Game {
         this.encounterRandom = this.randomOverride ?? seededRandom(this.seed);
         this.powerRandom = this.randomOverride ?? seededRandom(this.seed ^ 0x85ebca6b);
         Object.assign(this, {
-            stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
+            tutorial:null, endCause:null, stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
             scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:0,nextShield:0,nextFeather:18},
             mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, invincible: 0, held: false, holdAge: 0,
@@ -85,6 +86,10 @@ export class Game {
     get body() { return { x: this.x - 18, y: this.y - 18, w: 36, h: 36 }; }
     get speed() { return FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45); }
     start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
+
+    startTutorial() {
+        this.start('tranquilo');this.tutorial=createTutorial(320);this.y=320;this.snapshot();
+    }
 
     press() {
         if (!['playing', 'countdown'].includes(this.state) || this.held) return;
@@ -183,6 +188,7 @@ export class Game {
         } else {
             const reason = boundary ? (boundary === 'top' ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!')
                 : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra do galho.') : 'Você esbarrou na madeira.';
+            this.endCause=boundary || (animal ? (entity.kind==='hawk'?'hawk':'snake') : 'wood');
             this.end(false, reason, true);
         }
     }
@@ -211,7 +217,7 @@ export class Game {
     continueQuiz() {
         if (this.state !== 'quiz' || this.answerResult === null) return;
         this.nextQuizAt = this.elapsed + QUIZ_INTERVAL;
-        if (!this.answerResult && this.mode !== 'tranquilo') this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?');
+        if (!this.answerResult && this.mode !== 'tranquilo') { this.endCause='quiz'; this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?'); }
         else { this.state = 'countdown'; this.countdown = 1.5; this.cancelInput(); this.snapshot(); }
     }
 
@@ -412,7 +418,7 @@ export class Game {
         }
         if (this.state !== 'playing') return;
         this.elapsed += dt;
-        this.distance = Math.min(JOURNEY_LENGTH,this.distance+this.speed*dt);
+        if(!this.tutorial)this.distance = Math.min(JOURNEY_LENGTH,this.distance+this.speed*dt);
         const nextStage=journeyStage(this.distance);
         if(nextStage!==this.stage){this.stage=nextStage;this.stageAge=0;this.onEvent({type:'stage',stage:this.stage,message:JOURNEY[this.stage].message});}
         this.stageAge+=dt;
@@ -430,6 +436,16 @@ export class Game {
         this.y += this.vy * dt;
         const targetAngle = Math.max(-.23, Math.min(.28, this.vy / 750));
         this.angle += (targetAngle - this.angle) * (1 - Math.exp(-8 * dt));
+        if(this.tutorial){
+            this.y=Math.max(CONTACT.top+36,Math.min(CONTACT.bottom-36,this.y));
+            if(advanceTutorial(this.tutorial,this,dt)){
+                if(this.tutorial.step!==2)this.cancelInput();
+                this.y=320;this.vy=0;this.snapshot();
+                this.onEvent({type:'tutorial-step'});
+                if(this.tutorial.done){this.state='trained';this.onEvent({type:'tutorial-complete'});}
+            }
+            this.advanceEffects(dt);return;
+        }
         if (this.y < CONTACT.top || this.y > CONTACT.bottom) {
             this.boundaryContact(this.y < CONTACT.top ? 'top' : 'bottom');
             if (this.state !== 'playing') return;

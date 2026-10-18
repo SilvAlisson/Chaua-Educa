@@ -63,6 +63,13 @@ export default class DB {
         catch { this.storageAvailable=false; }
     }
 
+    static tutorialCompleted(){return this.readObject('chaua-tutorial-v1',false)===true;}
+    static completeTutorial(){
+        this.memory.set('chaua-tutorial-v1',true);
+        try {localStorage.setItem('chaua-tutorial-v1','true');}
+        catch {this.storageAvailable=false;}
+    }
+
     static missionProgress(player) {
         const stored=this.readObject('chaua-missions-v1',[]);
         const row=Array.isArray(stored)?stored.find(r=>r?.player===player.trim()):null;

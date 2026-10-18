@@ -1,3 +1,4 @@
+import { LESSONS, resultAdvice } from './tutorial.mjs';
 import { MISSIONS, completedMissions, progressTitle, renderMissions } from './missions.mjs';
 import { ENTRIES, discoveriesFor, renderCollection } from './collection.mjs';
 import { JOURNEY_LENGTH } from './journey.mjs';
@@ -35,6 +36,12 @@ function toast(text) {
 
 export const game = new Game({ onEvent(event) {
     sound(event.type);
+    if(event.type==='tutorial-step'){
+        if(game.tutorial.step!==2)flightInput.clear();
+        $('#screen-reader-status').textContent=LESSONS[game.tutorial.step]?.instruction || 'Treino concluído!';
+    }
+    if(event.type==='tutorial-complete') DB.completeTutorial();
+    if(game.tutorial)return;
     DB.discoverEntries(discoveriesFor(event));
     if(['fruit','correct','incorrect','stage','route-complete','win'].includes(event.type)) DB.advanceMissions(player,event);
     if (event.type === 'fruit') DB.unlock(event.fruit);
@@ -77,13 +84,17 @@ function release(source) { flightInput.release(source); }
 function closeDialogs() { dialogs.forEach(dialog => { if (dialog.open) dialog.close(); }); }
 function openDialog(id) { const dialog = $(id); if (!dialog.open) dialog.showModal(); }
 
-function start() {
+function start(training = false) {
+    training = training === true;
     if (!assetsReady) return;
     closeDialogs(); clearInputs();
     cancelAnimationFrame(resultAnimation);
     app.classList.add('in-flight'); $('#home').hidden = true; $('#hud').hidden = false;
     flightMissionIds = completedMissions(DB.missionProgress(player)).map(m=>m.id);
-    resize(); game.start(selectedMode, DB.reviewTopics(player)); previousState = ''; clock.reset(); lastTime = 0;
+    resize();
+    if(training)game.startTutorial();else game.start(selectedMode, DB.reviewTopics(player));
+    app.classList.toggle('training',training);
+    previousState = ''; clock.reset(); lastTime = 0;
     $('#score-bonus').textContent = ''; $('#toast').classList.remove('visible'); toastUntil = 0;
     $('#screen-reader-status').textContent = 'O voo vai começar. Toque, seta para cima ou espaço para bater asas. Solte para descer.';
     // Remove focus from the submitting/restarting button, avoiding Space clicks.
@@ -94,7 +105,7 @@ function home() {
     closeDialogs(); clearInputs(); cancelAnimationFrame(resultAnimation);
     game.reset(); previousState = ''; clock.reset(); lastTime = 0;
     $('#hud').hidden = true; $('#countdown').hidden = true; $('#home').hidden = false;
-    app.classList.remove('in-flight'); resize(); $('#inputPlayer').focus({ preventScroll: true });
+    app.classList.remove('in-flight','training'); updateTrainingButton(); resize(); $('#inputPlayer').focus({ preventScroll: true });
 }
 
 $('#inputPlayer').addEventListener('input', event => {
@@ -181,6 +192,8 @@ function result() {
     $('#result-title').textContent = game.won ? 'Você encontrou o bando!' : 'Opa! Vamos de novo?';
     $('#result-eyebrow').textContent = game.won ? 'O BANDO ESTÁ REUNIDO' : 'CADA VOO É UM COMEÇO';
     $('#result-reason').textContent = game.reason;
+    $('#result-advice').textContent = resultAdvice(game);
+    $('#result-mode').textContent = selectedMode==='tranquilo'?'Modo Amigável':'Modo Desafio';
     const progress=DB.missionProgress(player);
     const earned=completedMissions(progress).filter(m=>!flightMissionIds.includes(m.id));
     $('#mission-result').textContent=earned.length ? `Novos selos: ${earned.map(m=>m.title).join(' · ')}` : `${progressTitle(progress)} · ${completedMissions(progress).length}/${MISSIONS.length} selos conquistados`;
@@ -241,15 +254,19 @@ function syncUI() {
             openDialog('#quiz-dialog');
         }
         if (game.state === 'ended') result();
+        if (game.state === 'trained') {openDialog('#training-dialog');$('#training-home').focus();}
         previousState = game.state;
     }
     $('#countdown').hidden = game.state !== 'countdown';
     if (game.state === 'countdown') $('#count-number').textContent = Math.max(1, Math.ceil(game.countdown));
     $('#score').textContent = game.score;
-    $('#stage-name').textContent = STAGES[game.stage];
-    $('#journey-destination').textContent=game.refuge?'Alinhe o voo com o bando':`Abrigo · ${Math.floor(game.distance/JOURNEY_LENGTH*100)}%`;
+    $('#stage-name').textContent = game.tutorial ? (LESSONS[game.tutorial.step]?.title || 'Treino concluído') : STAGES[game.stage];
+    $('#journey-destination').textContent=game.tutorial ? (LESSONS[game.tutorial.step]?.instruction || 'Pronto para a aventura!') : game.refuge?'Alinhe o voo com o bando':`Abrigo · ${Math.floor(game.distance/JOURNEY_LENGTH*100)}%`;
     $('#progress-track').setAttribute('aria-valuenow',String(Math.floor(game.distance/JOURNEY_LENGTH*100)));
-    $('#progress-fill').style.width = `${Math.min(100, game.distance / JOURNEY_LENGTH * 100)}%`;
+    const progress=game.tutorial ? game.tutorial.step/LESSONS.length*100 : Math.min(100,game.distance/JOURNEY_LENGTH*100);
+    $('#progress-fill').style.width = `${progress}%`;
+    $('#progress-track').setAttribute('aria-valuenow',String(Math.floor(progress)));
+    $('#progress-track').setAttribute('aria-label',game.tutorial?'Etapas do treino':'Caminho até o abrigo');
     $('#energy').value = game.stamina;
     $('#shield-status').classList.toggle('active', game.shield);
     $('#shield-status span').textContent = game.shield ? 'Escudo pronto' : 'Sem escudo';
@@ -292,6 +309,7 @@ $('#open-collection').addEventListener('click', showCollection);
 
 renderer.ready.then(() => {
     assetsReady=true;
+    updateTrainingButton();
     $('#asset-status').hidden=true;
     $('#btnStart').disabled=$('#inputPlayer').value.trim().length<3;
 }).catch(error => {
@@ -319,3 +337,13 @@ $('#result-missions').addEventListener('click',()=>showMissions(true));
 $('#missions-dialog').addEventListener('close',()=>{
     if(returnToMissionsResult){returnToMissionsResult=false;openDialog('#result-dialog');$('#result-missions').focus();}
 });
+
+function updateTrainingButton(){
+    $('#start-training').disabled=!assetsReady;
+    $('#start-training').textContent=DB.tutorialCompleted()?'Repetir treino de voo':'Experimentar o voo · treino seguro';
+}
+$('#start-training').addEventListener('click',()=>start(true));
+$('#training-again').addEventListener('click',()=>start(true));
+$('#training-home').addEventListener('click',home);
+$('#training-dialog').addEventListener('cancel',event=>{event.preventDefault();home();});
+updateTrainingButton();

@@ -199,3 +199,14 @@ Cada missão rende um selo; títulos avançam com 2, 4 e 6 selos. São recompens
 O armazenamento `chaua-missions-v1` é independente do ranking, das frutas e das revisões educativas existentes. O progresso é salvo nos eventos relevantes, inclusive antes do fim da partida; sair do voo não apaga descobertas. Dados são normalizados, perguntas e variedades não se duplicam e contadores têm limites. Falha de armazenamento conserva o avanço durante a sessão. A progressão começa nesta versão: pontuações antigas não permitem reconstruir missões realizadas.
 
 Validação: testes de persistência, isolamento por jogador, dados inválidos, limite dos objetivos, indisponibilidade de armazenamento e integração com os dois modos. A validação visual interativa ainda está pendente.
+
+
+## Etapa 11 — Treino de voo e resultados orientados
+
+Treino opcional acessível antes de informar o nome: tocar para subir, sustentar o controle por 0,6 segundo e soltar para descer. Compartilha a física e os controles da aventura, incluindo toque, teclado e pausa. Não gera obstáculos, perguntas, pontos, descobertas ou missões. Nos limites, a ave fica contida na área segura, sem perder. As etapas esperam a ação do jogador, sem prazo; na passagem para a segunda etapa, solte e pressione novamente. A terceira exige soltar o controle sustentado.
+
+A conclusão fica registrada neste navegador (`chaua-tutorial-v1`), com alternativa em memória se o armazenamento falhar. Isso muda o botão para “Repetir treino de voo”; o tutorial nunca bloqueia a aventura. A tela de conclusão permite repetir ou voltar para escolher nome e modo. A pausa também permite abandonar o treino e voltar ao início.
+
+O resultado identifica o modo e apresenta uma dica conforme o motivo do fim do voo: copa, chão, madeira, cobra, gavião, pergunta ou chegada ao abrigo. Dicas usam causas estruturadas, sem depender de interpretar mensagens de texto. Selos e detalhamento de pontos continuam disponíveis.
+
+Validação: 102 testes automatizados aprovados e build Sass concluído. O roteiro Playwright foi ampliado para exercitar o treino pelo teclado, a ausência de progresso indevido e o retorno ao menu. Esse roteiro não pôde ser executado: o download do Chromium retornou um arquivo inválido. Aparência e interação real no navegador permanecem pendentes de conferência.

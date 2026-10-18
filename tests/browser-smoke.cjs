@@ -29,6 +29,24 @@ async function begin(page, name = 'Guardião da mata') {
     try {
         const context = await browser.newContext({ viewport: { width:1440, height:960 } });
         const page = await context.newPage(); await inspect(page);
+        // Optional practice works before entering a name and never records a ranked flight.
+        await page.locator('#start-training').click();
+        await playing(page);
+        await page.keyboard.down('Space');
+        await page.waitForFunction(()=>document.querySelector('#stage-name').textContent.startsWith('2 ·'));
+        await page.keyboard.up('Space');
+        await page.keyboard.down('Space');
+        await page.waitForFunction(()=>document.querySelector('#stage-name').textContent.startsWith('3 ·'));
+        assert.equal(await model(page,g=>g.held),true);
+        await page.keyboard.up('Space');
+        await page.locator('#training-dialog').waitFor({state:'visible'});
+        assert.equal(await model(page,g=>g.score),0);
+        assert.equal(await page.evaluate(()=>localStorage.getItem('chaua-missions-v1')),null);
+        await page.locator('#training-home').click();
+        await page.locator('#home').waitFor({state:'visible'});
+        assert.equal(await page.locator('#start-training').textContent(),'Repetir treino de voo');
+        assert.equal(await page.locator('#inputPlayer').evaluate(el=>el===document.activeElement),true);
+        console.log('PASS practice: real input, three lessons, no mission progress, return to home');
         await page.evaluate(() => localStorage.setItem('db-chaua', JSON.stringify([{playerName:'Pioneiro', score_val:777}])));
         assert.equal(await page.locator('#btnStart').isDisabled(), true);
         await page.locator('#inputPlayer').fill('   ');
