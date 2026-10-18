@@ -50,3 +50,18 @@ test('unavailable audio cannot block game feedback',()=>{
  const audio=new ForestAudio(()=>{throw new Error('No device');});audio.setEnabled(true);
  assert.doesNotThrow(()=>audio.play('fruit'));assert.doesNotThrow(()=>audio.update('playing',true,10,0));
 });
+
+test('audio volume and focus mute all voices without creating a new context',()=>{
+ let count=0;const audio=new ForestAudio(()=>{count++;return fakeAudio();});
+ audio.setVolume(.25);assert.equal(count,0);audio.setEnabled(true);audio.play('fruit');
+ assert.equal(audio.master.gain.value,.25);
+ audio.update('playing',false,1,0);assert.equal(audio.master.gain.value,0);
+ audio.update('paused',true,1,0);assert.equal(audio.master.gain.value,.25);
+ audio.setVolume(5);assert.equal(audio.volume,1);audio.setVolume(-1);assert.equal(audio.volume,0);
+ assert.equal(count,1);
+});
+test('rapid collection feedback has a bounded simultaneous voice count',()=>{
+ const audio=new ForestAudio(fakeAudio);audio.setEnabled(true);
+ for(let i=0;i<100;i++)audio.play('fruit');
+ assert.equal(audio.voices,24);
+});

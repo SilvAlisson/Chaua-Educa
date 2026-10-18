@@ -1,3 +1,4 @@
+import { VisualQuality } from './quality.mjs';
 import { LESSONS, resultAdvice } from './tutorial.mjs';
 import { MISSIONS, completedMissions, progressTitle, renderMissions } from './missions.mjs';
 import { ENTRIES, discoveriesFor, renderCollection } from './collection.mjs';
@@ -13,6 +14,9 @@ import { Renderer, drawBird } from './render.mjs';
 const $ = selector => document.querySelector(selector);
 const app = $('#app');
 const renderer = new Renderer($('#forest'));
+const quality=new VisualQuality(DB.readObject('chaua-visual-quality','auto'));
+renderer.setQuality(quality.level);
+let lastHudTime=0;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const dialogs = [...document.querySelectorAll('dialog')];
 let player = '', selectedMode = 'aventura', previousState = '', board = 'aventura';
@@ -25,6 +29,7 @@ try { soundOn = localStorage.getItem('chaua-sound') === 'true'; } catch { /* Opt
 
 const forestAudio=new ForestAudio();
 forestAudio.setEnabled(soundOn);
+forestAudio.setVolume(DB.readObject('chaua-volume',.7));
 function sound(type) { forestAudio.setEnabled(soundOn);forestAudio.play(type); }
 
 function toast(text) {
@@ -283,8 +288,10 @@ function frame(time) {
     lastTime = time;
     game.reducedMotion=reducedMotion.matches;
     clock.advance(delta);
-    syncUI();
+    if(game.state!==previousState || time-lastHudTime>=80){syncUI();lastHudTime=time;}
+    if(quality.sample(delta,!document.hidden&&document.hasFocus()&&game.state==='playing'))renderer.setQuality(quality.level);
     forestAudio.update(game.state,!document.hidden&&document.hasFocus(),time/1000,game.stage);
+    if(document.hidden){requestAnimationFrame(frame);return;}
     if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
     else renderer.game(game.visual(clock.accumulator / (1 / 120)), reducedMotion.matches, time / 1000);
     requestAnimationFrame(frame);
@@ -347,3 +354,31 @@ $('#training-again').addEventListener('click',()=>start(true));
 $('#training-home').addEventListener('click',home);
 $('#training-dialog').addEventListener('cancel',event=>{event.preventDefault();home();});
 updateTrainingButton();
+
+let settingsFromPause=false;
+function showSettings(fromPause=false){
+    settingsFromPause=fromPause;
+    if(fromPause)$('#pause-dialog').close();
+    $('#quality-mode').value=quality.mode;
+    $('#audio-volume').value=Math.round(forestAudio.volume*100);
+    $('#volume-value').textContent=`${Math.round(forestAudio.volume*100)}%`;
+    openDialog('#settings-dialog');
+}
+function saveSetting(key,value){
+    DB.memory.set(key,value);
+    try {localStorage.setItem(key,JSON.stringify(value));} catch {DB.storageAvailable=false;}
+}
+$('#open-settings').addEventListener('click',()=>showSettings());
+$('#pause-settings').addEventListener('click',()=>showSettings(true));
+$('#settings-dialog').addEventListener('close',()=>{
+    if(settingsFromPause && game.state==='paused'){openDialog('#pause-dialog');$('#pause-settings').focus();}
+    settingsFromPause=false;
+});
+$('#quality-mode').addEventListener('change',event=>{
+    quality.setMode(event.target.value);renderer.setQuality(quality.level);saveSetting('chaua-visual-quality',quality.mode);
+});
+$('#audio-volume').addEventListener('input',event=>{
+    forestAudio.setVolume(Number(event.target.value)/100);
+    $('#volume-value').textContent=`${Math.round(forestAudio.volume*100)}%`;
+    saveSetting('chaua-volume',forestAudio.volume);
+});

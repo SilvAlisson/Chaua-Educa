@@ -210,3 +210,14 @@ A conclusão fica registrada neste navegador (`chaua-tutorial-v1`), com alternat
 O resultado identifica o modo e apresenta uma dica conforme o motivo do fim do voo: copa, chão, madeira, cobra, gavião, pergunta ou chegada ao abrigo. Dicas usam causas estruturadas, sem depender de interpretar mensagens de texto. Selos e detalhamento de pontos continuam disponíveis.
 
 Validação: 102 testes automatizados aprovados e build Sass concluído. O roteiro Playwright foi ampliado para exercitar o treino pelo teclado, a ausência de progresso indevido e o retorno ao menu. Esse roteiro não pôde ser executado: o download do Chromium retornou um arquivo inválido. Aparência e interação real no navegador permanecem pendentes de conferência.
+
+
+## Etapa 12 — Ajustes audiovisuais e orçamento de renderização
+
+“Ajustes” fica no início e na pausa. Qualidade Automática começa detalhada, reduz decoração após 2 segundos consecutivos abaixo de aproximadamente 42 frames/s e tenta recuperar detalhes após 12 segundos consecutivos acima de 55 frames/s. Pausas, abas ocultas e travamentos isolados descartam as amostras. Também é possível fixar Detalhada ou Econômica. A preferência é local e não modifica física, hitboxes, geração de encontros ou placar.
+
+Canvas limitado a 4 milhões de pixels em qualquer resolução; DPR máximo 2 na qualidade detalhada e 1 na econômica. Redimensionamentos sem mudança de dimensões não recriam o backing buffer. Econômica reduz camadas decorativas, pólen, borboletas, partículas e folhas de celebração; mantém sprites, pistas de coleta e avisos de perigo. Não há descarte de obstáculos.
+
+HUD atualizado a cada 80 ms, com transições de estado imediatas. A simulação mantém passo fixo de 120 Hz e a renderização continua interpolada na frequência do monitor. Abas ocultas deixam de desenhar. O filtro de vento é atualizado no máximo 10 vezes/s, o áudio tem limite de 24 vozes simultâneas e volume ajustável com transição suave. Perda de foco silencia também efeitos; o treino ganhou sinais sonoros de avanço e conclusão, respeitando a opção de som.
+
+Validação: testes de limites de pixels, qualidade automática e manual, estabilidade da simulação, renderização econômica com os assets existentes, volume, perda de foco e limite de vozes. Os resultados são verificações funcionais; ainda não representam benchmark de FPS/GPU nem teste auditivo ou visual em dispositivo real.

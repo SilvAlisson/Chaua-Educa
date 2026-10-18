@@ -1994,3 +1994,27 @@ dialog[open]::backdrop {
   margin-top: 0.5rem;
   width: 100%;
 }
+
+#settings-dialog label {
+  display: block;
+  margin: 1rem 0 0.5rem;
+  font-weight: 700;
+}
+
+#settings-dialog select, #audio-volume {
+  width: 100%;
+  min-height: 44px;
+}
+
+#settings-dialog select {
+  font: inherit;
+  padding: 0.6rem;
+  border-radius: 10px;
+  color: #315d3e;
+  background: #f5f5e9;
+  border: 1px solid #7c9270;
+}
+
+#volume-value {
+  margin-left: 0.5rem;
+}
