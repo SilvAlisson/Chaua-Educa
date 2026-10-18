@@ -1935,3 +1935,32 @@ dialog[open]::backdrop {
 #collection-progress {
   font-weight: 700;
 }
+
+.home-links, .result-actions {
+  flex-wrap: wrap;
+}
+
+#mission-items {
+  margin-block: 1rem;
+}
+
+#mission-items article {
+  text-align: left;
+}
+
+#mission-items progress {
+  display: block;
+  width: 100%;
+  margin-block: 0.75rem;
+  accent-color: #3c7049;
+}
+
+#mission-items .mission-complete {
+  background: #e9efdc;
+  border: 1px solid #6b8750;
+}
+
+.mission-result {
+  color: #315d3e;
+  font-weight: 700;
+}

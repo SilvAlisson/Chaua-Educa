@@ -1,3 +1,4 @@
+import { normalizeProgress, advanceProgress } from './missions.mjs';
 import { ENTRIES, INITIAL_ENTRIES } from './collection.mjs';
 export const RULES_VERSION = 'floresta-v4';
 export default class DB {
@@ -60,6 +61,27 @@ export default class DB {
         this.memory.set('chaua-nature-discoveries',data);
         try { localStorage.setItem('chaua-nature-discoveries',JSON.stringify(data)); }
         catch { this.storageAvailable=false; }
+    }
+
+    static missionProgress(player) {
+        const stored=this.readObject('chaua-missions-v1',[]);
+        const row=Array.isArray(stored)?stored.find(r=>r?.player===player.trim()):null;
+        return normalizeProgress(row?.progress);
+    }
+
+    static advanceMissions(player,event) {
+        const name=player.trim();
+        if(name.length<3 || name.length>24)return normalizeProgress(null);
+        const previous=this.missionProgress(name);
+        const progress=advanceProgress(previous,event);
+        if(JSON.stringify(previous)===JSON.stringify(progress))return progress;
+        const stored=this.readObject('chaua-missions-v1',[]);
+        const records=(Array.isArray(stored)?stored:[]).filter(r=>r && typeof r.player==='string' && r.player!==name);
+        records.push({player:name,progress});
+        this.memory.set('chaua-missions-v1',records);
+        try {localStorage.setItem('chaua-missions-v1',JSON.stringify(records));}
+        catch {this.storageAvailable=false;}
+        return progress;
     }
 
     static reviewTopics(player) {

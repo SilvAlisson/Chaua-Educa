@@ -188,3 +188,14 @@ Descobertas são compartilhadas neste navegador, com armazenamento próprio (`ch
 Revisão editorial: 18/10/2026. Fontes: ICMBio, página do PAN Papagaios (incluindo seu encerramento e encaminhamento ao PAN Aves da Mata Atlântica); INMA, pesquisa sobre chauás e Handroanthus riodocorytha **[correção: Handroanthus riodocensis]**, publicada em 2025; referência de identificação do Zoológico de Brasília herdada do banco anterior. A página do Zoo apresentou HTTP 502 nesta revisão; não foram acrescentados novos fatos a partir dela. Links completos ficam em `js/questions.mjs` e nas fichas. Evitamos categorias de ameaça sem contextualização da lista/data, cardápio prescritivo, dispersão automática de sementes e identificação de predadores a partir de sprites genéricos.
 
 Validação: 91 testes automatizados aprovados e build Sass concluído. A experiência visual e a navegação da coleção ainda precisam de teste em navegador; Chromium não está disponível neste ambiente.
+
+
+## Etapa 10 — Missões e progressão persistente
+
+Seis missões cumulativas por jogador: coletar 12 alimentos; encontrar 3 variedades; responder 4 perguntas distintas (acertos e erros contam); chegar à Mata fragmentada; completar 3 trilhas de frutas sem contato; concluir a jornada até o refúgio. Todos os objetivos podem ser alcançados no Amigável ou no Desafio. Não há expiração, sequência diária obrigatória ou recompensa por atingir animais.
+
+Cada missão rende um selo; títulos avançam com 2, 4 e 6 selos. São recompensas de reconhecimento, sem bônus no placar ou mudanças na dificuldade. A tela “Minhas missões” fica no início e no resultado; o resultado destaca os selos conquistados naquele voo. Fechar a consulta aberta pelo resultado retorna ao resultado. Use o mesmo nome para retomar seu progresso.
+
+O armazenamento `chaua-missions-v1` é independente do ranking, das frutas e das revisões educativas existentes. O progresso é salvo nos eventos relevantes, inclusive antes do fim da partida; sair do voo não apaga descobertas. Dados são normalizados, perguntas e variedades não se duplicam e contadores têm limites. Falha de armazenamento conserva o avanço durante a sessão. A progressão começa nesta versão: pontuações antigas não permitem reconstruir missões realizadas.
+
+Validação: testes de persistência, isolamento por jogador, dados inválidos, limite dos objetivos, indisponibilidade de armazenamento e integração com os dois modos. A validação visual interativa ainda está pendente.
