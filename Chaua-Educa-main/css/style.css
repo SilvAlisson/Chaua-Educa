@@ -1908,3 +1908,30 @@ dialog[open]::backdrop {
   color: var(--green);
   margin-top: 8px;
 }
+
+#nature-items {
+  margin-block: 1rem 2rem;
+}
+
+#nature-items article {
+  text-align: left;
+}
+
+#nature-items small {
+  display: block;
+  margin-block: 0.5rem;
+}
+
+#nature-items .undiscovered {
+  border-style: dashed;
+}
+
+#nature-items a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#collection-progress {
+  font-weight: 700;
+}

@@ -1671,3 +1671,10 @@ dialog[open]::backdrop { animation: forest-backdrop .25s ease both; }
 .score-details p { margin: 4px 0; font-size: 13px; line-height: 1.6; }
 
 .result .journey-result { font-size: 13px; font-weight: 800; color: var(--green); margin-top: 8px; }
+
+#nature-items { margin-block: 1rem 2rem; }
+#nature-items article { text-align: left; }
+#nature-items small { display: block; margin-block: .5rem; }
+#nature-items .undiscovered { border-style: dashed; }
+#nature-items a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+#collection-progress { font-weight: 700; }

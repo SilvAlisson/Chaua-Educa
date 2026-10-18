@@ -1,3 +1,4 @@
+import { ENTRIES, INITIAL_ENTRIES } from './collection.mjs';
 export const RULES_VERSION = 'floresta-v4';
 export default class DB {
     static dbName = `db-chaua-${RULES_VERSION}`;
@@ -44,6 +45,21 @@ export default class DB {
         this.memory.set('chaua-floresta-collection',data);
         try { localStorage.setItem('chaua-floresta-collection',JSON.stringify(data)); }
         catch { this.storageAvailable = false; }
+    }
+
+    static discoveredEntries() {
+        const stored=this.readObject('chaua-nature-discoveries',[]);
+        const ids=Array.isArray(stored)?stored:[];
+        return [...new Set([...INITIAL_ENTRIES,...(this.unlocked().length?['alimentos']:[]),...ids.filter(id=>ENTRIES.some(entry=>entry.id===id))])];
+    }
+
+    static discoverEntries(ids) {
+        const valid=ids.filter(id=>ENTRIES.some(entry=>entry.id===id));
+        if(!valid.length)return;
+        const data=[...new Set([...this.discoveredEntries(),...valid])];
+        this.memory.set('chaua-nature-discoveries',data);
+        try { localStorage.setItem('chaua-nature-discoveries',JSON.stringify(data)); }
+        catch { this.storageAvailable=false; }
     }
 
     static reviewTopics(player) {

@@ -414,7 +414,7 @@ export class Game {
         this.elapsed += dt;
         this.distance = Math.min(JOURNEY_LENGTH,this.distance+this.speed*dt);
         const nextStage=journeyStage(this.distance);
-        if(nextStage!==this.stage){this.stage=nextStage;this.stageAge=0;this.onEvent({type:'stage',message:JOURNEY[this.stage].message});}
+        if(nextStage!==this.stage){this.stage=nextStage;this.stageAge=0;this.onEvent({type:'stage',stage:this.stage,message:JOURNEY[this.stage].message});}
         this.stageAge+=dt;
         const previousFeather=this.feather;
         this.feather = Math.max(0, this.feather - dt);

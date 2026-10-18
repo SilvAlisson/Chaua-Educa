@@ -1,3 +1,4 @@
+import { ENTRIES, discoveriesFor, renderCollection } from './collection.mjs';
 import { JOURNEY_LENGTH } from './journey.mjs';
 import { FlightInput } from './input.mjs';
 import { ForestAudio } from './audio.mjs';
@@ -31,6 +32,7 @@ function toast(text) {
 
 export const game = new Game({ onEvent(event) {
     sound(event.type);
+    DB.discoverEntries(discoveriesFor(event));
     if (event.type === 'fruit') DB.unlock(event.fruit);
     if (['correct','incorrect'].includes(event.type)) DB.recordDiscovery(player,event.questionId,event.type==='correct');
     const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · proteção breve para retomar o voo', quiet: 'Uma clareira. Recupere o fôlego.' };
@@ -156,7 +158,8 @@ function answer(value) {
     feedback.textContent = result ? `Boa descoberta! +${2 * game.quizMultiplier} pontos.` : `A afirmação é ${game.question.answer ? 'verdadeira' : 'falsa'}. ${game.mode === 'tranquilo' ? 'Você pode continuar o voo.' : 'No Desafio, esta resposta encerra o voo.'}`;
     feedback.textContent += ` ${game.question.explanation}`;
     const source = SOURCES[game.question.source];
-    const link = document.createElement('a'); link.href = source.url; link.textContent = ' Fonte: ' + source.label; link.target = '_blank'; link.rel = 'noopener noreferrer'; feedback.append(link);
+    const link = document.createElement('a'); link.href = source.url; link.textContent = ' Fonte: ' + source.label; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    if(game.question.source !== 'game') feedback.append(link);
     feedback.classList.toggle('incorrect', !result);
     $('#quiz-continue').hidden = false;
     $('#quiz-continue').textContent = result || game.mode === 'tranquilo' ? 'Continuar o voo →' : 'Ver meu voo →';
@@ -265,6 +268,9 @@ requestAnimationFrame(frame);
 
 function showCollection() {
     const unlocked = DB.unlocked();
+    const discovered = DB.discoveredEntries();
+    renderCollection($('#nature-items'), discovered);
+    $('#collection-progress').textContent = `${discovered.length}/${ENTRIES.length} temas descobertos · ${unlocked.length}/${FRUITS.length} itens coletados`;
     $('#collection-items').replaceChildren(...FRUITS.map(f => {
         const card = document.createElement('article');
         const title = document.createElement('h3'); title.textContent = f.name;
