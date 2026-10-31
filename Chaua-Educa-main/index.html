@@ -1,90 +1,80 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="images/favicon.png" />
-    <title>Chauá Educa</title>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js" type="module" defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#163c2c">
+  <meta name="description" content="Abra as asas pela Mata Atlântica. Uma aventura para voar, aprender e cuidar do papagaio-chauá.">
+  <link rel="icon" href="images/favicon.png">
+  <link rel="preload" href="Fonts/Baloo2/Baloo2.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="Fonts/Nunito/Nunito.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="css/style.css">
+  <title>Chauá Educa · Asas da floresta</title>
+  <script type="module" src="js/script.js"></script>
 </head>
 <body>
-    <main>
-        <div class="background">
-            <img src="images/parrot-a.png" alt="parrot-img" class="parrot" id="parrot-1">
-            <div class="score">
-                <span class="score_title"></span>
-                <span class="score_val"></span>
-            </div>
-            <section class="sleep" id="sleep">
-                <div class="contdown">
-                    <span class="txt-sleep" id="txtSleep">5</span>
-                </div>
-            </section>
-        </div>
-    </main>
-    <section class="modal enable" id="modal">
-        <section class="modal-login active" id="modalLogin">
-            <img src="images/papagaio-chaua.png" class="img-parrot">
-            <input type="text" class="input-player" id="inputPlayer" placeholder="jogador..." onfocus="true">
-            <button class="btn-modal btn-start btn-red-tr" id="btnStart" disabled>Iniciar jogo!</button>
-            <p class="rules">Use a teclas <strong>&#x2191;</strong> ou <strong>Espaço</strong> para voar.</p>
-        </section>
-        <section class="modal-game-over" id="modalGameOver">
-            <h1 class="title-gameOver">Ops, você perdeu!</h1>
-            <div class="wrapper-btn">
-                <button class="btn-modal btn-red-tr btn-ranking" id="btnRanking">Ranking</button>
-                <button class="btn-modal btn-red-tr btn-restart" id="btnRestart">Reiniciar</button>
-            </div>
-            <img src="images/chaua-gameOver.png" class="img-chaua-gameOver">
-        </section>
-        <section class="modal-ranking" id="modalRanking">
-            <h1 class="ranking-title">Ranking</h1>
-            <div class="wrapper-table">
-                <table class="ranking-table" border="1" id="table">
-                    <tr class="ranking-line1">
-                        <td class="ranking-column">Posição</td>
-                        <td class="ranking-column">Jogador</td>
-                        <td class="ranking-column">Pontuação</td>
-                    </tr>
-                </table>
-            </div>
-            <p class="ranking-rules">REGRAS: Cada obstáculo passado vale 1 ponto, cada fruto coletado vale 3 pontos e cada resposta correta vale 2 pontos.</p>
-            <button class="btn-modal btn-red-tr btn-restart-1" id="btnRestart">Reiniciar</button>
-        </section>
-        <section class="modal-credits" id="modalCredits">
-            <div class="credits-content credits-animation">
-                <p credits-animation><strong>Parabéns, Herói do Chauá!</strong> Você conseguiu alcançar a pontuação máxima no jogo "Chauá-educa" e se destacou como um verdadeiro defensor das aves e da vida selvagem. Ao fazer isso, você não apenas dominou os céus como Chauá, mas também fez a diferença na conscientização e na preservação da espécie ameaçada de extinção conhecida como papagaio-chauá.
+  <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C8 2 2 7 5 15c6 7 16 1 15-12Z"/><path d="m4 21 12-13M9 16l-1-5m5 1 5 1"/></symbol>
+    <symbol id="i-wing" viewBox="0 0 24 24"><path d="M3 19C1 11 10 4 21 3c-1 4-3 7-7 9l4-1c-1 4-5 6-9 5l2 2c-3 2-6 2-8 1Z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-cup" viewBox="0 0 24 24"><path d="M7 3h10v7a5 5 0 0 1-10 0V3Zm0 2H3v3c0 3 2 4 5 4m9-7h4v3c0 3-2 4-5 4m-4 3v5m-5 1h10"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5V4Zm5 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6l9-4Z"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  </defs></svg>
+  <main id="app" class="app">
+    <canvas id="forest" aria-label="Floresta e voo do papagaio-chauá"></canvas>
+    <header class="topbar" id="topbar">
+      <a class="brand" href="./" aria-label="Chauá Educa, início"><span class="brand-mark"><svg><use href="#i-wing"/></svg></span><span>chauá<span class="brand-small">EDUCA</span></span></a>
+      <div class="top-actions"><span class="forest-tag"><i></i> UMA AVENTURA NA MATA ATLÂNTICA</span><button class="icon-btn sound-toggle" aria-label="Ativar sons" aria-pressed="false" title="Ativar ou silenciar sons"><svg><use href="#i-sound"/></svg><span class="sound-slash">/</span></button></div>
+    </header>
 
-                Seu comprometimento em superar os desafios do jogo e aprender sobre a importância da conservação do habitat do Chauá é notável. Continue compartilhando essa mensagem com os outros e inspirando-os a se juntar a essa causa crucial.
-
-                Lembre-se, a natureza agradece a sua dedicação e esforço para proteger nossos amigos emplumados. O Chauá parrot e todas as espécies que compartilham seu habitat estão um passo mais próximos de um futuro mais brilhante, graças a você!
-                Continue jogando, aprendendo e fazendo a diferença!</p>
-
-                <p><strong>Desenvolvedor:</strong> <a href="https://github.com/SilvAlisson" target="_blank">https://github.com/SilvAlisson</a></p>
-                <p><strong>Contribuidor:</strong> <a href="https://github.com/CodeLPrime" target="_blank">https://github.com/CodeLPrime</a></p>
-                <p><strong>Créditos de Imagens e Audio:</strong> Lívia Teodosio e Alisson Silva</p>
-                <p><strong>Créditos de Perguntas:</strong> Marilia Teodosio Costa e Flávia Gomes Ramos Araújo</p>
-                <p>Instituto Federal de Alagoas - IFAL</p>
-                <p><strong>Alunas:</strong> Marilia Teodosio Costa e Flávia Gomes Ramos Araújo</p>
-                <p>Programa de Pós-Graduação em Tecnologias Ambientais - PPGTEC</p>
-                <p>Mestrado Profissional em Tecnologias Ambientais</p>
-                <div class="references">
-                    <p><strong>Referências:</strong></p>
-                    <ul class="references-list">
-                        <li><a href="https://conexaoplaneta.com.br/blog/projeto-papagaio-chaua-luta-para-salvar-especie-brasileira-da-extincao" target="_blank">conexaoplaneta.com.br</a></li>
-                        <li><a href="https://oeco.org.br/noticias/27911-chaua-o-papagaio-de-muitos-apelidos" target="_blank">oeco.org.br</a></li>
-                        <li><a href="https://www.wikiaves.com.br/wiki/chaua" target="_blank">wikiaves.com.br</a></li>
-                    </ul>
-                </div>
-            </div>
-            <img src="images/Logo-1.png" class="logo-1">
-            <img src="images/Logo-2.png" class="logo-2">
-            <button class="btn-modal btn-red-tr btn-restart-2" id="btnRestart">Reiniciar</button>
-        </section>
+    <section id="home" class="home" aria-labelledby="home-title">
+      <div class="home-copy">
+        <div class="eyebrow"><span></span> PEQUENAS ASAS. GRANDES DESCOBERTAS.</div>
+        <h1 id="home-title">A floresta chama.<br><span>Abra as asas!</span></h1>
+        <p class="intro">Atravesse a mata com o Chauá e reencontre seu bando.<br class="desktop-only"> Desvie, descubra e aprenda a cuidar de quem vive aqui.</p>
+        <form id="start-form" class="start-card">
+          <label for="inputPlayer">Como podemos chamar você?</label>
+          <div class="name-field"><svg><use href="#i-wing"/></svg><input id="inputPlayer" name="player" placeholder="Seu nome de aventureiro" minlength="3" maxlength="24" required autocomplete="nickname"><span id="name-count">0/24</span></div>
+          <fieldset class="mode-picker"><legend>Escolha seu ritmo</legend><label><input type="radio" name="mode" value="aventura" checked><span><b>Desafio</b><small>Errar a pergunta encerra o voo</small></span><i></i></label><label><input type="radio" name="mode" value="tranquilo"><span><b>Amigável</b><small>Erre, aprenda e continue voando</small></span><i></i></label></fieldset>
+          <button id="btnStart" class="primary start-button" type="submit" disabled>Vamos voar <svg><use href="#i-arrow"/></svg></button>
+          <button id="start-training" class="text-button" type="button" disabled>Experimentar o voo · treino seguro</button><p id="asset-status" role="status">Carregando as artes da floresta…</p><p class="card-note"><svg><use href="#i-leaf"/></svg> Aprender também é uma aventura.</p>
+        </form>
+        <div class="home-links"><button id="open-ranking"><svg><use href="#i-cup"/></svg> Ranking da floresta</button><span>·</span><button id="open-guide">Como jogar</button><span>·</span><button id="open-collection">Chauapédia</button><span>·</span><button id="open-missions">Minhas missões</button><span>·</span><button id="open-settings">Ajustes</button></div>
+      </div>
+      <div class="scene-caption"><span class="location-dot"></span><div><strong>Conheça o papagaio-chauá</strong><span>Uma ave brasileira. Uma floresta para proteger.</span></div><span class="species-label">Amazona rhodocorytha</span></div>
+      <footer class="home-footer"><span>FEITO DE CURIOSIDADE E NATUREZA</span><button id="open-credits">Sobre o projeto <span>↗</span></button></footer>
     </section>
-    <audio id="sound-die" src="Sounds/die.wav"></audio>
-    <audio id="get-fruit" src="Sounds/get-fruit.wav"></audio>
+
+    <section id="hud" class="hud" hidden aria-label="Informações do voo">
+      <div class="score-pill"><span>PONTOS</span><strong id="score">0</strong><span id="score-bonus" aria-hidden="true"></span></div>
+      <div class="flight-progress"><span id="stage-name">Primeiras asas</span><div class="progress-track" id="progress-track" role="progressbar" aria-label="Caminho até o abrigo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="progress-fill"></i></div><small id="journey-destination">Destino: abrigo do bando</small></div>
+      <button id="pause-button" class="icon-btn" aria-label="Pausar jogo"><svg><use href="#i-pause"/></svg></button>
+      <div class="power-bar"><span id="shield-status" class="power-chip"><svg><use href="#i-shield"/></svg><span>Sem escudo</span></span><span id="feather-status" class="power-chip"><svg><use href="#i-wing"/></svg><span>Pena ×2</span><progress max="10" value="0" aria-label="Segundos restantes da pena dourada"></progress></span><span id="pepper-status" class="power-chip"><svg><use href="#i-leaf"/></svg><span>Pimenta turbo</span><progress max="6" value="0" aria-label="Segundos restantes do turbo"></progress></span></div>
+      <div class="flight-help"><span><kbd>↑</kbd> / <kbd>espaço</kbd> bater asas <i>·</i> solte para descer</span><span class="energy">Fôlego das asas <meter id="energy" min="0" max="1" value="1"></meter></span></div>
+      <button id="flap-button" class="flap-button" aria-label="Bater asas; segure para repetir e solte para descer"><svg><use href="#i-wing"/></svg> Voar</button>
+      <p class="orientation-hint">Para ampliar a visão, experimente virar o celular.</p><div id="toast" class="toast" role="status"></div>
+    </section>
+    <div id="countdown" class="countdown" hidden><span>Encontre seu ritmo</span><strong id="count-number">3</strong><p>Segure para preparar a subida. Solte para descer.</p></div>
+
+    <dialog id="pause-dialog" aria-labelledby="pause-title"><div class="dialog-inner compact"><span class="round-icon"><svg><use href="#i-leaf"/></svg></span><div class="eyebrow">UM RESPIRO NA FLORESTA</div><h2 id="pause-title">As asas descansam.</h2><p>Seu voo e seus poderes estão pausados.</p><button id="pause-settings" class="text-button">Ajustes de imagem e som</button><button id="resume-button" class="primary">Continuar o voo <svg><use href="#i-arrow"/></svg></button><button class="text-button back-home">Voltar ao início</button></div></dialog>
+
+    <dialog id="quiz-dialog" aria-labelledby="question-text"><div class="dialog-inner quiz"><div class="eyebrow">PAUSA PARA UMA DESCOBERTA</div><span class="quiz-leaf"><svg><use href="#i-leaf"/></svg></span><h2>Você sabia?</h2><p id="question-text" class="question"></p><p id="quiz-bonus" class="quiz-bonus"></p><div class="answer-buttons"><button id="answer-true" class="answer">Verdadeiro <kbd>V</kbd></button><button id="answer-false" class="answer">Falso <kbd>F</kbd></button></div><p id="answer-feedback" role="status"></p><button id="quiz-continue" class="primary" hidden>Continuar <svg><use href="#i-arrow"/></svg></button><small>Respire: o voo e os poderes ficam congelados aqui.</small></div></dialog>
+
+    <dialog id="result-dialog" aria-labelledby="result-title"><div class="dialog-inner result"><div id="result-bird" class="result-bird" aria-hidden="true"></div><div id="result-eyebrow" class="eyebrow">CADA VOO É UM COMEÇO</div><h2 id="result-title">Opa! Vamos de novo?</h2><p id="result-mode"></p><p id="result-reason"></p><p id="result-advice" class="result-advice"></p><p id="journey-result" class="journey-result"></p><div id="new-record" class="new-record" hidden><svg><use href="#i-cup"/></svg> Novo recorde pessoal!</div><div class="result-stats"><div><strong id="result-score">0</strong><span>PONTOS</span></div><div><strong id="result-fruits">0</strong><span>FRUTOS</span></div><div><strong id="result-correct">0</strong><span>ACERTOS</span></div></div><details class="score-details"><summary>De onde vieram os pontos?</summary><p id="score-breakdown"></p></details><p id="mission-result" class="mission-result"></p><button id="restart-button" class="primary">Voar de novo <svg><use href="#i-arrow"/></svg></button><div class="result-actions"><button id="result-ranking">Ver ranking</button><button id="result-missions">Minhas missões</button><button class="back-home">Voltar ao início</button></div><small id="storage-note">Seu recorde fica salvo neste navegador.</small></div></dialog>
+
+    <dialog id="ranking-dialog" aria-labelledby="ranking-title"><div class="dialog-inner ranking"><button class="close-dialog icon-btn" aria-label="Fechar ranking"><svg><use href="#i-close"/></svg></button><div class="eyebrow">MEMÓRIAS DE GRANDES VOOS</div><h2 id="ranking-title">Ranking da floresta</h2><div class="tabs"><button data-board="aventura" aria-pressed="true">Desafio · atual</button><button data-board="tranquilo" aria-pressed="false">Amigável · atual</button><button data-board="previous" aria-pressed="false">Histórico</button><button data-board="legacy" aria-pressed="false">Clássico · v1</button></div><div class="table-scroll"><table><thead><tr><th scope="col">POSIÇÃO</th><th scope="col">AVENTUREIRO</th><th scope="col">PONTOS</th></tr></thead><tbody id="ranking-body"></tbody></table></div><p id="ranking-empty" hidden>O próximo grande voo pode ser o seu.</p><p class="ranking-note">Regras atuais: passagem 1 · fruto 3 · acerto 2 · trilha completa 2. Pena dourada dobra os pontos por 10s. Desafio: erro encerra o voo. Amigável: erro permite continuar. Resultados clássicos e modos ficam separados.</p></div></dialog>
+
+    <dialog id="settings-dialog" aria-labelledby="settings-title"><div class="dialog-inner compact"><button class="close-dialog icon-btn" aria-label="Fechar ajustes">×</button><h2 id="settings-title">Imagem e som</h2><label for="quality-mode">Qualidade visual</label><select id="quality-mode"><option value="auto">Automática</option><option value="high">Detalhada</option><option value="low">Econômica</option></select><p>Automática reduz detalhes se o voo perder fluidez. Econômica reduz efeitos decorativos e resolução; os obstáculos e avisos continuam iguais.</p><label for="audio-volume">Volume <output id="volume-value" for="audio-volume">70%</output></label><input id="audio-volume" type="range" min="0" max="100" step="5" value="70"><p>O botão de som ativa ou silencia o áudio. Respeitamos a preferência de movimento reduzido do seu dispositivo.</p><button class="primary close-dialog">Pronto</button></div></dialog>
+    <dialog id="training-dialog" aria-labelledby="training-title"><div class="dialog-inner compact"><div class="eyebrow">ASAS PRONTAS</div><h2 id="training-title">Você encontrou o ritmo!</h2><p>Toque para subir, segure para continuar batendo asas e solte para descer. Na aventura, observe também as aberturas e os avisos dos animais.</p><p>O treino não gera pontos nem avança missões.</p><button id="training-home" class="primary">Escolher meu voo</button><button id="training-again" class="text-button">Treinar novamente</button></div></dialog>
+    <dialog id="missions-dialog" aria-labelledby="missions-title"><div class="dialog-inner guide"><button class="close-dialog icon-btn" aria-label="Fechar missões">×</button><div class="eyebrow">CADA VOO CONTA</div><h2 id="missions-title">Minhas missões</h2><p id="missions-player"></p><p id="missions-summary"></p><div id="mission-items" class="guide-grid"></div><p>Conquiste selos e títulos de explorador. As missões não expiram e não alteram os pontos ou a dificuldade.</p><small id="missions-storage"></small></div></dialog>
+    <dialog id="collection-dialog" aria-labelledby="collection-title"><div class="dialog-inner guide"><button class="close-dialog icon-btn" aria-label="Fechar Chauapédia">×</button><h2 id="collection-title">Chauapédia</h2><p id="collection-progress" role="status"></p><p>Explore a jornada e responda às perguntas para descobrir mais, mesmo quando errar. Coleção salva neste navegador.</p><h3>Natureza e descobertas</h3><div id="nature-items" class="guide-grid"></div><h3>Itens da aventura</h3><p>Os sete coletáveis são representações lúdicas. Esta coleção não é uma orientação de alimentação para aves.</p><div id="collection-items" class="guide-grid"></div></div></dialog>
+    <dialog id="guide-dialog" aria-labelledby="guide-title"><div class="dialog-inner guide"><button class="close-dialog icon-btn" aria-label="Fechar instruções"><svg><use href="#i-close"/></svg></button><div class="eyebrow">SEU PRIMEIRO VOO</div><h2 id="guide-title">Vá no seu ritmo.</h2><div class="guide-grid"><article><span>01</span><h3>Sinta as asas</h3><p>Toque, ↑ ou espaço para subir. Segure para bater em cadência; solte para descer e recuperar fôlego. Mesmo com pouco fôlego, segurar continua fazendo subir. Você pode segurar durante a contagem para preparar a saída. Esc ou P pausa o voo.</p></article><article><span>02</span><h3>Observe a mata</h3><p>Desvie da madeira e dos animais. Frutas podem desenhar subidas, descidas e curvas. As coletas nas bordas são opcionais: você pode seguir pelo centro da passagem. Gaviões anunciam a travessia ou o mergulho e mantêm a trajetória indicada. Cobras sinalizam o tronco ou galho que ocupam, sem avançar para fechar a passagem. As pequenas borboletas ao fundo são apenas parte da paisagem.</p></article><article><span>03</span><h3>Colete descobertas</h3><p>Frutos valem 3 pontos. Coletar prepara uma descoberta, sem interromper o voo. Após pelo menos 30 segundos, a pergunta aparece quando a rota está livre. Acerte e ganhe mais 2 pontos. No Desafio, errar encerra o voo. No Amigável, leia a explicação e continue.</p></article><article><span>04</span><h3>Uma ajuda natural</h3><p>O escudo de penas protege de um contato, inclusive no chão e acima da copa, e dá 1,6 segundo para se recuperar. Troncos permanecem vivos; apenas galhos secos se quebram. Animais se afastam. A pena aparece antes de sequências de frutas e dobra os pontos por 10 segundos de voo. Recolher outra renova para 10 segundos, sem acumular tempo. Completar uma trilha de frutas sem contato dá mais 2 pontos. Escudos não acumulam cargas.</p></article></div><p class="guide-note">Atravesse os quatro trechos e alinhe o voo com o bando para chegar ao abrigo. A viagem avança pelo caminho percorrido; 200 pontos dão uma medalha, mas não encerram o voo. Os animais fazem parte da floresta; os encontros do jogo são ficção, não afirmações sobre predação do chauá.</p><button class="primary close-dialog">Entendi, vamos lá <svg><use href="#i-arrow"/></svg></button></div></dialog>
+
+    <dialog id="credits-dialog" aria-labelledby="credits-title"><div class="dialog-inner credits"><button class="close-dialog icon-btn" aria-label="Fechar créditos"><svg><use href="#i-close"/></svg></button><div class="eyebrow">EDUCAR PARA PRESERVAR</div><h2 id="credits-title">Pequenas asas,<br>uma grande causa.</h2><p>Chauá Educa é um jogo sobre curiosidade, conservação e o papagaio-chauá, ave brasileira ameaçada de extinção.</p><dl><dt>Desenvolvimento original</dt><dd><a href="https://github.com/SilvAlisson" target="_blank" rel="noopener">Alisson Silva</a> e <a href="https://github.com/CodeLPrime" target="_blank" rel="noopener">CodeLPrime</a></dd><dt>Imagens e áudio originais</dt><dd>Lívia Teodosio e Alisson Silva</dd><dt>Perguntas e pesquisa</dt><dd>Marilia Teodosio Costa e Flávia Gomes Ramos Araújo</dd><dt>Instituição</dt><dd>IFAL · Programa de Pós-Graduação em Tecnologias Ambientais · Mestrado Profissional em Tecnologias Ambientais</dd></dl><p>Fontes locais: Baloo 2 e Nunito, sob licença SIL OFL.</p><div class="reference-links"><a href="https://conexaoplaneta.com.br/blog/projeto-papagaio-chaua-luta-para-salvar-especie-brasileira-da-extincao" target="_blank" rel="noopener">Projeto Papagaio-Chauá ↗</a><a href="https://oeco.org.br/noticias/27911-chaua-o-papagaio-de-muitos-apelidos" target="_blank" rel="noopener">O Eco ↗</a><a href="https://www.wikiaves.com.br/wiki/chaua" target="_blank" rel="noopener">WikiAves ↗</a></div></div></dialog>
+    <p id="screen-reader-status" class="sr-only" role="status" aria-live="polite"></p>
+  </main>
 </body>
 </html>

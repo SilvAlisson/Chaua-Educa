@@ -1,503 +1,403 @@
+import { VisualQuality } from './quality.mjs';
+import { LESSONS, resultAdvice } from './tutorial.mjs';
+import { MISSIONS, completedMissions, progressTitle, renderMissions } from './missions.mjs';
+import { ENTRIES, discoveriesFor, renderCollection } from './collection.mjs';
+import { JOURNEY_LENGTH } from './journey.mjs';
+import { FlightInput } from './input.mjs';
+import { ForestAudio } from './audio.mjs';
+import { SOURCES } from './questions.mjs';
+import { FRUITS } from './fruits.mjs';
 import DB from './database.js';
+import { Game, FlightClock, HEIGHT, STAGES } from './engine.mjs';
+import { Renderer, drawBird } from './render.mjs';
+import { flightViewport } from './viewport.mjs';
 
-// Variáveis Globais
-let move_speed = 3;
-let gravity = 0.5;
-let parrot = document.querySelector('.parrot');
-let img = document.getElementById('parrot-1');
-let parrot_props = parrot.getBoundingClientRect();
-let background = document.querySelector('.background').getBoundingClientRect();
-let score_title = document.querySelector('.score_title');
-let game_state = 'Start';
-let additionalScore = 5;
-let parrot_dy = 0;
-let isPaused = false;
-let controls_registered = false;
-let tree_separation = 0;
-let maxTopTreeHeight = 75;
-let fruit_separation = 0;
-let playerName;
-let score_val = document.querySelector('.score_val');
-let sound_fruit = new Audio('Sounds/get-fruit.wav');
-let sound_die = new Audio('Sounds/die.wav');
-let sound_winner = new Audio('Sounds/winner.wav');
-let moveRequestId;
-let applyGravityRequestId;
-let createTreePairRequestId;
-let createFruitsRequestId;
-const sleep = document.querySelector('#sleep');
-const txtSleep = document.querySelector('#txtSleep');
+const $ = selector => document.querySelector(selector);
+const app = $('#app');
+const renderer = new Renderer($('#forest'));
+const quality=new VisualQuality(DB.readObject('chaua-visual-quality','auto'));
+renderer.setQuality(quality.level);
+let lastHudTime=0;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const dialogs = [...document.querySelectorAll('dialog')];
+let player = '', selectedMode = 'aventura', previousState = '', board = 'aventura';
+let returnToMissionsResult = false;
+let returnToResult = false, lastTime = 0, toastUntil = 0, pointsUntil = 0;
+let resultAnimation = null, soundOn = false;
+let assetsReady = false, lastOrientation = null;
+let flightMissionIds = [];
+try { soundOn = localStorage.getItem('chaua-sound') === 'true'; } catch { /* Optional preference. */ }
 
-const fruitImages = [
-    'images/Goiaba.png',
-    'images/Semente.png',
-    'images/Manga.png',
-    'images/Mamao.png',
-    'images/Coquinho.png',
-    'images/Banana.png',
-    'images/Milho.png',
-];
-// Perguntas
-const QUESTIONS = [
-    { prompt: "Os papagaios-chauá habitam o Pantanal? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A expectativa de vida dessas aves é de aproximadamente 45 anos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "O período de incubação dessas aves é de 24 dias? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Os papagaios-chauá podem chegar ao tamanho de até 90 centímetros? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O papagaios-chauá são conhecidos popularmente por papagaios da cabeça vermelha, papagaios de crista rosada ou papagaios com topete rosa? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Os papagaios-chauá se alimentam de frutos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Os papagaios-chauá são aves que podem ser encontradas em outros países além do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "Os papagaios-chauá têm hábitos noturnos? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "Os papagaios-chauá existem em abundância na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "O desmatamento da Mata Atlântica, captura de ovos e filhotes são fatores para o desaparecimento da espécie na natureza? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "A Mata Atlântica tem grande importância econômica e ecológica. As formações florestais ajudam a regular o clima e proteger o solo? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "Desde a colonização do Brasil, ocorre exploração da Mata Atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" },
-    { prompt: "A Mata Atlântica é encontrada na região central do Brasil? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A expansão da indústria, da agricultura, do turismo e da urbanização não causa impacto na biodiversidade da Mata Atlântica? Escolha (V) para verdadeiro ou (F) para falso.", answer: "F" },
-    { prompt: "A riqueza da biodiversidade da Mata Atlântica tem números impressionantes, como: 1020 espécies de aves, 350 espécies de peixes, 340 espécies de anfíbios e 197 répteis? Escolha (V) para verdadeiro ou (F) para falso.", answer: "V" }
+const forestAudio=new ForestAudio();
+forestAudio.setEnabled(soundOn);
+forestAudio.setVolume(DB.readObject('chaua-volume',.7));
+function sound(type) { forestAudio.setEnabled(soundOn);forestAudio.play(type); }
 
-];
-
-function get_fresh_questions() {
-    return QUESTIONS.slice();
+function toast(text) {
+    $('#toast').textContent = text;
+    $('#toast').classList.add('visible');
+    toastUntil = game.elapsed + 3;
+    $('#screen-reader-status').textContent = text;
 }
 
-let in_game_questions;
-
-const inputPlayer = document.querySelector('#inputPlayer')
-const btnStart = document.querySelector('#btnStart');
-const btnRestart = document.querySelectorAll('#btnRestart');
-const btnRanking = document.querySelector('#btnRanking');
-const modal = document.querySelector('#modal');
-const modalLogin = document.querySelector('#modalLogin');
-const modalGameOver = document.querySelector('#modalGameOver');
-const modalRanking = document.querySelector('#modalRanking');
-const modalCredits = document.querySelector('#modalCredits');
-const table = document.querySelector('#table');
-
-// Validar Jogador
-const validatePlayer = ({target}) =>{
-    if (target.value.length > 2) {
-        btnStart.removeAttribute('disabled');
-        playerName = target.value.trim().toUpperCase();
-        register_controls();
-    } else {
-        btnStart.setAttribute('disabled', '');
+export const game = new Game({ onEvent(event) {
+    sound(event.type);
+    if(event.type==='tutorial-step'){
+        if(game.tutorial.step!==2)flightInput.clear();
+        $('#screen-reader-status').textContent=LESSONS[game.tutorial.step]?.instruction || 'Treino concluído!';
     }
-};
-inputPlayer.addEventListener('input', validatePlayer);
-
-const cleanText = () => {
-    inputPlayer.value = '';
-    btnStart.setAttribute('disabled', '');
-};
-
-img.style.display = 'none';
-
-// Funções
-
-// Inicializa o jogo
-function intialize() {
-    move_speed = 3;
-    gravity = 0.5;
-    parrot_dy = 0
-    additionalScore = 5;
-    isPaused = false;
-    tree_separation = 0;
-    maxTopTreeHeight = 70;
-    fruit_separation = 0;
-
-    img.style.display = 'block';
-    parrot.style.top = '40vh';
-    game_state = 'Play';
-    score_title.innerHTML = 'Score : ';
-    score_val.innerHTML = '0';
-
-    parrot_props = parrot.getBoundingClientRect();
-    in_game_questions = get_fresh_questions();
-}
-
-
-// Tela de Sleep
-function sleepAsync(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-  
-  const startGameAfterSleep = async () => {
-    sleep.classList.add('active');
-    const sleepDuration = 5000; 
-    for (let i = sleepDuration / 1000; i >= 0; i--) {
-      txtSleep.innerHTML = i;
-      await sleepAsync(1000);
-    }
-
-    sleep.classList.remove('active');
-    intialize();
-    play();
-  };
-  
-  // Lida com a inicialização do jogo
-  function handle_start_game(key_or_mouse_event) {
-    const is_mouse_event = key_or_mouse_event instanceof MouseEvent;
-  
-    if ((is_mouse_event || key_or_mouse_event.key == 'Enter') && game_state != 'Play') {
-      cleanText();
-  
-      modal.classList.remove('enable');
-      modalLogin.classList.remove('active');
-  
-      document.querySelectorAll('.tree').forEach((e) => {
-        e.remove();
-      });
-      document.querySelectorAll('.fruit').forEach((e) => {
-        e.remove();
-      });
-  
-      startGameAfterSleep();
-    }
-  }
-
-  // Lida com a pausa do jogo
-function handle_pause_game(key_event) {
-    if (key_event.key == 'Escape' && game_state == 'Play') {
-        if (!isPaused) {
-            cancelAllAnimations();
-            isPaused = true;
-        } else {
-            play();
-            isPaused = false;
+    if(event.type==='tutorial-complete') DB.completeTutorial();
+    if(game.tutorial)return;
+    DB.discoverEntries(discoveriesFor(event));
+    if(['fruit','correct','incorrect','stage','route-complete','win'].includes(event.type)) DB.advanceMissions(player,event);
+    if (event.type === 'fruit') DB.unlock(event.fruit);
+    if (['correct','incorrect'].includes(event.type)) DB.recordDiscovery(player,event.questionId,event.type==='correct');
+    const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', pepper: 'Pimenta da mata · Voo turbo com velocidade e pontos ×2!', 'shield-break': 'Escudo usado · proteção breve para retomar o voo', quiet: 'Uma clareira. Recupere o fôlego.' };
+    if(event.type==='stage')toast(event.message);
+    if(event.type==='refuge')toast('O bando espera no centro: alinhe o voo para pousar.');
+    if(event.type==='medal')toast('200 pontos · medalha conquistada! Continue até o abrigo.');
+    if (messages[event.type]) toast(messages[event.type]);
+    if(event.type==='shield-kept')toast('Seu escudo já está pronto · proteção mantida');
+    if(event.type==='feather' && event.renewed)toast('Pena renovada · mais 10s de pontos ×2');
+    if(event.type==='pepper' && event.renewed)toast('Pimenta renovada · mais 6s de turbo e pontos ×2');
+    if(event.type==='route-complete')toast(`Trilha completa · +${event.points} pontos`);
+    if (event.type === 'points') {
+        $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1;
+        if(!reducedMotion.matches) {
+            const score=$('#score');score.getAnimations().forEach(a=>a.cancel());
+            score.animate([{transform:'scale(1)'},{transform:'scale(1.16)',color:'#b48c32'},{transform:'scale(1)'}],{duration:240});
         }
     }
-}
+} });
+const clock = new FlightClock(game);
+const flightInput = new FlightInput(game, held => $('#flap-button').classList.toggle('is-held', held));
 
-function handle_arrow_keydown(key_event) {
-    if (!isPaused && (key_event.key == 'ArrowUp' || key_event.key == ' ')) {
-        img.src = 'images/parrot-b.png';
-        parrot_dy = -7.6;
+function resize() {
+    renderer.resize();
+    const style=getComputedStyle(app);
+    renderer.safeInsets=Object.fromEntries(['top','right','bottom','left'].map(side=>[side,parseFloat(style.getPropertyValue(`--safe-${side}`))||0]));
+    const orientation=renderer.w>renderer.h?'landscape':'portrait';
+    if(lastOrientation && lastOrientation!==orientation && ['playing','countdown','arrival'].includes(game.state)) {
+        clearInputs(); game.pause(); clock.reset(); syncUI();
     }
+    lastOrientation=orientation;
+    const view = flightViewport(renderer.w, renderer.h, renderer.safeInsets);
+    game.viewWidth = Math.max(960, Math.ceil(view.worldLeft + view.worldWidth));
+    game.viewLeft = Math.floor(view.worldLeft);
+}
+new ResizeObserver(resize).observe(app);
+window.addEventListener('resize', resize);
+
+function clearInputs() { flightInput.clear(); }
+function hold(source) { flightInput.press(source); }
+function release(source) { flightInput.release(source); }
+function closeDialogs() { dialogs.forEach(dialog => { if (dialog.open) dialog.close(); }); }
+function openDialog(id) { const dialog = $(id); if (!dialog.open) dialog.showModal(); }
+
+function start(training = false) {
+    training = training === true;
+    if (!assetsReady) return;
+    closeDialogs(); clearInputs();
+    cancelAnimationFrame(resultAnimation);
+    app.classList.add('in-flight'); $('#home').hidden = true; $('#hud').hidden = false;
+    flightMissionIds = completedMissions(DB.missionProgress(player)).map(m=>m.id);
+    resize();
+    if(training)game.startTutorial();else game.start(selectedMode, DB.reviewTopics(player));
+    app.classList.toggle('training',training);
+    previousState = ''; clock.reset(); lastTime = 0;
+    $('#score-bonus').textContent = ''; $('#toast').classList.remove('visible'); toastUntil = 0;
+    $('#screen-reader-status').textContent = 'O voo vai começar. Toque, seta para cima ou espaço para bater asas. Solte para descer.';
+    // Remove focus from the submitting/restarting button, avoiding Space clicks.
+    document.activeElement?.blur();
+    syncUI();
+}
+function home() {
+    closeDialogs(); clearInputs(); cancelAnimationFrame(resultAnimation);
+    game.reset(); previousState = ''; clock.reset(); lastTime = 0;
+    $('#hud').hidden = true; $('#countdown').hidden = true; $('#home').hidden = false;
+    app.classList.remove('in-flight','training'); updateTrainingButton(); resize(); $('#inputPlayer').focus({ preventScroll: true });
 }
 
-function handle_arrow_keyup(key_event) {
-    if (!isPaused && (key_event.key =='ArrowUp' || key_event.key == ' ')) {
-        img.src = 'images/parrot-a.png';
+$('#inputPlayer').addEventListener('input', event => {
+    const value = event.target.value;
+    $('#btnStart').disabled = !assetsReady || value.trim().length < 3;
+    $('#name-count').textContent = `${value.length}/24`;
+    event.target.setCustomValidity('');
+});
+$('#start-form').addEventListener('submit', event => {
+    event.preventDefault();
+    player = $('#inputPlayer').value.trim();
+    if (player.length < 3) { $('#inputPlayer').setCustomValidity('Use pelo menos 3 letras no seu nome.'); $('#inputPlayer').reportValidity(); return; }
+    selectedMode = $('input[name=mode]:checked').value;
+    sound('fruit'); start();
+});
+$('#restart-button').addEventListener('click', start);
+$('.brand').addEventListener('click', event => { event.preventDefault(); home(); });
+document.querySelectorAll('.back-home').forEach(button => button.addEventListener('click', home));
+$('#pause-button').addEventListener('click', () => { clearInputs(); game.pause(); syncUI(); });
+$('#resume-button').addEventListener('click', () => { $('#pause-dialog').close(); clearInputs(); game.resume(); syncUI(); });
+$('#pause-dialog').addEventListener('cancel', event => { event.preventDefault(); $('#resume-button').click(); });
+$('#quiz-dialog').addEventListener('cancel', event => event.preventDefault());
+$('#result-dialog').addEventListener('cancel', event => { event.preventDefault(); home(); });
+
+$('#flap-button').addEventListener('pointerdown', event => {
+    event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); hold(`pointer-${event.pointerId}`);
+});
+$('#forest').addEventListener('pointerdown', event => {
+    if (!app.classList.contains('in-flight')) return;
+    event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); hold(`pointer-${event.pointerId}`);
+});
+window.addEventListener('pointerup', event => release(`pointer-${event.pointerId}`));
+window.addEventListener('pointercancel', event => flightInput.cancel(`pointer-${event.pointerId}`));
+$('#flap-button').addEventListener('lostpointercapture', event => flightInput.cancel(`pointer-${event.pointerId}`));
+$('#forest').addEventListener('lostpointercapture', event => flightInput.cancel(`pointer-${event.pointerId}`));
+$('#flap-button').addEventListener('click', event => { if (event.detail === 0) { hold('activation'); release('activation'); } });
+window.addEventListener('keydown', event => {
+    if (game.state === 'quiz') {
+        if (['v', 'f'].includes(event.key.toLowerCase()) && !event.repeat) { event.preventDefault(); answer(event.key.toLowerCase() === 'v'); }
+        return;
     }
+    if (!['playing', 'countdown','arrival'].includes(game.state)) return;
+    if (['Escape', 'p', 'P'].includes(event.key) && !event.repeat) { event.preventDefault(); clearInputs(); game.pause(); syncUI(); return; }
+    if (['ArrowUp', 'Space'].includes(event.code)) { event.preventDefault(); if (!event.repeat) hold(event.code); }
+});
+window.addEventListener('keyup', event => { if (['ArrowUp', 'Space'].includes(event.code)) release(event.code); });
+function autoPause() { clearInputs(); game.pause(); forestAudio.update('paused',false,game.elapsed,game.stage); syncUI(); }
+window.addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+
+function updateSoundButton() {
+    const button = $('.sound-toggle');
+    button.setAttribute('aria-pressed', String(soundOn));
+    button.setAttribute('aria-label', soundOn ? 'Silenciar sons' : 'Ativar sons');
+    $('.sound-slash').hidden = soundOn;
 }
+$('.sound-toggle').addEventListener('click', () => { soundOn = !soundOn; try { localStorage.setItem('chaua-sound', String(soundOn)); } catch { /* Optional. */ } updateSoundButton(); sound('fruit'); });
+updateSoundButton();
 
-// Reiniciar Jogo
-function handle_restart_game(mouse_event) {
-    game_state = 'Start';
-
-    modalGameOver.classList.remove('active');
-    modalRanking.classList.remove('active');
-    modalCredits.classList.remove('active');
-
-    modal.classList.add('enable');
-    modalLogin.classList.add('active');
+function answer(value) {
+    game.answer(value);
+    const result = game.answerResult;
+    if (result === null) return;
+    $('#answer-true').disabled = true; $('#answer-false').disabled = true;
+    const feedback = $('#answer-feedback');
+    feedback.textContent = result ? `Boa descoberta! +${2 * game.quizMultiplier} pontos.` : `A afirmação é ${game.question.answer ? 'verdadeira' : 'falsa'}. ${game.mode === 'tranquilo' ? 'Você pode continuar o voo.' : 'No Desafio, esta resposta encerra o voo.'}`;
+    feedback.textContent += ` ${game.question.explanation}`;
+    const source = SOURCES[game.question.source];
+    const link = document.createElement('a'); link.href = source.url; link.textContent = ' Fonte: ' + source.label; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    if(game.question.source !== 'game') feedback.append(link);
+    feedback.classList.toggle('incorrect', !result);
+    $('#quiz-continue').hidden = false;
+    $('#quiz-continue').textContent = result || game.mode === 'tranquilo' ? 'Continuar o voo →' : 'Ver meu voo →';
+    $('#quiz-continue').focus();
 }
+$('#answer-true').addEventListener('click', () => answer(true));
+$('#answer-false').addEventListener('click', () => answer(false));
+$('#quiz-continue').addEventListener('click', () => { $('#quiz-dialog').close(); clearInputs(); game.continueQuiz(); syncUI(); });
 
-// Ranking
-function handle_show_ranking(mouse_event) {
-    showRankingScreen(modalGameOver, modalRanking)
-}
-
-//Controles
-function register_controls() {
-    if (controls_registered) return;
-
-    btnStart.addEventListener('click', handle_start_game)
-
-    document.addEventListener('keydown', (key_event) => {
-        handle_start_game(key_event);
-        handle_pause_game(key_event);
-    });
-
-    document.addEventListener('keydown', handle_arrow_keydown);
-    document.addEventListener('keyup', handle_arrow_keyup);
-
-    btnRestart.forEach((btn) => {
-        btn.addEventListener('click', handle_restart_game);
-    });
-    
-    btnRanking.addEventListener('click', handle_show_ranking);
-
-    controls_registered = true;
-}
-// Lida com o fim de jogo
-function gameOver() {
-    game_state = 'End';
-    cancelAllAnimations();
-    sound_die.play();
-    DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
-
-    modal.classList.add('enable');
-    modalGameOver.classList.add('active');
-}
-// Lida com a vitória no jogo
-function gameWon() {
-    game_state = 'End';
-    cancelAllAnimations();
-    sound_winner.play();
-    DB.upsertPlayerScore(playerName, parseInt(score_val.innerHTML));
-    img.style.display = 'none';
-    modal.classList.add('enable');
-    modalCredits.classList.add('active');
-}
-// Move o papagaio e verifica colisões
-function move() {
-    if (game_state != 'Play') return;
-
-    let tree_sprites = document.querySelectorAll('.tree');
-
-    tree_sprites.forEach((element) => {
-        let tree_props = element.getBoundingClientRect();
-        parrot_props = parrot.getBoundingClientRect();
-
-        if (tree_props.right <= 0) {
-            element.remove();
-        } else {
-            if (parrot_props.left < tree_props.left + tree_props.width && parrot_props.left + parrot_props.width > tree_props.left && parrot_props.top < tree_props.top + tree_props.height && parrot_props.top + parrot_props.height > tree_props.top) {
-                return gameOver();
-            } else {
-                if (tree_props.right < parrot_props.left && tree_props.right + move_speed >= parrot_props.left && element.increase_score == '1') {
-                    score_val.innerHTML = parseInt(score_val.innerHTML) + 1;
-                }
-                element.style.left = tree_props.left - move_speed + 'px';
-            }
-        }
-
-        if (parseInt(score_val.innerHTML) >= 200) {
-            return gameWon();
-        }
-    });
-
-    let fruit_sprites = document.querySelectorAll('.fruit');
-    fruit_sprites.forEach((element) => {
-        let fruit_props = element.getBoundingClientRect();
-        parrot_props = parrot.getBoundingClientRect();
-
-        if (fruit_props.right <= 0) {
-            element.remove();
-        } else {
-            if (parrot_props.left <= fruit_props.left + fruit_props.width && parrot_props.left + parrot_props.width >= fruit_props.left && parrot_props.top <= fruit_props.top + fruit_props.height && parrot_props.top + parrot_props.height >= fruit_props.top) {
-                const randomChance = Math.random();
-
-                const probability = 0.60;
-            
-                if (randomChance <= probability) {
-
-                let collidedFruitName = element.getAttribute('src').replace('images/', '').replace('.png', '');
-
-                if (in_game_questions.length === 0) in_game_questions = get_fresh_questions();
-
-                let randomIndex = Math.floor(Math.random() * in_game_questions.length);
-                let question = in_game_questions.splice(randomIndex, 1)[0]; 
-                let answer = prompt(`Para comer ${collidedFruitName}, responda:\n${question.prompt}`);
-
-                if (answer === null) {
-                } else if (answer.toLowerCase() !== question.answer.toLowerCase()) { 
-                    return gameOver();
-                } else {
-                    element.remove();
-                    score_val.innerHTML = parseInt(score_val.innerHTML) + additionalScore;
-                }
-                sound_fruit.play();
-            } else {
-                element.remove();
-                score_val.innerHTML = parseInt(score_val.innerHTML) + additionalScore -2;
-                sound_fruit.play();
-            }
-            } else {
-                if (fruit_props.right < parrot_props.left && fruit_props.right + move_speed >= parrot_props.left && element.increase_score == '1') {
-                    score_val.innerHTML = parseInt(score_val.innerHTML) + 1;
-                    sound_fruit.play();
-                }
-                element.style.left = fruit_props.left - move_speed + 'px';
-            }
-        }
+function result() {
+    clearInputs();
+    const record = DB.upsertPlayerScore(player, game.score, selectedMode);
+    const panel = $('#result-dialog .result'); panel.classList.toggle('victory', game.won);
+    $('#result-title').textContent = game.won ? 'A floresta celebra: você encontrou o bando!' : 'Opa! Vamos de novo?';
+    $('#result-eyebrow').textContent = game.won ? 'O BANDO ESTÁ REUNIDO' : 'CADA VOO É UM COMEÇO';
+    $('#result-reason').textContent = game.reason;
+    $('#result-advice').textContent = resultAdvice(game);
+    $('#result-mode').textContent = selectedMode==='tranquilo'?'Modo Amigável':'Modo Desafio';
+    const progress=DB.missionProgress(player);
+    const earned=completedMissions(progress).filter(m=>!flightMissionIds.includes(m.id));
+    $('#mission-result').textContent=earned.length ? `Novos selos: ${earned.map(m=>m.title).join(' · ')}` : `${progressTitle(progress)} · ${completedMissions(progress).length}/${MISSIONS.length} selos conquistados`;
+    $('#journey-result').textContent=game.won?`Jornada concluída${game.medal?' · medalha de 200 pontos':''}`:`${Math.floor(game.distance/JOURNEY_LENGTH*100)}% do caminho · ${STAGES[game.stage]}`;
+    $('#new-record').hidden = !record || game.score === 0;
+    $('#score-breakdown').textContent=`Passagens ${game.scoreBreakdown.passage} · Frutas ${game.scoreBreakdown.fruit} · Respostas ${game.scoreBreakdown.quiz} · Trilhas ${game.scoreBreakdown.route}. Valores já incluem a pena ×2.`;
+    $('#result-fruits').textContent = game.fruits; $('#result-correct').textContent = game.correct;
+    $('#storage-note').textContent = DB.storageAvailable ? 'Seu recorde fica salvo neste navegador.' : 'Armazenamento indisponível: recorde mantido apenas nesta sessão.';
+    const birdCanvas = document.createElement('canvas'); birdCanvas.width = 300; birdCanvas.height = 210;
+    const bc = birdCanvas.getContext('2d'); bc.scale(2, 2); drawBird(bc, { x: 68, y: 53, scale: 1.05, perched: true, surprise: !game.won, reduced: true });
+    $('#result-bird').replaceChildren(birdCanvas);
+    openDialog('#result-dialog'); $('#restart-button').focus();
+    $('#screen-reader-status').textContent = `${game.won ? 'Vitória' : 'Fim de voo'}. ${game.score} pontos, ${game.fruits} frutos, ${game.correct} respostas corretas. ${game.reason}`;
+    const begin = performance.now(), target = game.score;
+    function count(now) {
+        const fraction = reducedMotion.matches ? 1 : Math.min(1, (now - begin) / 650);
+        $('#result-score').textContent = Math.round(target * (1 - (1 - fraction) ** 3));
+        if (fraction < 1) resultAnimation = requestAnimationFrame(count);
     }
-    );
-    moveRequestId = requestAnimationFrame(move);
-}
-// Mostrando a tela de classificação
-function showRankingScreen(modalGameOver, modalRanking) {
-    modalGameOver.classList.remove('active');
-    modalRanking.classList.add('active');
-
-    resetRankingRows();
-    createRankingTable();
+    resultAnimation = requestAnimationFrame(count);
 }
 
-// Reinicia as linhas da tabela de classificação
-function resetRankingRows() {
-
-    table.innerHTML = document.querySelector('.ranking-line1').outerHTML;
+function showRanking(fromResult = false) {
+    returnToResult = fromResult;
+    if (fromResult) $('#result-dialog').close();
+    board = fromResult ? selectedMode : 'aventura'; renderRanking(); openDialog('#ranking-dialog');
 }
-
-// Cria a tabela de classificação
-function createRankingTable() {
-    const classification = DB.get();
-
-
-    classification.sort((a, b) => b.score_val - a.score_val);
-
-    classification.forEach((item, index) => {
-        let position = index + 1;
-        let name = item.playerName;
-        let score_val = item.score_val;
-        createTable(position, name, score_val);
-    });
+function renderRanking() {
+    document.querySelectorAll('[data-board]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.board === board)));
+    const rows = (board === 'previous' ? DB.previousScores() : DB.get(board === 'legacy')).filter(p => ['legacy','previous'].includes(board) || p.mode === board).sort((a, b) => b.score_val - a.score_val);
+    $('#ranking-empty').hidden = rows.length !== 0;
+    $('#ranking-body').replaceChildren(...rows.map((row, index) => {
+        const tr = document.createElement('tr');
+        tr.style.setProperty('--row-delay', `${Math.min(index, 7) * 45}ms`);
+        for (const text of [String(index + 1).padStart(2, '0'), board === 'previous' ? `${row.playerName} · ${row.mode} · ${row.ruleset || 'original'}` : row.playerName, row.score_val]) { const td = document.createElement('td'); td.textContent = text; tr.append(td); }
+        return tr;
+    }));
 }
-// Cria linhas na tabela de classificação
-function createTable(position, name, score_val) {
-    const elementHTML = document.createElement('tr');
-    elementHTML.classList.add('ranking-line');
-    elementHTML.innerHTML = `
-        <td class="ranking-column">${position}</td>
-        <td class="ranking-column">${name}</td>
-        <td class="ranking-column">${score_val}</td>
-    `;
-    table.appendChild(elementHTML);
-}
+$('#open-ranking').addEventListener('click', () => showRanking());
+$('#result-ranking').addEventListener('click', () => showRanking(true));
+document.querySelectorAll('[data-board]').forEach(button => button.addEventListener('click', () => { board = button.dataset.board; renderRanking(); }));
+$('#ranking-dialog').addEventListener('close', () => { if (returnToResult && game.state === 'ended') openDialog('#result-dialog'); returnToResult = false; });
+$('#open-guide').addEventListener('click', () => openDialog('#guide-dialog'));
+$('#open-credits').addEventListener('click', () => openDialog('#credits-dialog'));
+document.querySelectorAll('.close-dialog').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 
-// Aplica a gravidade ao papagaio
-function apply_gravity() {
-    if (game_state != 'Play') return;
-    parrot_dy = parrot_dy + gravity;
-
-    if (parrot_props.top <= 0 || parrot_props.bottom >= background.bottom) {
-        return gameOver();
-    }
-
-    parrot.style.top = parrot_props.top + parrot_dy + 'px';
-    parrot_props = parrot.getBoundingClientRect();
-    applyGravityRequestId = requestAnimationFrame(apply_gravity);
-}
-
-// Cria um par de troncos de árvores
-function create_tree_pair() {
-    if (game_state != 'Play') return;
-    
-    if (tree_separation > 115) {
-        tree_separation = 0;
-
-        let gap_position = 40;
-
-        let tree_posi = Math.floor(Math.random() * (maxTopTreeHeight - 2 * gap_position)) + gap_position;
-
-        if (tree_posi > maxTopTreeHeight) {
-            tree_posi = maxTopTreeHeight;
+function syncUI() {
+    if (game.state !== previousState) {
+        app.dataset.state = game.state;
+        if (!(previousState === 'countdown' && game.state === 'playing')) clearInputs();
+        if (game.state === 'paused') openDialog('#pause-dialog');
+        if (game.state === 'quiz') {
+            $('#question-text').textContent = game.question.text;
+            $('#quiz-bonus').textContent = game.quizMultiplier === 2 ? 'Pena dourada garantida nesta resposta: +4 pontos ao acertar.' : 'Uma resposta certa vale +2 pontos.';
+            $('#quiz-bonus').textContent += game.mode === 'tranquilo' ? ' Amigável: errar permite continuar.' : ' Desafio: errar encerra o voo.';
+            $('#answer-feedback').textContent = ''; $('#quiz-continue').hidden = true;
+            $('#answer-true').disabled = false; $('#answer-false').disabled = false;
+            openDialog('#quiz-dialog');
         }
-
-        let tree_sprite1 = document.createElement('img');
-        tree_sprite1.className = 'tree';
-        tree_sprite1.src = 'images/tree.png';
-        tree_sprite1.style.top = tree_posi - maxTopTreeHeight + 'vh';
-        tree_sprite1.style.left = '100vw';
-        tree_sprite1.increase_score = '1';
-
-        document.body.appendChild(tree_sprite1);
-
-        let tree_sprite2 = document.createElement('img');
-        tree_sprite2.className = 'tree tree-inverted';
-        tree_sprite2.src = 'images/tree.png';
-        tree_sprite2.style.top = tree_posi + gap_position + 'vh';
-        tree_sprite2.style.left = '100vw';
-
-        document.body.appendChild(tree_sprite2);
+        if (game.state === 'ended') result();
+        if (game.state === 'trained') {openDialog('#training-dialog');$('#training-home').focus();}
+        previousState = game.state;
     }
-    tree_separation++;
-    createTreePairRequestId = requestAnimationFrame(create_tree_pair);
-}
-
-// Cria frutas
-function create_fruits() {
-    if (game_state != 'Play') return;
-    
-    if (fruit_separation > 350) {
-        fruit_separation = 0;
-
-        let tree_sprites = document.querySelectorAll('.tree');
-        if (tree_sprites.length < 2) {
-            return;
-        }
-
-        let tree1 = tree_sprites[tree_sprites.length - 2];
-        let tree2 = tree_sprites[tree_sprites.length - 1];
-        let tree1_props = tree1.getBoundingClientRect();
-        let tree2_props = tree2.getBoundingClientRect();
-
-        let fruit_x = (tree1_props.right + tree2_props.left) / 2;
-
-        if (fruit_x > 10) {
-            fruit_x -= 60; 
-        }
-
-        let randomFruitImage = fruitImages[Math.floor(Math.random() * fruitImages.length)];
-
-        let fruit_sprite1 = document.createElement('img');
-        fruit_sprite1.classList.add("fruit")
-        fruit_sprite1.src = randomFruitImage;
-        if (randomFruitImage === 'images/Goiaba.png') {
-            fruit_sprite1.classList.add('Goiaba');
-        } else if (randomFruitImage === 'images/Semente.png') {
-            fruit_sprite1.classList.add('Semente');
-        } else if (randomFruitImage === 'images/Manga.png') {
-            fruit_sprite1.classList.add('Manga');
-        } else if (randomFruitImage === 'images/Banana.png') {
-            fruit_sprite1.classList.add('Banana');
-        } else if (randomFruitImage === 'images/Coquinho.png') {
-            fruit_sprite1.classList.add('Coquinho');
-        } else if (randomFruitImage === 'images/Mamao.png') {
-            fruit_sprite1.classList.add('Mamao');
-        }  else if (randomFruitImage === 'images/Milho.png') {
-            fruit_sprite1.classList.add('Milho');
-        } 
-
-        fruit_sprite1.style.left = fruit_x + 'px';
-        let screenHeight = window.innerHeight;
-        let fruit_y = (tree1_props.bottom + tree2_props.top) / 2 - screenHeight / 2;
-        fruit_sprite1.style.top = screenHeight / 2 + fruit_y + 'px';
-
-        fruit_sprite1.increase_score = '1';
-
-        document.body.appendChild(fruit_sprite1);
+    $('#countdown').hidden = game.state !== 'countdown';
+    if (game.state === 'countdown') $('#count-number').textContent = Math.max(1, Math.ceil(game.countdown));
+    $('#score').textContent = game.score;
+    $('#stage-name').textContent = game.tutorial ? (LESSONS[game.tutorial.step]?.title || 'Treino concluído') : STAGES[game.stage];
+    $('#journey-destination').textContent=game.tutorial ? (LESSONS[game.tutorial.step]?.instruction || 'Pronto para a aventura!') : game.refuge?'Alinhe o voo com o bando':`Abrigo · ${Math.floor(game.distance/JOURNEY_LENGTH*100)}%`;
+    $('#progress-track').setAttribute('aria-valuenow',String(Math.floor(game.distance/JOURNEY_LENGTH*100)));
+    const progress=game.tutorial ? game.tutorial.step/LESSONS.length*100 : Math.min(100,game.distance/JOURNEY_LENGTH*100);
+    $('#progress-fill').style.width = `${progress}%`;
+    $('#progress-track').setAttribute('aria-valuenow',String(Math.floor(progress)));
+    $('#progress-track').setAttribute('aria-label',game.tutorial?'Etapas do treino':'Caminho até o abrigo');
+    $('#energy').value = game.stamina;
+    $('#shield-status').classList.toggle('active', game.shield);
+    $('#shield-status span').textContent = game.shield ? 'Escudo pronto' : 'Sem escudo';
+    $('#feather-status').classList.toggle('golden', game.feather > 0);
+    $('#feather-status').classList.toggle('active', game.feather > 0);
+    $('#feather-status span').textContent = game.feather > 0 ? `×2 · ${Math.ceil(game.feather)}s` : 'Pena ×2';
+    $('#feather-status progress').value = game.feather;
+    const pepperChip = $('#pepper-status');
+    if (pepperChip) {
+        pepperChip.classList.toggle('spicy', game.pepper > 0);
+        pepperChip.classList.toggle('active', game.pepper > 0);
+        const pepperLabel = $('#pepper-status span');
+        if (pepperLabel) pepperLabel.textContent = game.pepper > 0 ? `Turbo · ${Math.ceil(game.pepper)}s` : 'Pimenta turbo';
+        const pepperProg = $('#pepper-status progress');
+        if (pepperProg) pepperProg.value = game.pepper;
     }
-    fruit_separation++;
-    createFruitsRequestId = requestAnimationFrame(create_fruits);
+    if (toastUntil < game.elapsed) $('#toast').classList.remove('visible');
+    if (pointsUntil < game.elapsed) $('#score-bonus').textContent = '';
 }
 
-// Iniciando o jogo
-function play() {
-    moveRequestId = requestAnimationFrame(move);
-    applyGravityRequestId = requestAnimationFrame(apply_gravity);
-    createTreePairRequestId = requestAnimationFrame(create_tree_pair);
-    createFruitsRequestId = requestAnimationFrame(create_fruits);
+function frame(time) {
+    const delta = lastTime ? Math.min(.25, Math.max(0, (time - lastTime) / 1000)) : 0;
+    lastTime = time;
+    game.reducedMotion=reducedMotion.matches;
+    clock.advance(delta);
+    if(game.state!==previousState || time-lastHudTime>=80){syncUI();lastHudTime=time;}
+    if(quality.sample(delta,!document.hidden&&document.hasFocus()&&game.state==='playing'))renderer.setQuality(quality.level);
+    forestAudio.update(game.state,!document.hidden&&document.hasFocus(),time/1000,game.stage);
+    if(document.hidden){requestAnimationFrame(frame);return;}
+    if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
+    else {
+        const view = flightViewport(renderer.w, renderer.h, renderer.safeInsets);
+        game.viewWidth = Math.max(960, Math.ceil(view.worldLeft + view.worldWidth));
+        game.viewLeft = Math.floor(view.worldLeft);
+        renderer.game(game.visual(clock.accumulator / (1 / 120)), reducedMotion.matches, time / 1000);
+    }
+    requestAnimationFrame(frame);
 }
+requestAnimationFrame(frame);
 
-// Cancela todas as animações
-function cancelAllAnimations() {
-    cancelAnimationFrame(moveRequestId);
-    cancelAnimationFrame(applyGravityRequestId);
-    cancelAnimationFrame(createTreePairRequestId);
-    cancelAnimationFrame(createFruitsRequestId);
+function showCollection() {
+    const unlocked = DB.unlocked();
+    const discovered = DB.discoveredEntries();
+    renderCollection($('#nature-items'), discovered);
+    $('#collection-progress').textContent = `${discovered.length}/${ENTRIES.length} temas descobertos · ${unlocked.length}/${FRUITS.length} itens coletados`;
+    $('#collection-items').replaceChildren(...FRUITS.map(f => {
+        const card = document.createElement('article');
+        const title = document.createElement('h3'); title.textContent = f.name;
+        const img = new Image(); img.src = `images/fruit-${f.id}.webp`; img.alt = f.name; img.width = 64; img.height = 64; img.style.objectFit = 'contain';
+        const text = document.createElement('p'); text.textContent = unlocked.includes(f.id) ? f.description : 'Recolha este alimento para desbloquear a descoberta.';
+        card.append(img,title,text); return card;
+    }));
+    openDialog('#collection-dialog');
 }
+$('#open-collection').addEventListener('click', showCollection);
 
-// Event listeners e inicialização
-document.addEventListener('DOMContentLoaded', () => {
-    const creditsAnimation = document.querySelector('.credits-animation');
+renderer.ready.then(() => {
+    assetsReady=true;
+    updateTrainingButton();
+    $('#asset-status').hidden=true;
+    $('#btnStart').disabled=$('#inputPlayer').value.trim().length<3;
+}).catch(error => {
+    $('#asset-status').textContent=error.message;
+    $('#btnStart').disabled=true;
+});
 
-    const logo1 = document.querySelector('.logo-1');
-    const logo2 = document.querySelector('.logo-2');
-    const button = document.querySelector('.btn-restart-2');
+function showMissions(fromResult=false) {
+    const name=(fromResult?player:$('#inputPlayer').value).trim();
+    if(name.length<3 || name.length>24){
+        $('#inputPlayer').setCustomValidity('Digite seu nome para consultar suas missões.');
+        $('#inputPlayer').reportValidity();return;
+    }
+    returnToMissionsResult=fromResult;
+    if(fromResult)$('#result-dialog').close();
+    const progress=DB.missionProgress(name);
+    $('#missions-player').textContent=`${name} · ${progressTitle(progress)}`;
+    $('#missions-summary').textContent=`${completedMissions(progress).length}/${MISSIONS.length} selos conquistados. Jogue no seu ritmo: ambos os modos contam.`;
+    $('#missions-storage').textContent=DB.storageAvailable?'Progresso salvo por nome neste navegador. Use sempre o mesmo nome.':'Armazenamento indisponível: o progresso novo fica apenas nesta sessão.';
+    renderMissions($('#mission-items'),progress);
+    openDialog('#missions-dialog');
+}
+$('#open-missions').addEventListener('click',()=>showMissions());
+$('#result-missions').addEventListener('click',()=>showMissions(true));
+$('#missions-dialog').addEventListener('close',()=>{
+    if(returnToMissionsResult){returnToMissionsResult=false;openDialog('#result-dialog');$('#result-missions').focus();}
+});
 
-    creditsAnimation.addEventListener('animationstart', () => {
-        logo1.style.display = 'none';
-        logo2.style.display = 'none';
-        button.style.display = 'none';
-    });
+function updateTrainingButton(){
+    $('#start-training').disabled=!assetsReady;
+    $('#start-training').textContent=DB.tutorialCompleted()?'Repetir treino de voo':'Experimentar o voo · treino seguro';
+}
+$('#start-training').addEventListener('click',()=>start(true));
+$('#training-again').addEventListener('click',()=>start(true));
+$('#training-home').addEventListener('click',home);
+$('#training-dialog').addEventListener('cancel',event=>{event.preventDefault();home();});
+updateTrainingButton();
 
-    creditsAnimation.addEventListener('animationend', () => {
-        logo1.style.display = 'block';
-        logo2.style.display = 'block';
-        button.style.display = 'block';
-    });
+let settingsFromPause=false;
+function showSettings(fromPause=false){
+    settingsFromPause=fromPause;
+    if(fromPause)$('#pause-dialog').close();
+    $('#quality-mode').value=quality.mode;
+    $('#audio-volume').value=Math.round(forestAudio.volume*100);
+    $('#volume-value').textContent=`${Math.round(forestAudio.volume*100)}%`;
+    openDialog('#settings-dialog');
+}
+function saveSetting(key,value){
+    DB.memory.set(key,value);
+    try {localStorage.setItem(key,JSON.stringify(value));} catch {DB.storageAvailable=false;}
+}
+$('#open-settings').addEventListener('click',()=>showSettings());
+$('#pause-settings').addEventListener('click',()=>showSettings(true));
+$('#settings-dialog').addEventListener('close',()=>{
+    if(settingsFromPause && game.state==='paused'){openDialog('#pause-dialog');$('#pause-settings').focus();}
+    settingsFromPause=false;
+});
+$('#quality-mode').addEventListener('change',event=>{
+    quality.setMode(event.target.value);renderer.setQuality(quality.level);saveSetting('chaua-visual-quality',quality.mode);
+});
+$('#audio-volume').addEventListener('input',event=>{
+    forestAudio.setVolume(Number(event.target.value)/100);
+    $('#volume-value').textContent=`${Math.round(forestAudio.volume*100)}%`;
+    saveSetting('chaua-volume',forestAudio.volume);
 });
