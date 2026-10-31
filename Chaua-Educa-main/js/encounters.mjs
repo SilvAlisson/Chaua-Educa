@@ -6,7 +6,7 @@ export const ENCOUNTERS = Object.freeze([
     {id:'climb', unlock:10, shift:-40, extraGap:4, interval:.1, fruitOffsets:[[15,0]]},
     {id:'descent', unlock:10, shift:40, extraGap:4, interval:.1, fruitOffsets:[[15,0]]},
     {id:'curve', unlock:20, shift:0, extraGap:6, interval:.2, fruitOffsets:[[-105,-.5],[15,.5],[135,-.5]]},
-    {id:'branch', unlock:22, shift:0, extraGap:4, interval:.1, fruitOffsets:[[15,0]]},
+    {id:'branch', variant:'branch', unlock:22, shift:0, extraGap:4, interval:.1, fruitOffsets:[[15,0]]},
     {id:'choice', unlock:25, shift:0, extraGap:8, interval:.2, optional:true, fruitOffsets:[[-105,1],[15,1],[135,1]]},
 ]);
 export function seededRandom(seed) {
@@ -21,7 +21,7 @@ export function seededRandom(seed) {
 export function planEncounter({sequence,elapsed,lastCenter,lastPattern,profile,speed,stage=0,random}) {
     const eligible=ENCOUNTERS.filter(p=>p.unlock<=elapsed && p.id!==lastPattern).flatMap(p=>JOURNEY[stage].patterns.includes(p.id)?[p,p]:[p]);
     const pattern=sequence===0?ENCOUNTERS[0]:eligible[Math.min(eligible.length-1,Math.floor(random()*eligible.length))];
-    const interval=Math.max(1.35,1.70-elapsed*.003)+pattern.interval;
+    const interval=Math.max(profile.minInterval,profile.interval-elapsed*profile.ramp)+pattern.interval;
     // Conservative travel budget after clearing 160 units of wood/branches,
     // allowing 0.45s to release, reverse or wait for a wingbeat.
     const available=Math.max(0,(interval*speed-160)/300-.45);

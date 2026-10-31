@@ -1,3 +1,4 @@
+import { snakeHeadRect } from './geometry.mjs';
 import { createTutorial, advanceTutorial } from './tutorial.mjs';
 import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
 import { offerPower, POWER_BALANCE } from './powers.mjs';
@@ -16,8 +17,8 @@ export const QUIZ_INTERVAL = 30;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
     holdLift: 230, staminaLift: 50, flapInterval: .22, inputBuffer: .12,
-    aventura: {speed: 245, gap: 180, minGap: 142},
-    tranquilo: {speed: 205, gap: 205, minGap: 165},
+    aventura: {speed:245,gap:180,minGap:142,interval:1.7,minInterval:1.35,ramp:.003,speedGain:55,snakeAt:22,hawkAt:42,diveAt:55,warning:1.7},
+    tranquilo: {speed:205,gap:220,minGap:185,interval:2.1,minInterval:1.8,ramp:.0017,speedGain:30,snakeAt:32,hawkAt:55,diveAt:78,warning:2.2},
 });
 export const STAGES = JOURNEY.map(s=>s.name);
 export const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -98,12 +99,9 @@ export class Game {
         this.snapshot();
     }
 
-    get x() {
-        const baseX = this.viewWidth ? Math.min(260, Math.max(120, this.viewWidth * 0.22)) : Math.min(220, this.width * 0.23);
-        return Math.max(85, baseX) + (this.arrival?.offset || 0);
-    }
+    get x() { return 220 + (this.arrival?.offset || 0); }
     get body() { return { x: this.x - 18, y: this.y - 18, w: 36, h: 36 }; }
-    get speed() { return (FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45)) * (this.pepper > 0 ? 1.35 : 1); }
+    get speed() { return (FLIGHT[this.mode].speed + Math.min(FLIGHT[this.mode].speedGain, this.elapsed * .45)) * (this.pepper > 0 ? 1.35 : 1); }
     start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
 
     startTutorial() {
@@ -392,15 +390,13 @@ export class Game {
 
     snakeRects(entity) {
         if (!entity.snake || entity.snake.retreat) return [];
-        const x=entity.x, y=entity.bottom;
-        return entity.snake.branch
-            ? [{x:x-52,y:y+12,w:31,h:15},{x:x-20,y:y+21,w:62,h:12}]
-            : [{x:x+51,y:y+28,w:30,h:17},{x:x-3,y:y+35,w:62,h:23}];
+        return [snakeHeadRect(entity)];
     }
 
     spawn() {
         const n = this.sequence++;
-        const soloHawk = this.elapsed > 42 && n % 3 === 1;
+        const profile=FLIGHT[this.mode];
+        const soloHawk = this.elapsed > profile.hawkAt && n % 3 === 1;
         // Reserve the first encounters: finish the preceding wood before a
         // solo hawk, and let that hawk leave before presenting another trunk.
         const waitingForSolo = this.entities.some(e => e.kind === 'hawk' && e.solo && !e.harmless && e.x > this.x - 100);
@@ -416,7 +412,6 @@ export class Game {
         const margin = this.viewWidth ? 180 : 80;
         const x = spawnWidth + margin;
         const travel = (x - this.x) / this.speed;
-        const profile = FLIGHT[this.mode];
         const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,stage:this.stage,random:this.encounterRandom});
         const {gap,center}=plan;
         if(this.stage===2)plan.interval+=.15;
@@ -427,15 +422,16 @@ export class Game {
         if(this.encounterHistory.length>12)this.encounterHistory.shift();
         const hawkAlone = soloHawk;
         if (hawkAlone) {
-            const dive = this.elapsed > 55 && n % 2 === 0;
-            const y = dive ? 100 : center < 320 ? 460 : 170;
-            this.entities.push({ id: this.nextId++, kind: 'hawk', solo: true, x, y, startX: x, targetX: this.x - 60, startY: y, targetY: dive ? 420 : y,
-                warning: Math.max(1.7, travel * .25), phase:'warning', age: 0, dive, w: 66, h: 34 });
+            const dive = this.elapsed > profile.diveAt && n % 2 === 0;
+            const lane=Math.max(160,Math.min(480,this.y+(this.encounterRandom()-.5)*70));
+            const y = dive ? (lane>=320?105:535) : lane;
+            this.entities.push({ id: this.nextId++, kind: 'hawk', solo: true, x, y, startX: x, targetX: this.x - 60, startY: y, targetY: dive ? lane : y,
+                warning: Math.max(profile.warning, travel * .25), phase:'warning', age: 0, dive, w: 66, h: 34 });
         } else {
             const variants = ['plain', 'broken', 'hollow'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'hollow':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false, route:n, encounter:plan.id };
-            if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, phase:'watching', retreat: false };
+            if (this.elapsed > profile.snakeAt && (n % 2 === 0 || variant==='branch')) wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
             this.entities.push(wood);
         }
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;

@@ -1,3 +1,4 @@
+import { SNAKE_ART } from './geometry.mjs';
 import { canvasResolution } from './quality.mjs';
 import { flightViewport, warningPosition } from './viewport.mjs';
 import { images, loadAssets, BIRD_ANCHORS, TRUNKS, SPECIAL } from './assets.mjs';
@@ -35,10 +36,12 @@ function clay(c, x, y, rx, ry, light, dark, angle = 0) {
 }
 function leaf(c, x, y, size, rotation, light = '#87b36a', dark = '#3d7349') {
     c.save(); c.translate(x, y); c.rotate(rotation);
-    oval(c, 0, 0, size, size * .46, dark, -.2);
-    oval(c, -size * .15, -size * .1, size * .68, size * .3, light, -.2);
-    c.beginPath(); c.moveTo(-size * .7, 3); c.quadraticCurveTo(0, -2, size * .7, -2);
-    c.strokeStyle = '#d9e6a64a'; c.lineWidth = Math.max(1, size * .04); c.stroke();
+    c.beginPath();c.moveTo(-size,0);c.bezierCurveTo(-size*.4,-size*.65,size*.55,-size*.45,size,0);
+    c.bezierCurveTo(size*.35,size*.45,-size*.5,size*.5,-size,0);c.fillStyle=dark;c.fill();
+    c.beginPath();c.moveTo(-size*.9,0);c.bezierCurveTo(-size*.3,-size*.5,size*.5,-size*.35,size*.9,0);
+    c.quadraticCurveTo(0,-size*.07,-size*.9,0);c.fillStyle=light;c.fill();
+    c.beginPath();c.moveTo(-size*.88,0);c.quadraticCurveTo(0,-size*.1,size*.85,0);
+    c.strokeStyle='#d9e6a64a';c.lineWidth=Math.max(.7,size*.025);c.stroke();
     c.restore();
 }
 
@@ -48,6 +51,17 @@ function feather(c,x,y,size,rotation,color) {
     c.bezierCurveTo(-size*.55,size*.4,-size*.6,-size*.5,0,-size);c.fillStyle=color;c.fill();
     c.strokeStyle='#eff6cbb0';c.lineWidth=1;c.beginPath();c.moveTo(0,size*1.2);c.lineTo(0,-size*.8);c.stroke();
     c.restore();
+}
+
+function hawkLayer(c,image,w,h,time,reduced,dive,dazed) {
+    const factor=w/image.naturalWidth,dx=-w*.43,dy=-h*.66;
+    const points=[[365,680],[460,455],[650,40],[980,0],[980,620],[680,720],[475,745]];
+    const polygon=()=>{c.moveTo(dx+points[0][0]*factor,dy+points[0][1]*factor);for(const [x,y]of points.slice(1))c.lineTo(dx+x*factor,dy+y*factor);c.closePath();};
+    if(reduced||dazed){c.drawImage(image,dx,dy,w,h);return;}
+    c.save();c.beginPath();c.rect(dx,dy,w,h);polygon();c.clip('evenodd');c.drawImage(image,dx,dy,w,h);c.restore();
+    c.save();const px=dx+430*factor,py=dy+690*factor;
+    c.translate(px,py);c.rotate(.27+.33*Math.sin(time*(dive?16:11)));c.translate(-px,-py);
+    c.beginPath();polygon();c.clip();c.drawImage(image,dx,dy,w,h);c.restore();
 }
 
 function flightLayer(c,image,factor,ax,ay,bend) {
@@ -456,6 +470,14 @@ export class Renderer {
             c.drawImage(forest,(w-fw)/2+drift,(h-fh)/2,fw,fh);c.restore();
 
         }
+        if(this.quality!=='low') {
+            c.save();c.globalAlpha=.08;c.fillStyle='#e6f0d9';
+            for(let i=0;i<3;i++){
+                const drift=reduced?0:Math.sin(time*.12+i*2)*w*.045;
+                c.beginPath();c.ellipse(w*(.18+i*.34)+drift,h*(.48+i*.1),w*.35,h*.035,0,0,TAU);c.fill();
+            }
+            c.restore();
+        }
         // Low-contrast tree layers are behind gameplay, at distinct parallax speeds.
         for(let layer=0;layer<(this.quality==='low'?1:2);layer++) {
             const spacing=layer?340:240, travel=offset*(layer?.22:.09);
@@ -618,10 +640,11 @@ export class Renderer {
             if (e.kind === 'wood') {
                 this.obstacle(e, game, reduced);
             } else if (e.kind === 'hawk') {
-                if (e.warning > 0) {
+                if (e.warning > 0 || (!e.harmless && e.x>game.x+180)) {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
                     c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
-                } else this.hawk(e, reduced ? 0 : sceneTime, reduced);
+                }
+                if(e.warning<=0)this.hawk(e, reduced ? 0 : sceneTime, reduced);
             } else if (!e.collected) this.pickup(e, game.elapsed, reduced);
         }
         if (game.shield || game.invincible > 0) {
@@ -696,7 +719,7 @@ export class Renderer {
         this.foreground(game.distance,sceneTime,reduced,view.worldLeft,view.w/s);
         c.restore();
         // Warning labels are CSS-pixel sized, independent of world zoom.
-        for (const e of game.entities) if(e.kind==='hawk' && e.warning>0) {
+        for (const e of game.entities) if(e.kind==='hawk' && !e.harmless && e.x>game.x+100) {
             const p=warningPosition(view,e.startY);
             c.save(); c.fillStyle='#fff0c8'; c.strokeStyle='#684b3c'; c.lineWidth=1.5;
             c.beginPath();c.roundRect(p.x,p.y,108,36,9);c.fill();c.stroke();
@@ -704,7 +727,7 @@ export class Renderer {
             c.fillText(e.dive?'MERGULHO':'TRAVESSIA',p.x+58,p.y+15);
             c.beginPath();c.moveTo(p.x+19,p.y+8);c.lineTo(p.x+10,p.y+(e.dive?17:8));
             c.lineTo(p.x+10,p.y+11);c.moveTo(p.x+10,p.y+(e.dive?17:8));c.lineTo(p.x+16,p.y+(e.dive?17:13));c.stroke();
-            c.font='700 11px Nunito';c.fillText(`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`,p.x+54,p.y+29);c.restore();
+            c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:'Em aproximação',p.x+54,p.y+29);c.restore();
         }
         for(const e of game.entities) if(e.kind==='wood' && e.snake?.phase==='warning') {
             const x=Math.max(view.x+4,Math.min(view.x+view.w-140,view.x+(e.x-view.worldLeft)*s-30));
@@ -753,7 +776,7 @@ export class Renderer {
         if (!e.broken || e.brokenSide !== 'bottom') {
             c.save(); c.beginPath();
             const snakeActive = !!e.snake;
-            const clipTop = snakeActive ? e.bottom - 45 : e.bottom;
+            const clipTop = snakeActive ? e.bottom - 40 : e.bottom;
             c.rect(e.x - 180, clipTop, 360, HEIGHT + 1000);
             c.clip();
             const kind = snakeActive && !e.snake.branch ? 'snake' : e.variant === 'hollow' ? 'hollow' : `trunk-${variant}`;
@@ -785,10 +808,11 @@ export class Renderer {
         c.save();
         c.translate(x, y);
         if (flip) c.scale(1, -1);
+        c.translate(0,-(preset.openingY||0)*factor);
 
         // 1. Solid bark column extends continuously 1400 units away from opening (into canopy or roots)
-        const trunkW = key === 'hollow' ? w : w * 0.58;
-        const trunkLeft = left + (w - trunkW) * 0.5;
+        const trunkW = 58;
+        const trunkLeft = -29;
         this.wood({ x: trunkLeft, y: h - 4, w: trunkW, h: 1400 }, variant);
 
         // 2. Draw authored details & cut opening
@@ -842,7 +866,7 @@ export class Renderer {
     }
 
     snakeArt(image, x, y, w, h, kind, time, retreatTime = 0) {
-        const c = this.c, [sx, sy, sw, sh] = kind === 'snake' ? [130, 10, 185, 140] : [77, 0, 86, 56];
+        const c = this.c, [sx, sy, sw, sh] = kind === 'snake' ? SNAKE_ART.head : SNAKE_ART.branchHead;
         const k = w / image.naturalWidth;
         const dx = x + sx * k, dy = y + sy * k;
         const progress = smoothstep(retreatTime);
@@ -877,13 +901,18 @@ export class Renderer {
 
     foreground(distance,time,reduced,left=0,width=WIDTH) {
         const c=this.c, travel=reduced?0:distance*.65;
+        // The moss line marks the actual world floor; stones and roots stay below it.
+        c.save();c.fillStyle='#284c35';c.beginPath();c.moveTo(left-10,HEIGHT+12);
+        for(let x=left-10;x<=left+width+20;x+=16)c.lineTo(x,HEIGHT-3+Math.sin((x+travel)*.025)*2);
+        c.lineTo(left+width+20,HEIGHT+30);c.closePath();c.fill();c.restore();
         for(const {index:i,x} of borderCells(travel,180,left,width)) {
             const swayBottom=reduced?0:Math.sin(time*1.2+i*0.9)*0.04+Math.cos(time*0.7+i*1.4)*0.02;
             const swayTop=reduced?0:Math.sin(time*1.0+i*0.8)*0.04+Math.cos(time*0.6+i*1.2)*0.02;
-            leaf(c,x-12,HEIGHT+24,38,-0.9+swayBottom,'#5d8c4e','#264e32');
-            leaf(c,x+24,HEIGHT+28,44,-0.7+swayBottom*1.2,'#7aa858','#34613b');
-            leaf(c,x+60,-28,36,0.75+swayTop,'#8bb25e','#3e6b42');
-            leaf(c,x+95,-32,42,0.60+swayTop*1.1,'#68964d','#2c5333');
+            leaf(c,x-12,HEIGHT+5,38,-0.9+swayBottom,'#5d8c4e','#264e32');
+            leaf(c,x+50,HEIGHT+8,48,-0.7+swayBottom*1.2,'#7aa858','#34613b');
+            leaf(c,x+60,-8,54,0.35+swayTop,'#8bb25e','#3e6b42');
+            leaf(c,x+130,-8,58,-0.25+swayTop*1.1,'#68964d','#2c5333');
+            leaf(c,x+125,HEIGHT+7,42,-1.25+swayBottom,'#68934f','#294d32');
         }
     }
 
@@ -953,9 +982,9 @@ export class Renderer {
 
         // Draw raptor sprite centered on anchor
         if(blend>0&&nextImage)blendSprite(c,
-            layer=>layer.drawImage(image,-w*.43,-h*.66,w,h),
-            layer=>layer.drawImage(nextImage,-w*.43,-h*.66,w,h),blend);
-        else c.drawImage(image,-w*.43,-h*.66,w,h);
+            layer=>hawkLayer(layer,image,w,h,time,reduced,e?.dive,retreat||e?.dazed),
+            layer=>hawkLayer(layer,nextImage,w,h,time,reduced,e?.dive,retreat||e?.dazed),blend);
+        else hawkLayer(c,image,w,h,time,reduced,e?.dive,retreat||e?.dazed);
 
         // Dizzy spinning stars above head when dazed/defeated
         if ((retreat || e?.dazed) && time > 0 && !reduced) {

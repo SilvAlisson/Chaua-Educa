@@ -1,3 +1,4 @@
+import { SNAKE_ART } from './geometry.mjs';
 import { FRUITS } from './fruits.mjs';
 // One cache for gameplay, menus and results. All files are local.
 export const ASSET_PATHS = Object.fromEntries([
@@ -15,6 +16,6 @@ export function loadAssets() {
  })));
 }
 export const BIRD_ANCHORS = [[370/627,418/627],[356/627,418/627],[370/627,343/627],[350/627,343/627]];
-export const TRUNKS = [{originX:0.5115,coreWidth:185},{originX:0.4796,coreWidth:180},{originX:0.5118,coreWidth:185}];
-export const SPECIAL = {snake:{originX:0.5047,coreWidth:160},hollow:{originX:0.5115,coreWidth:74}};
+export const TRUNKS = [{originX:.497,coreWidth:620},{originX:.503,coreWidth:600},{originX:.50,coreWidth:620}];
+export const SPECIAL = {snake:SNAKE_ART,hollow:{originX:.62,coreWidth:160}};
 export function flightPose(wing, reduced=false) { return reduced || wing<=0 ? 1 : [0,2,3,1][Math.min(3,Math.floor((1-wing)*4))]; }
