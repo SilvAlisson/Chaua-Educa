@@ -96,7 +96,7 @@ function openDialog(id) { const dialog = $(id); if (!dialog.open) dialog.showMod
 
 function start(training = false) {
     training = training === true;
-    if (!assetsReady) return;
+    if (!assetsReady || !['menu','ended','trained'].includes(game.state)) return;
     closeDialogs(); clearInputs();
     cancelAnimationFrame(resultAnimation);
     app.classList.add('in-flight'); $('#home').hidden = true; $('#hud').hidden = false;
@@ -126,8 +126,9 @@ $('#inputPlayer').addEventListener('input', event => {
 });
 $('#start-form').addEventListener('submit', event => {
     event.preventDefault();
+    if(game.state!=='menu')return;
     player = $('#inputPlayer').value.trim();
-    if (player.length < 3) { $('#inputPlayer').setCustomValidity('Use pelo menos 3 letras no seu nome.'); $('#inputPlayer').reportValidity(); return; }
+    if (player.length < 3 || player.length > 24) { $('#inputPlayer').setCustomValidity('Use de 3 a 24 caracteres no seu nome.'); $('#inputPlayer').reportValidity(); return; }
     selectedMode = $('input[name=mode]:checked').value;
     sound('fruit'); start();
 });
@@ -176,6 +177,7 @@ $('.sound-toggle').addEventListener('click', () => { soundOn = !soundOn; try { l
 updateSoundButton();
 
 function answer(value) {
+    if(game.state!=='quiz' || game.answerResult!==null)return;
     game.answer(value);
     const result = game.answerResult;
     if (result === null) return;
@@ -209,7 +211,7 @@ function result() {
     $('#mission-result').textContent=earned.length ? `Novos selos: ${earned.map(m=>m.title).join(' · ')}` : `${progressTitle(progress)} · ${completedMissions(progress).length}/${MISSIONS.length} selos conquistados`;
     $('#journey-result').textContent=game.won?`Jornada concluída${game.medal?' · medalha de 200 pontos':''}`:`${Math.floor(game.distance/JOURNEY_LENGTH*100)}% do caminho · ${STAGES[game.stage]}`;
     $('#new-record').hidden = !record || game.score === 0;
-    $('#score-breakdown').textContent=`Passagens ${game.scoreBreakdown.passage} · Frutas ${game.scoreBreakdown.fruit} · Respostas ${game.scoreBreakdown.quiz} · Trilhas ${game.scoreBreakdown.route}. Valores já incluem a pena ×2.`;
+    $('#score-breakdown').textContent=`Passagens ${game.scoreBreakdown.passage} · Frutas ${game.scoreBreakdown.fruit} · Respostas ${game.scoreBreakdown.quiz} · Trilhas ${game.scoreBreakdown.route}. Valores já incluem os bônus da pena e da pimenta.`;
     $('#result-fruits').textContent = game.fruits; $('#result-correct').textContent = game.correct;
     $('#storage-note').textContent = DB.storageAvailable ? 'Seu recorde fica salvo neste navegador.' : 'Armazenamento indisponível: recorde mantido apenas nesta sessão.';
     const birdCanvas = document.createElement('canvas'); birdCanvas.width = 300; birdCanvas.height = 210;
@@ -257,7 +259,7 @@ function syncUI() {
         if (game.state === 'paused') openDialog('#pause-dialog');
         if (game.state === 'quiz') {
             $('#question-text').textContent = game.question.text;
-            $('#quiz-bonus').textContent = game.quizMultiplier === 2 ? 'Pena dourada garantida nesta resposta: +4 pontos ao acertar.' : 'Uma resposta certa vale +2 pontos.';
+            $('#quiz-bonus').textContent = game.quizMultiplier > 1 ? `Bônus ×${game.quizMultiplier} garantido nesta resposta: +${2*game.quizMultiplier} pontos ao acertar.` : 'Uma resposta certa vale +2 pontos.';
             $('#quiz-bonus').textContent += game.mode === 'tranquilo' ? ' Amigável: errar permite continuar.' : ' Desafio: errar encerra o voo.';
             $('#answer-feedback').textContent = ''; $('#quiz-continue').hidden = true;
             $('#answer-true').disabled = false; $('#answer-false').disabled = false;

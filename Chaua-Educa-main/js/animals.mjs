@@ -8,7 +8,7 @@ export function advanceHawk(e, dt, speed, playerX) {
         e.x += 150 * dt;
         if (e.dazed) {
             e.tumbleAngle = (e.tumbleAngle || 0) + (e.spin || 12.0) * dt;
-            e.fallVy = (e.fallVy || -170) + 750 * dt;
+            e.fallVy = (e.fallVy ?? -170) + 750 * dt;
             e.y += e.fallVy * dt;
         } else {
             e.y += (e.retreatY || -180) * dt;

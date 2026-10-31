@@ -221,3 +221,13 @@ Canvas limitado a 4 milhões de pixels em qualquer resolução; DPR máximo 2 na
 HUD atualizado a cada 80 ms, com transições de estado imediatas. A simulação mantém passo fixo de 120 Hz e a renderização continua interpolada na frequência do monitor. Abas ocultas deixam de desenhar. O filtro de vento é atualizado no máximo 10 vezes/s, o áudio tem limite de 24 vozes simultâneas e volume ajustável com transição suave. Perda de foco silencia também efeitos; o treino ganhou sinais sonoros de avanço e conclusão, respeitando a opção de som.
 
 Validação: testes de limites de pixels, qualidade automática e manual, estabilidade da simulação, renderização econômica com os assets existentes, volume, perda de foco e limite de vozes. Os resultados são verificações funcionais; ainda não representam benchmark de FPS/GPU nem teste auditivo ou visual em dispositivo real.
+
+### Correções e polimento das animações
+
+- Inícios repetidos durante a contagem não reiniciam a partida nem trocam o jogador. Perguntas continuam obrigatórias: Esc não fecha o quiz, e respostas repetidas não duplicam pontos ou explicações.
+- As poses do Chauá e do gavião usam transições suaves com composição em uma única superfície reutilizada, sem deixar o corpo transparente. O impacto começa na posição exata do voo e termina com uma inclinação curta. Movimento reduzido também desativa a rotação do gavião atordoado.
+- Distância do cenário, asas, recuo da cobra e giro do gavião são interpolados entre os ticks. A folhagem mantém identidade e fase de vento ao atravessar uma emenda e cobre telas largas. O tronco permanece opaco quando a cabeça da cobra recua; a passagem do tronco oco fica visível e alinhada à colisão.
+- O bônus já existente da pimenta passa a valer também para frutas, trilhas e perguntas: ×2 por poder ou ×4 quando pena e pimenta estão juntas. O valor da resposta fica garantido durante o quiz. O guia, o ranking e o detalhamento dos pontos explicam os dois poderes.
+- Os três indicadores de poderes cabem em telas de 320 px, sem esconder o turbo nem sobrepor a dica de orientação.
+
+Validação: 123 testes de lógica e renderização instrumentada, build SCSS, teste de navegador Chromium com teclado/toque, início repetido, quiz obrigatório, opacidade das poses, pausa, derrota, vitória, reinício, persistência e cinco tamanhos de tela. As cenas de voo, troncos e recuo dos animais também foram capturadas e inspecionadas com os recursos reais.

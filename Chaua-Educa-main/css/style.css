@@ -1871,7 +1871,7 @@ dialog[open]::backdrop {
   .orientation-hint {
     display: block;
     position: absolute;
-    top: calc(var(--safe-top) + 98px);
+    top: calc(var(--safe-top) + 122px);
     left: 12px;
     right: 12px;
     margin: 0;
@@ -1879,8 +1879,33 @@ dialog[open]::backdrop {
     font-size: 11px;
     color: #244c31;
   }
+  .hud .power-bar {
+    right: calc(var(--safe-right) + 12px);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
   .hud .power-chip {
-    padding: 5px 8px;
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    gap: 3px 4px;
+    min-width: 0;
+    padding: 6px;
+    font-size: 10px;
+    line-height: 1.15;
+  }
+  .hud .power-chip svg {
+    width: 14px;
+    height: 14px;
+  }
+  .hud .power-chip span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .hud .power-chip progress {
+    grid-column: 2;
+    width: 100%;
+    max-width: 44px;
   }
 }
 @media (max-height: 500px) and (orientation: landscape) {

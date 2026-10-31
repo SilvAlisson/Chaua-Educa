@@ -48,7 +48,10 @@ export class Game {
     }
 
     snapshot() {
-        this.previous = { arrivalOffset:this.arrival?.offset||0, y: this.y, angle: this.angle, flapImpulse: this.flapImpulse, entities: new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y}])) };
+        this.previous = { arrivalOffset:this.arrival?.offset||0, y: this.y, angle: this.angle,
+            distance:this.distance, elapsed:this.elapsed, sceneTime:this.sceneTime, stage:this.stage, stageAge:this.stageAge,
+            wing:this.wing, flapImpulse:this.flapImpulse,
+            entities:new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y, tumbleAngle:e.tumbleAngle, retreatTime:e.snake?.retreatTime}])) };
     }
 
     visual(alpha) {
@@ -59,13 +62,21 @@ export class Game {
         view.y = lerp(this.previous.y, this.y);
         view.angle = lerp(this.previous.angle, this.angle);
         view.flapImpulse = lerp(this.previous.flapImpulse || 0, this.flapImpulse || 0);
+        for (const key of ['distance','elapsed','sceneTime']) view[key] = lerp(this.previous[key],this[key]);
+        view.stageAge = this.previous.stage === this.stage ? lerp(this.previous.stageAge,this.stageAge) : this.stageAge;
+        // A new impulse starts a beat; only interpolate decay within that beat.
+        view.wing = this.wing > this.previous.wing ? this.wing : lerp(this.previous.wing,this.wing);
         view.pepper = this.pepper;
         view.shakeTime = this.shakeTime;
         view.shakeDuration = this.shakeDuration;
         view.shakeIntensity = this.shakeIntensity;
         view.entities = this.entities.map(e => {
             const old = this.previous.entities.get(e.id);
-            return old ? {...e, x:lerp(old.x,e.x), y:lerp(old.y,e.y)} : e;
+            if (!old) return e;
+            const entity = {...e, x:lerp(old.x,e.x), y:lerp(old.y,e.y)};
+            if(Number.isFinite(e.tumbleAngle))entity.tumbleAngle=lerp(old.tumbleAngle??0,e.tumbleAngle);
+            if(e.snake)entity.snake={...e.snake,retreatTime:lerp(old.retreatTime??0,e.snake.retreatTime??0)};
+            return entity;
         });
         return view;
     }
@@ -77,7 +88,7 @@ export class Game {
         Object.assign(this, {
             tutorial:null, endCause:null, stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
             scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:0,nextShield:0,nextFeather:18,nextPepper:26},
-            mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
+            mode, state: 'menu', elapsed: 0, sceneTime: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, pepper: 0, invincible: 0, held: false, holdAge: 0,
             flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, flapImpulse: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
@@ -139,7 +150,10 @@ export class Game {
     }
     resume() { if (this.state === 'paused') { this.afterCountdown=this.beforePause==='arrival'?'arrival':this.beforePause==='countdown'?this.afterCountdown:'playing'; this.countdown = Math.max(1.5, this.beforePause === 'countdown' ? this.countdown : 0); this.state = 'countdown'; this.snapshot(); } }
 
-    addScore(value, multiplier = (this.feather > 0 ? 2 : 1) * (this.pepper > 0 ? 2 : 1), source = 'passage') {
+    // Apply the existing power combination consistently to every score source.
+    get scoreMultiplier() { return (this.feather > 0 ? 2 : 1) * (this.pepper > 0 ? 2 : 1); }
+
+    addScore(value, multiplier = this.scoreMultiplier, source = 'passage') {
         this.score += value * multiplier;
         this.scoreBreakdown[source] += value * multiplier;
         if(!this.medal && this.score>=VICTORY_SCORE){this.medal=true;this.onEvent({type:'medal'});}
@@ -257,7 +271,7 @@ export class Game {
         if(this.state!=='playing' || entity.collected)return;
         entity.collected = true;
         if (entity.kind !== 'fruit') return this.power(entity.kind);
-        const multiplier = this.feather > 0 ? 2 : 1;
+        const multiplier = this.scoreMultiplier;
         this.fruits++;
         this.addScore(3, multiplier, 'fruit');
         const route=this.routes.get(entity.route);
@@ -271,7 +285,7 @@ export class Game {
         }
         this.onEvent({ type: 'fruit', fruit: FRUITS[entity.variety ?? 0].id });
         this.collectPulse=.26;
-        this.burst(entity.x, entity.y, multiplier===2?'#ffe39a':'#bce77f', 12);
+        this.burst(entity.x, entity.y, multiplier>=2?'#ffe39a':'#bce77f', 12);
         this.quizPending = true; // One pending discovery, regardless of fruit count.
     }
 
@@ -291,7 +305,7 @@ export class Game {
         const index=review===undefined?this.questionPool.indexOf(candidates[Math.floor(this.random()*candidates.length)]):this.questionPool.indexOf(review);
         this.question = QUESTIONS[this.questionPool.splice(index,1)[0]];
         // Capture the power at the actual discovery, then freeze it with the flight.
-        this.quizMultiplier = this.feather > 0 ? 2 : 1;
+        this.quizMultiplier = this.scoreMultiplier;
         this.quizPending = false;
         this.answerResult = null;
         this.state = 'quiz';
@@ -446,6 +460,7 @@ export class Game {
 
     tick(dt) {
         this.snapshot();
+        if(['playing','arrival','impact'].includes(this.state))this.sceneTime+=dt;
         if(this.state==='arrival') {
             this.arrival.age=this.reducedMotion?ARRIVAL_SECONDS:Math.min(ARRIVAL_SECONDS,this.arrival.age+dt);
             const t=this.arrival.age/ARRIVAL_SECONDS, ease=t*t*(3-2*t);

@@ -1,10 +1,29 @@
 import { canvasResolution } from './quality.mjs';
 import { flightViewport, warningPosition } from './viewport.mjs';
-import { images, loadAssets, BIRD_ANCHORS, TRUNKS, SPECIAL, flightPose } from './assets.mjs';
+import { images, loadAssets, BIRD_ANCHORS, TRUNKS, SPECIAL } from './assets.mjs';
+import { birdBlend, hawkBlend, impactPose, borderCells, smoothstep } from './motion.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 const TAU = Math.PI * 2;
 const mixColor = (a, b, t) => `rgb(${[1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)).join(',')})`;
+
+let blendSurface;
+function blendSprite(c, first, second, blend) {
+    // Add the two weighted sprites on transparency, then composite once onto
+    // the forest. Source-over crossfades make opaque bodies look like ghosts.
+    if(!blendSurface && typeof OffscreenCanvas!=='undefined')blendSurface=new OffscreenCanvas(512,512);
+    if(!blendSurface && typeof document!=='undefined') {
+        blendSurface=document.createElement('canvas');blendSurface.width=512;blendSurface.height=512;
+    }
+    if(!blendSurface){(blend<.5?first:second)(c);return;}
+    const layer=blendSurface.getContext('2d');
+    layer.setTransform(1,0,0,1,0,0);layer.clearRect(0,0,512,512);
+    layer.setTransform(2,0,0,2,256,256);
+    layer.globalCompositeOperation='source-over';layer.globalAlpha=1-blend;first(layer);
+    layer.globalCompositeOperation='lighter';layer.globalAlpha=blend;second(layer);
+    layer.globalAlpha=1;layer.globalCompositeOperation='source-over';
+    c.drawImage(blendSurface,-128,-128,256,256);
+}
 
 function oval(c, x, y, rx, ry, color, angle = 0) {
     c.beginPath(); c.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), angle, 0, TAU);
@@ -302,7 +321,7 @@ export function drawBird(c, {
     reduced = false, reaction = 0, flapImpulse = 0, vy = 0,
     defeated = false, impactProgress = 0, turbo = false, stamina = 1, won = false
 }) {
-    const pose = flightPose(wing, reduced);
+    const {pose,next:nextPose,blend} = birdBlend(defeated?0:wing, reduced);
     const image = images.get(perched ? (surprise ? 'chaua-hero' : 'perch') : `chaua-${pose}`);
     if (!image) return;
 
@@ -311,10 +330,9 @@ export function drawBird(c, {
 
     let renderAngle = angle;
     if (defeated && !reduced) {
-        const prog = impactProgress > 0 ? impactProgress : 1;
-        const tumble = prog * Math.PI * 2.8;
-        renderAngle = angle - tumble;
-        c.translate(-prog * 8, prog * 22);
+        const impact = impactPose(impactProgress);
+        renderAngle += impact.angle;
+        c.translate(impact.x, impact.y);
     }
     c.rotate(renderAngle);
 
@@ -323,7 +341,7 @@ export function drawBird(c, {
     const factor = size / image.naturalWidth;
     const [ax, ay] = perched ? [.5, .52] : BIRD_ANCHORS[pose];
     const pop = reduced ? 1 : 1 + Math.sin(Math.max(0, reaction) / .26 * Math.PI) * .08;
-    const spring = !perched && !reduced ? Math.sin(Math.max(0, Math.min(1, flapImpulse)) * Math.PI) * 0.16 : 0;
+    const spring = !perched && !reduced && !defeated ? Math.sin(Math.max(0, Math.min(1, flapImpulse)) * Math.PI) * .07 : 0;
     const velSquash = !perched && !reduced ? Math.max(-0.08, Math.min(0.12, (vy || 0) / 3000)) : 0;
 
     const turboStretchX = turbo && !reduced ? 1.10 : 1;
@@ -338,17 +356,14 @@ export function drawBird(c, {
         drawTurboFlames(c, size, time);
     }
 
-    const q = Math.max(0, (1 - wing) * 4);
-    const blend = !perched && !reduced && wing > 0 ? Math.max(0, (q % 1 - .72) / .28) : 0;
-    const next = images.get(`chaua-${[0, 2, 3, 1][Math.min(3, Math.floor(q) + 1)]}`);
-    c.globalAlpha = 1 - blend;
-    flightLayer(c, image, factor, ax, ay, perched || reduced ? 0 : Math.sin(time * 3) * .018 - angle * .12);
-    if (blend > 0 && next) {
-        const [nx, ny] = BIRD_ANCHORS[[0, 2, 3, 1][Math.min(3, Math.floor(q) + 1)]];
-        c.globalAlpha = blend;
-        flightLayer(c, next, factor, nx, ny, Math.sin(time * 3) * .018 - angle * .12);
-    }
-    c.globalAlpha = 1;
+    const blendAlpha = perched ? 0 : blend;
+    const next = images.get(`chaua-${nextPose}`);
+    const bend=perched || reduced ? 0 : Math.sin(time * 3) * .018 - angle * .12;
+    if (blendAlpha > 0 && next) {
+        const [nx, ny] = BIRD_ANCHORS[nextPose];
+        blendSprite(c,layer=>flightLayer(layer,image,factor,ax,ay,bend),
+            layer=>flightLayer(layer,next,factor,nx,ny,bend),blendAlpha);
+    } else flightLayer(c,image,factor,ax,ay,bend);
 
     const eyeX = size * 0.198;
     const eyeY = -size * 0.088;
@@ -469,16 +484,16 @@ export class Renderer {
         }
         // Foliage is sculpted from rounded, softly lit forms.
         for (let edge = 0; edge < 2; edge++) {
-            for (let i = 0; i < Math.ceil(w / 95) + 1; i++) {
-                const x = i * 102 - ((offset * .25) % 102), y = edge ? h + 12 : -28;
+            for (const {index:i,x} of borderCells(offset*.25,102,0,w)) {
+                const y = edge ? h + 12 : -28;
                 const sway = reduced ? 0 : Math.sin(time*.8)*.08+Math.sin(time*1.7+i)*.025;
                 leaf(c, x, y, 74 + Math.sin(i * 3.1) * 18, (edge ? -.9 : .8) + Math.sin(i) * .5 + sway, edge ? '#4e8054' : '#729a55', edge ? '#1d513c' : '#335e37');
             }
         }
         // Small vines and flowers remain in the decorative border, never the passage.
         c.save();c.strokeStyle='#56754288';c.lineWidth=2;
-        for(let i=0;i<Math.min(9,Math.ceil(w/180));i++) {
-            const x=i*190-((offset*.28)%190), sway=reduced?0:Math.sin(time*.8)*7;
+        for(const {index:i,x} of borderCells(offset*.28,190,0,w)) {
+            const sway=reduced?0:Math.sin(time*.8+i)*7;
             c.beginPath();c.moveTo(x,0);c.quadraticCurveTo(x+sway,24,x+10+sway,43);c.stroke();
             leaf(c,x+10+sway,40,7,.9,'#9ab66a','#4a7243');
             if(stage>=1) for(let k=0;k<4;k++)leaf(c,x+40,h-7,12,-1.8+k*.4,stage===3?'#d6a05f':'#b39176','#765c48');
@@ -514,7 +529,8 @@ export class Renderer {
     game(game, reduced, visualTime = 0) {
         this.base();
         const c = this.c;
-        this.background(game.elapsed, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4));
+        const sceneTime = game.sceneTime ?? game.elapsed;
+        this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4));
         const view = flightViewport(this.w, this.h, this.safeInsets);
         const s = view.scale;
         // Tiny, muted butterflies stay in the distant layer; no pickup glow or collision.
@@ -605,7 +621,7 @@ export class Renderer {
                 if (e.warning > 0) {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
                     c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
-                } else this.hawk(e, reduced ? 0 : game.elapsed, reduced);
+                } else this.hawk(e, reduced ? 0 : sceneTime, reduced);
             } else if (!e.collected) this.pickup(e, game.elapsed, reduced);
         }
         if (game.shield || game.invincible > 0) {
@@ -659,7 +675,7 @@ export class Renderer {
         const impactProg = game.state === 'impact' ? Math.max(0, 1 - (game.impactRemaining || 0) / 0.42) : (game.state === 'ended' && !game.won ? 1 : 0);
         drawBird(c, {
             x: game.x, y: game.y, scale: .74, perched: game.state === 'ended' && game.won,
-            angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: game.elapsed,
+            angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: sceneTime,
             reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
             defeated: isDefeated, impactProgress: impactProg, turbo: (game.pepper || 0) > 0,
             stamina: game.stamina !== undefined ? game.stamina : 1, won: game.state === 'ended' && game.won
@@ -677,7 +693,7 @@ export class Renderer {
             c.lineWidth=3;c.strokeStyle='#254a35';c.strokeText(p.text,p.x,p.y);
             c.fillStyle=p.gold?'#ffe392':'#f1ffd4';c.fillText(p.text,p.x,p.y);c.restore();
         }
-        this.foreground(game.distance,game.elapsed,reduced);
+        this.foreground(game.distance,sceneTime,reduced,view.worldLeft,view.w/s);
         c.restore();
         // Warning labels are CSS-pixel sized, independent of world zoom.
         for (const e of game.entities) if(e.kind==='hawk' && e.warning>0) {
@@ -709,6 +725,7 @@ export class Renderer {
 
     obstacle(e, game, reduced=false) {
         const c=this.c, variant=(e.id??0)%3, preset=TRUNKS[variant];
+        const time=reduced?0:(game.sceneTime??game.elapsed);
         c.save();
         if(!reduced && game.hit && game.hit.id===e.id) {
             const t = game.hit.age;
@@ -723,26 +740,31 @@ export class Renderer {
         if (!e.broken || e.brokenSide !== 'top') {
             c.save(); c.beginPath();
             c.rect(e.x - 180, -1000, 360, e.top + 1000);
-            c.clip();
-            this.trunk(`trunk-${variant}`, preset, e.x + 29, e.top, true, 0, variant);
+            // Match the passable hollow to woodRects; never draw solid bark over it.
+            if(e.variant==='hollow' && e.top>150)c.roundRect(e.x-2,e.top-110,62,70,8);
+            c.clip('evenodd');
+            this.trunk(`trunk-${variant}`, preset, e.x + 29, e.top, true, time, variant);
+            if(e.variant==='hollow' && e.top>150){
+                c.strokeStyle='#70452c';c.lineWidth=4;
+                c.beginPath();c.roundRect(e.x-2,e.top-110,62,70,8);c.stroke();
+            }
             c.restore();
         }
         if (!e.broken || e.brokenSide !== 'bottom') {
             c.save(); c.beginPath();
-            const snakeRetreating = e.snake && e.snake.retreat && (e.snake.retreatTime || 0) < 1.0;
-            const snakeActive = e.snake && (!e.snake.retreat || snakeRetreating);
+            const snakeActive = !!e.snake;
             const clipTop = snakeActive ? e.bottom - 45 : e.bottom;
             c.rect(e.x - 180, clipTop, 360, HEIGHT + 1000);
             c.clip();
             const kind = snakeActive && !e.snake.branch ? 'snake' : e.variant === 'hollow' ? 'hollow' : `trunk-${variant}`;
-            const retreatTime = e.snake?.retreat ? (e.snake.retreatTime || 0) : 0;
-            this.trunk(kind, SPECIAL[kind] ?? preset, e.x + 29, e.bottom, false, reduced ? 0 : game.elapsed, variant, retreatTime);
+            const retreatTime = e.snake?.retreat ? (reduced?1:Math.max(.000001,e.snake.retreatTime||0)) : 0;
+            this.trunk(kind, SPECIAL[kind] ?? preset, e.x + 29, e.bottom, false, time, variant, retreatTime);
             c.restore();
             if (e.variant === 'branch') {
                 const image = images.get('branch');
-                const branchSnakeActive = e.snake && (!e.snake.retreat || (e.snake.retreatTime || 0) < 1.0);
+                const branchSnakeActive = !!e.snake;
                 if (image && branchSnakeActive) {
-                    this.snakeArt(image, e.x - 70, e.bottom + 8, 160, 160 * image.naturalHeight / image.naturalWidth, 'branch', reduced ? 0 : game.elapsed, retreatTime);
+                    this.snakeArt(image, e.x - 70, e.bottom + 8, 160, 160 * image.naturalHeight / image.naturalWidth, 'branch', time, retreatTime);
                 } else this.wood({ x: e.x - 70, y: e.bottom + 30, w: 78, h: 18 }, variant);
             }
         }
@@ -779,17 +801,18 @@ export class Renderer {
             c.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, left, 0, w, h);
         }
 
+        const wind = time===0?0:Math.sin(time*1.1+variant*1.7)*.045;
         // 3. Canopy foliage (flip=true) or forest floor roots (flip=false) anchoring the trunk to edges
         if (flip) {
-            leaf(c, left - 12, 180, 42, -0.65, '#87b36a', '#3d7349');
-            leaf(c, left + w + 12, 210, 46, 0.72, '#729a55', '#3d7349');
-            leaf(c, left - 16, 320, 52, -0.85, '#5d8c4e', '#2a5233');
-            leaf(c, left + w + 16, 360, 56, 0.88, '#7aa660', '#355f45');
+            leaf(c, left - 12, 180, 42, -0.65+wind, '#87b36a', '#3d7349');
+            leaf(c, left + w + 12, 210, 46, 0.72+wind, '#729a55', '#3d7349');
+            leaf(c, left - 16, 320, 52, -0.85+wind, '#5d8c4e', '#2a5233');
+            leaf(c, left + w + 16, 360, 56, 0.88+wind, '#7aa660', '#355f45');
         } else {
-            leaf(c, left - 14, 200, 38, -1.05, '#4e8054', '#1d513c');
-            leaf(c, left + w + 14, 230, 42, 1.10, '#537b4a', '#244e40');
-            leaf(c, left - 20, 310, 50, -1.25, '#355f45', '#163828');
-            leaf(c, left + w + 20, 340, 54, 1.25, '#355f45', '#163828');
+            leaf(c, left - 14, 200, 38, -1.05+wind, '#4e8054', '#1d513c');
+            leaf(c, left + w + 14, 230, 42, 1.10+wind, '#537b4a', '#244e40');
+            leaf(c, left - 20, 310, 50, -1.25+wind, '#355f45', '#163828');
+            leaf(c, left + w + 20, 340, 54, 1.25+wind, '#355f45', '#163828');
         }
 
         c.restore();
@@ -821,22 +844,17 @@ export class Renderer {
     snakeArt(image, x, y, w, h, kind, time, retreatTime = 0) {
         const c = this.c, [sx, sy, sw, sh] = kind === 'snake' ? [130, 10, 185, 140] : [77, 0, 86, 56];
         const k = w / image.naturalWidth;
-        let dx = x + sx * k, dy = y + sy * k;
+        const dx = x + sx * k, dy = y + sy * k;
+        const progress = smoothstep(retreatTime);
+        // The bark, branch and coiled body stay opaque; only the head withdraws.
         c.save();
-        if (retreatTime > 0) {
-            const progress = Math.min(1, retreatTime / 1.0);
-            c.globalAlpha = Math.max(0, 1 - progress);
-            dx += (kind === 'snake' ? 1 : -1) * progress * 35 * k;
-        }
-        c.beginPath(); c.rect(x, y, w, h); c.rect(dx, dy, sw * k, sh * k); c.clip('evenodd'); c.drawImage(image, x, y, w, h); c.restore();
+        c.beginPath(); c.rect(x, y, w, h); c.rect(dx, dy, sw * k, sh * k); c.clip('evenodd');
+        c.drawImage(image, x, y, w, h); c.restore();
         c.save();
-        if (retreatTime > 0) {
-            const progress = Math.min(1, retreatTime / 1.0);
-            c.globalAlpha = Math.max(0, 1 - progress);
-            dx += (kind === 'snake' ? 1 : -1) * progress * 35 * k;
-        }
-        c.translate(dx + (kind === 'snake' ? 2 : sw - 2) * k, dy + sh * k * .7);
-        c.rotate(time === 0 ? 0 : Math.sin(time * 1.6) * .035);
+        c.globalAlpha *= 1 - progress;
+        c.translate(dx + (kind === 'snake' ? 2 : sw - 2) * k + (kind === 'snake' ? 1 : -1) * progress * 24 * k,
+            dy + sh * k * .7 + progress * 12 * k);
+        c.rotate(time === 0 ? 0 : Math.sin(time * 1.6) * .025);
         c.drawImage(image, sx, sy, sw, sh, -(kind === 'snake' ? 2 : sw - 2) * k, -sh * k * .7, sw * k, sh * k);
 
         // Dizzy stars over snake head when atordoada
@@ -857,10 +875,9 @@ export class Renderer {
         }
     }
 
-    foreground(distance,time,reduced) {
+    foreground(distance,time,reduced,left=0,width=WIDTH) {
         const c=this.c, travel=reduced?0:distance*.65;
-        for(let i=0;i<7;i++) {
-            const x=i*180-(travel%180);
+        for(const {index:i,x} of borderCells(travel,180,left,width)) {
             const swayBottom=reduced?0:Math.sin(time*1.2+i*0.9)*0.04+Math.cos(time*0.7+i*1.4)*0.02;
             const swayTop=reduced?0:Math.sin(time*1.0+i*0.8)*0.04+Math.cos(time*0.6+i*1.2)*0.02;
             leaf(c,x-12,HEIGHT+24,38,-0.9+swayBottom,'#5d8c4e','#264e32');
@@ -887,43 +904,30 @@ export class Renderer {
             time = timeOrReduced;
         }
 
-        // Determine wing flap animation pose (0, 1, 2) or defeat pose (3)
-        let pose = 0;
-        if (retreat || e?.dazed) {
-            pose = 3; // Knockout / Defeat dazed pose with spiral eye
-        } else if (warning || time === 0) {
-            pose = 0; // High wing soaring pose
-        } else {
-            // Natural flapping cycle: 0 -> 1 -> 2 -> 1 -> 0 (~4.2 flaps/sec, faster during dive)
-            const flapSpeed = e?.dive ? 6.5 : 4.2;
-            const cycle = ((time * flapSpeed) % 1 + 1) % 1;
-            if (cycle < 0.28) pose = 0;      // wings up
-            else if (cycle < 0.52) pose = 1; // mid-downstroke
-            else if (cycle < 0.80) pose = 2; // full downstroke
-            else pose = 1;                   // returning up
-        }
-
+        const reduced = typeof entityOrX === 'object' ? timeOrReduced === true : time === 0;
+        const {pose,next,blend} = hawkBlend(time,{dive:e?.dive,dazed:retreat||e?.dazed,reduced:reduced||warning,id:e?.id||0});
         const image = images.get(`hawk-${pose}`) || images.get('hawk-0');
+        const nextImage = images.get(`hawk-${next}`);
         if (!image) return;
 
         const factor = (warning ? 49 : 115) / image.naturalWidth;
         const w = image.naturalWidth * factor;
         const h = image.naturalHeight * factor;
 
-        // Visual aerodynamic bobbing & hunting undulation (does not affect hitbox)
-        const bob = (!warning && !retreat && time > 0) ? Math.sin(time * 12) * 5 : 0;
-        const huntWave = (!warning && !retreat && !e?.dive && time > 0) ? Math.sin(time * 3.5 + (e?.id || 0)) * 7 : 0;
+        // Keep the body on the announced path; wing movement is decorative only.
 
         // Tumble rotation during defeat vs aerodynamic banking
         let renderAngle = angle;
-        if (retreat || e?.dazed) {
+        if (reduced) {
+            renderAngle = 0;
+        } else if (retreat || e?.dazed) {
             renderAngle = e?.tumbleAngle !== undefined ? e.tumbleAngle : (time * 14);
         } else if (!warning && time > 0) {
             renderAngle += Math.sin(time * 4.2) * 0.05;
         }
 
         c.save();
-        c.translate(x, y + bob + huntWave);
+        c.translate(x, y);
         c.rotate(renderAngle);
 
         if (retreat && !e?.dazed) {
@@ -948,10 +952,13 @@ export class Renderer {
         }
 
         // Draw raptor sprite centered on anchor
-        c.drawImage(image, -w * 0.43, -h * 0.66, w, h);
+        if(blend>0&&nextImage)blendSprite(c,
+            layer=>layer.drawImage(image,-w*.43,-h*.66,w,h),
+            layer=>layer.drawImage(nextImage,-w*.43,-h*.66,w,h),blend);
+        else c.drawImage(image,-w*.43,-h*.66,w,h);
 
         // Dizzy spinning stars above head when dazed/defeated
-        if ((retreat || e?.dazed) && time > 0) {
+        if ((retreat || e?.dazed) && time > 0 && !reduced) {
             const headX = -w * 0.28, headY = -h * 0.42;
             for (let i = 0; i < 3; i++) {
                 const a = time * 7.5 + i * (Math.PI * 2 / 3);
