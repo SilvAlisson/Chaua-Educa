@@ -5,11 +5,11 @@
   "type": "module",
   "description": "Uma aventura educativa do papagaio-chauá pela Mata Atlântica.",
   "scripts": {
-    "start": "python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main",
+    "start": "python -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main",
     "build": "sass --no-source-map Chaua-Educa-main/scss/style.scss Chaua-Educa-main/css/style.css",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser-smoke.cjs",
-    "dev": "python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main"
+    "dev": "python -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main"
   },
   "engines": {
     "node": ">=22"

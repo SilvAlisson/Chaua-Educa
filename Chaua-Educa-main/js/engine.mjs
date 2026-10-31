@@ -16,8 +16,8 @@ export const QUIZ_INTERVAL = 30;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
     holdLift: 230, staminaLift: 50, flapInterval: .22, inputBuffer: .12,
-    aventura: {speed: 245, gap: 185, minGap: 155},
-    tranquilo: {speed: 205, gap: 220, minGap: 190},
+    aventura: {speed: 245, gap: 180, minGap: 142},
+    tranquilo: {speed: 205, gap: 205, minGap: 165},
 });
 export const STAGES = JOURNEY.map(s=>s.name);
 export const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -48,7 +48,7 @@ export class Game {
     }
 
     snapshot() {
-        this.previous = { arrivalOffset:this.arrival?.offset||0, y: this.y, angle: this.angle, entities: new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y}])) };
+        this.previous = { arrivalOffset:this.arrival?.offset||0, y: this.y, angle: this.angle, flapImpulse: this.flapImpulse, entities: new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y}])) };
     }
 
     visual(alpha) {
@@ -58,6 +58,11 @@ export class Game {
         if(this.arrival)view.arrival={...this.arrival,offset:lerp(this.previous.arrivalOffset,this.arrival.offset)};
         view.y = lerp(this.previous.y, this.y);
         view.angle = lerp(this.previous.angle, this.angle);
+        view.flapImpulse = lerp(this.previous.flapImpulse || 0, this.flapImpulse || 0);
+        view.pepper = this.pepper;
+        view.shakeTime = this.shakeTime;
+        view.shakeDuration = this.shakeDuration;
+        view.shakeIntensity = this.shakeIntensity;
         view.entities = this.entities.map(e => {
             const old = this.previous.entities.get(e.id);
             return old ? {...e, x:lerp(old.x,e.x), y:lerp(old.y,e.y)} : e;
@@ -71,20 +76,23 @@ export class Game {
         this.powerRandom = this.randomOverride ?? seededRandom(this.seed ^ 0x85ebca6b);
         Object.assign(this, {
             tutorial:null, endCause:null, stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
-            scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:0,nextShield:0,nextFeather:18},
+            scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:0,nextShield:0,nextFeather:18,nextPepper:26},
             mode, state: 'menu', elapsed: 0, distance: 0, score: 0, fruits: 0, correct: 0,
-            shield: false, feather: 0, invincible: 0, held: false, holdAge: 0,
-            flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, angle: 0, y: HEIGHT * .48,
+            shield: false, feather: 0, pepper: 0, invincible: 0, held: false, holdAge: 0,
+            flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, flapImpulse: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
             sequence: 0, lastGap: 320, lastPattern: null, encounterHistory: [], question: null, questionPool: [],
-            answerResult: null, quizPending: false, nextQuizAt: QUIZ_INTERVAL, reviewIds: [], reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0,
+            answerResult: null, quizPending: false, nextQuizAt: QUIZ_INTERVAL, reviewIds: [], reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0, shakeTime: 0, shakeDuration: 0, shakeIntensity: 0,
         });
         this.snapshot();
     }
 
-    get x() { return Math.max(85, Math.min(220, this.width * .23))+(this.arrival?.offset||0); }
+    get x() {
+        const baseX = this.viewWidth ? Math.min(260, Math.max(120, this.viewWidth * 0.22)) : Math.min(220, this.width * 0.23);
+        return Math.max(85, baseX) + (this.arrival?.offset || 0);
+    }
     get body() { return { x: this.x - 18, y: this.y - 18, w: 36, h: 36 }; }
-    get speed() { return FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45); }
+    get speed() { return (FLIGHT[this.mode].speed + Math.min(55, this.elapsed * .45)) * (this.pepper > 0 ? 1.35 : 1); }
     start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
 
     startTutorial() {
@@ -112,7 +120,15 @@ export class Game {
         this.flapCooldown = FLIGHT.flapInterval;
         this.pendingTap = 0;
         this.wing = 1;
+        this.flapImpulse = 1.0;
         this.onEvent({type:'flap'});
+    }
+
+    triggerShake(intensity, duration) {
+        if (this.reducedMotion) return;
+        this.shakeIntensity = Math.max(this.shakeIntensity, intensity);
+        this.shakeDuration = Math.max(this.shakeDuration, duration);
+        this.shakeTime = Math.max(this.shakeTime, duration);
     }
 
     pause() {
@@ -123,22 +139,23 @@ export class Game {
     }
     resume() { if (this.state === 'paused') { this.afterCountdown=this.beforePause==='arrival'?'arrival':this.beforePause==='countdown'?this.afterCountdown:'playing'; this.countdown = Math.max(1.5, this.beforePause === 'countdown' ? this.countdown : 0); this.state = 'countdown'; this.snapshot(); } }
 
-    addScore(value, multiplier = this.feather > 0 ? 2 : 1, source = 'passage') {
+    addScore(value, multiplier = (this.feather > 0 ? 2 : 1) * (this.pepper > 0 ? 2 : 1), source = 'passage') {
         this.score += value * multiplier;
         this.scoreBreakdown[source] += value * multiplier;
         if(!this.medal && this.score>=VICTORY_SCORE){this.medal=true;this.onEvent({type:'medal'});}
         this.onEvent({ type: 'points', value: value * multiplier });
-        this.popups.push({x:this.x+28,y:this.y-30,text:`+${value*multiplier}`,gold:multiplier===2,life:.85});
+        this.popups.push({x:this.x+28,y:this.y-30,text:`+${value*multiplier}`,gold:multiplier>=2,life:.85});
         if(this.popups.length>6)this.popups.shift();
     }
 
     power(kind) {
         if (kind === 'shield' && this.shield) { this.onEvent({type:'shield-kept'}); return; }
-        const renewed=kind==='feather' && this.feather>0;
+        const renewed=(kind==='feather' && this.feather>0) || (kind==='pepper' && this.pepper>0);
         if (kind === 'shield') this.shield = true;
         if (kind === 'feather') {this.feather = FEATHER_SECONDS;this.powerFade=0;}
+        if (kind === 'pepper') {this.pepper = 6.0;this.triggerShake(5, 0.16);this.powerFade=0;}
         this.onEvent({ type: kind, renewed });
-        this.burst(this.x, this.y, kind === 'shield' ? '#aedf8d' : '#ffd76b', 12);
+        this.burst(this.x, this.y, kind === 'shield' ? '#aedf8d' : kind === 'pepper' ? '#ff4d36' : '#ffd76b', 12);
     }
 
     recover(host, boundary) {
@@ -154,7 +171,7 @@ export class Game {
     }
 
     boundaryContact(side) {
-        if (this.invincible > 0) { for(const r of this.routes.values())r.failed=true; this.recover(null, side); return; }
+        if (this.invincible > 0) { this.triggerShake(4, 0.14); for(const r of this.routes.values())r.failed=true; this.recover(null, side); return; }
         this.collide({kind:'boundary', side});
     }
 
@@ -175,12 +192,26 @@ export class Game {
                 entity.retreatTime = 0;
                 entity.harmless = true;
                 entity.retreatY = entity.y < this.y ? -180 : 180;
+                if (entity.kind === 'hawk') {
+                    entity.dazed = true;
+                    entity.tumbleAngle = 0;
+                    entity.spin = 13.5;
+                    entity.fallVy = -170;
+                    this.featherBurst(['#4a2c17', '#6b4122', '#9c663b', '#fffaf0'], 20);
+                } else {
+                    entity.dazed = true;
+                    this.leafBurst(this.x, host.bottom || this.y, 10);
+                }
             } else if (!boundary) {
                 // Only the dry protruding branch breaks; living trunks remain intact.
                 if (entity.hitPart === 'dry-branch') {
                     entity.dryBranchBroken = true;
                     this.woodBurst(this.x, this.y);
-                } else this.burst(this.x, this.y, '#9aba67', 8);
+                    this.leafBurst(this.x, host.bottom || this.y, 8);
+                } else {
+                    this.burst(this.x, this.y, '#9aba67', 8);
+                    this.leafBurst(this.x, entity.hitSide === 'top' ? host.top : host.bottom, 10);
+                }
             }
             this.featherBurst(['#d6edb0','#7ead5a','#e9f4ca'],12);
             this.recover(host, boundary);
@@ -189,6 +220,7 @@ export class Game {
             const reason = boundary ? (boundary === 'top' ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!')
                 : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra do galho.') : 'Você esbarrou na madeira.';
             this.endCause=boundary || (animal ? (entity.kind==='hawk'?'hawk':'snake') : 'wood');
+            this.triggerShake(14, 0.35);
             this.end(false, reason, true);
         }
     }
@@ -275,6 +307,23 @@ export class Game {
         }
     }
 
+    leafBurst(x, y, count = 10) {
+        const colors = ['#6da855', '#4c8a45', '#9abf68', '#386334'];
+        for (let i = 0; i < count; i++) {
+            const a = (i * 1.8) + (i % 2 ? 0.3 : -0.3);
+            const speed = 40 + (i * 23) % 70;
+            this.particle({
+                x: x + (i % 3 - 1) * 20,
+                y: y + (i % 2) * 15,
+                vx: Math.cos(a) * speed - 60,
+                vy: Math.abs(Math.sin(a)) * speed + 30,
+                life: 0.9,
+                maxLife: 0.9,
+                color: colors[i % colors.length]
+            });
+        }
+    }
+
     featherBurst(colors, count) {
         // Cosmetic variation must not consume the obstacle/question random stream.
         for(let i=0;i<count;i++) {
@@ -301,6 +350,8 @@ export class Game {
     advanceEffects(dt) {
         this.collectPulse=Math.max(0,this.collectPulse-dt);
         this.powerFade=Math.max(0,this.powerFade-dt);
+        this.flapImpulse=Math.max(0,this.flapImpulse-dt*5.0);
+        if(this.shakeTime>0){this.shakeTime=Math.max(0,this.shakeTime-dt);if(this.shakeTime===0){this.shakeDuration=0;this.shakeIntensity=0;}}
         for(const p of this.popups){p.life-=dt;if(!this.reducedMotion)p.y-=24*dt;}
         this.popups=this.popups.filter(p=>p.life>0);
         for(const e of this.entities)if(e.breakFx){e.breakFx.age+=dt;if(e.breakFx.age>=.24)delete e.breakFx;}
@@ -347,13 +398,15 @@ export class Game {
             this.onEvent({ type: 'quiet' });
             return;
         }
-        const x = this.width + 80;
+        const spawnWidth = Math.max(this.width, this.viewWidth || this.width);
+        const margin = this.viewWidth ? 180 : 80;
+        const x = spawnWidth + margin;
         const travel = (x - this.x) / this.speed;
         const profile = FLIGHT[this.mode];
         const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,stage:this.stage,random:this.encounterRandom});
         const {gap,center}=plan;
-        if(this.stage===2)plan.interval+=.4;
-        if(this.stage===3)plan.interval+=.2;
+        if(this.stage===2)plan.interval+=.15;
+        if(this.stage===3)plan.interval+=.1;
         this.lastGap = center;
         this.lastPattern = plan.id;
         this.encounterHistory.push({sequence:n,pattern:soloHawk?'hawk':plan.id,center,gap,elapsed:this.elapsed});
@@ -365,18 +418,17 @@ export class Game {
             this.entities.push({ id: this.nextId++, kind: 'hawk', solo: true, x, y, startX: x, targetX: this.x - 60, startY: y, targetY: dive ? 420 : y,
                 warning: Math.max(1.7, travel * .25), phase:'warning', age: 0, dive, w: 66, h: 34 });
         } else {
-            const variants = ['plain', 'broken', 'hollow', 'branch'];
+            const variants = ['plain', 'broken', 'hollow'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'hollow':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - gap / 2, bottom: center + gap / 2, variant, scored: false, route:n, encounter:plan.id };
             if (this.elapsed > 22 && n % 2 === 0) wood.snake = { y: wood.bottom + 35, phase:'watching', retreat: false };
-            if (variant === 'branch') wood.snake = { y: wood.bottom + 12, branch: true, phase:'watching', retreat: false };
             this.entities.push(wood);
         }
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
         if(fruits.length>1)this.routes.set(n,{total:fruits.length,collected:0,awarded:false,failed:false});
         for(const [index,point] of fruits.entries()) this.entities.push({ id: this.nextId++, kind:'fruit', x:x+point.x, y:point.y,
             variety:(n+index)%FRUITS.length, route:n, optional:!hawkAlone&&plan.optional });
-        const kind=hawkAlone?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,entities:this.entities,schedule:this.powerSchedule,opportunity:fruits.length>1,random:this.powerRandom});
+        const kind=hawkAlone?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,pepper:this.pepper,entities:this.entities,schedule:this.powerSchedule,opportunity:fruits.length>1,random:this.powerRandom});
         if(kind)this.entities.push({id:this.nextId++,kind,x:x+fruits[0].x-125,y:fruits[0].y});
         this.nextSpawn = plan.interval;
     }
@@ -425,6 +477,9 @@ export class Game {
         const previousFeather=this.feather;
         this.feather = Math.max(0, this.feather - dt);
         if(previousFeather>0 && this.feather===0){this.powerFade=.5;this.onEvent({type:'feather-end'});}
+        const previousPepper=this.pepper;
+        this.pepper=Math.max(0,this.pepper-dt);
+        if(previousPepper>0 && this.pepper===0){this.powerFade=.5;this.onEvent({type:'pepper-end'});}
         this.invincible = Math.max(0, this.invincible - dt);
         this.flapCooldown = Math.max(0, this.flapCooldown - dt);
         this.wing = Math.max(0, this.wing - dt * 4);
@@ -471,7 +526,9 @@ export class Game {
                 if (!e.scored && e.x + 85 < this.x - 20) { e.scored = true; if (!e.broken && !e.contacted) this.addScore(1); }
             } else if (!e.collected && overlaps(this.body, { x: e.x - 18, y: e.y - 18, w: 36, h: 36 })) this.collect(e);
         }
-        this.entities = this.entities.filter(e => e.x > -150 && e.x < this.width + 800 && !e.collected && !e.finished);
+        const minBound = (this.viewLeft !== undefined ? this.viewLeft : 0) - 260;
+        const maxBound = Math.max(this.width, this.viewWidth || this.width) + 800;
+        this.entities = this.entities.filter(e => e.x > minBound && e.x < maxBound && !e.collected && !e.finished);
         for(const id of this.routes.keys())if(!this.entities.some(e=>e.kind==='fruit'&&e.route===id))this.routes.delete(id);
         this.advanceEffects(dt);
         this.maybeOpenQuiz();

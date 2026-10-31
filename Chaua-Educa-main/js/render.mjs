@@ -11,13 +11,13 @@ function oval(c, x, y, rx, ry, color, angle = 0) {
     c.fillStyle = color; c.fill();
 }
 function clay(c, x, y, rx, ry, light, dark, angle = 0) {
-    const g = c.createRadialGradient(x - rx * .3, y - ry * .35, 1, x, y, Math.max(rx, ry) * 1.1);
-    g.addColorStop(0, light); g.addColorStop(1, dark);
-    oval(c, x, y, rx, ry, g, angle);
+    oval(c, x, y, rx, ry, dark, angle);
+    oval(c, x - rx * .2, y - ry * .2, rx * .7, ry * .7, light, angle);
 }
 function leaf(c, x, y, size, rotation, light = '#87b36a', dark = '#3d7349') {
     c.save(); c.translate(x, y); c.rotate(rotation);
-    clay(c, 0, 0, size, size * .46, light, dark, -.2);
+    oval(c, 0, 0, size, size * .46, dark, -.2);
+    oval(c, -size * .15, -size * .1, size * .68, size * .3, light, -.2);
     c.beginPath(); c.moveTo(-size * .7, 3); c.quadraticCurveTo(0, -2, size * .7, -2);
     c.strokeStyle = '#d9e6a64a'; c.lineWidth = Math.max(1, size * .04); c.stroke();
     c.restore();
@@ -42,34 +42,354 @@ function flightLayer(c,image,factor,ax,ay,bend) {
     c.drawImage(image,0,sy,sw,sh,-sw*factor,-sh*.5*factor,sw*factor,sh*factor);c.restore();
 }
 
-export function drawBird(c, { x, y, scale = 1, angle = 0, wing = 0, perched = false, time = 0, surprise = false, reduced = false, reaction = 0 }) {
-    const pose=flightPose(wing,reduced), image=images.get(perched?(surprise?'chaua-hero':'perch'):`chaua-${pose}`);
-    if (!image) return;
-    c.save(); c.translate(x,y); c.rotate(angle);
-    const breath=reduced?1:1+Math.sin(time*1.8)*.008;
-    const size=(perched?115:125)*scale, factor=size/image.naturalWidth;
-    const [ax,ay]=perched?[.5,.52]:BIRD_ANCHORS[pose];
-    const pop=reduced?1:1+Math.sin(Math.max(0,reaction)/.26*Math.PI)*.04;
-    c.scale(breath*pop,breath*pop);
-    const q=Math.max(0,(1-wing)*4), blend=!perched&&!reduced&&wing>0?Math.max(0,(q%1-.72)/.28):0;
-    const next=images.get(`chaua-${[0,2,3,1][Math.min(3,Math.floor(q)+1)]}`);
-    c.globalAlpha=1-blend;
-    flightLayer(c,image,factor,ax,ay,perched||reduced?0:Math.sin(time*3)*.018-angle*.12);
-    if(blend>0&&next) {
-        const [nx,ny]=BIRD_ANCHORS[[0,2,3,1][Math.min(3,Math.floor(q)+1)]];
-        c.globalAlpha=blend;flightLayer(c,next,factor,nx,ny,Math.sin(time*3)*.018-angle*.12);
+
+function drawSpiralEye(c, ex, ey, r, t) {
+    c.save();
+    c.beginPath();
+    c.arc(ex, ey, r, 0, TAU);
+    c.fillStyle = '#ffffff';
+    c.fill();
+    c.lineWidth = 1.6;
+    c.strokeStyle = '#18311a';
+    c.stroke();
+
+    c.beginPath();
+    const spin = t * 11;
+    const maxA = 3.2 * Math.PI;
+    for (let a = 0; a <= maxA; a += 0.16) {
+        const rad = (a / maxA) * (r * 0.82);
+        const px = ex + Math.cos(a + spin) * rad;
+        const py = ey + Math.sin(a + spin) * rad;
+        if (a === 0) c.moveTo(px, py);
+        else c.lineTo(px, py);
+    }
+    c.lineWidth = 2.0;
+    c.strokeStyle = '#152b17';
+    c.stroke();
+    c.restore();
+}
+
+function drawOrbitingStars(c, hx, hy, size, t) {
+    c.save();
+    const rx = size * 0.32;
+    const ry = size * 0.12;
+    c.translate(hx, hy - 6);
+    c.rotate(-0.14);
+
+    for (let i = 0; i < 3; i++) {
+        const phase = t * 5.5 + (i * TAU) / 3;
+        const sx = Math.cos(phase) * rx;
+        const sy = Math.sin(phase) * ry;
+        const depth = Math.sin(phase);
+        const s = (0.85 + depth * 0.3) * (size / 100);
+
+        c.save();
+        c.translate(sx, sy);
+        c.rotate(t * 3.5 + i);
+        c.scale(s, s);
+
+        c.beginPath();
+        const spikes = 5, outerR = 10, innerR = 4.6;
+        for (let j = 0; j < spikes * 2; j++) {
+            const rad = j % 2 === 0 ? outerR : innerR;
+            const a = (j * Math.PI) / spikes - Math.PI / 2;
+            const px = Math.cos(a) * rad;
+            const py = Math.sin(a) * rad;
+            if (j === 0) c.moveTo(px, py);
+            else c.lineTo(px, py);
+        }
+        c.closePath();
+        c.fillStyle = depth < -0.2 ? '#e5be00' : '#ffe44d';
+        c.fill();
+        c.lineWidth = 1.4;
+        c.strokeStyle = '#7c5200';
+        c.stroke();
+
+        if (depth > -0.2) {
+            c.beginPath();
+            c.arc(-1.5, -2, 2.2, 0, TAU);
+            c.fillStyle = '#ffffff';
+            c.fill();
+        }
+        c.restore();
     }
     c.restore();
 }
 
-// Shared attachment geometry keeps the authored perch joined to the side tree.
+function drawHappyEye(c, ex, ey, r) {
+    c.save();
+    c.beginPath();
+    c.arc(ex, ey, r, 0, TAU);
+    c.fillStyle = '#ffffff';
+    c.fill();
+    c.lineWidth = 1.4;
+    c.strokeStyle = '#18311a';
+    c.stroke();
+
+    c.beginPath();
+    c.arc(ex, ey + 3, r * 0.85, Math.PI * 1.15, Math.PI * 1.85);
+    c.lineWidth = 2.8;
+    c.strokeStyle = '#152b17';
+    c.lineCap = 'round';
+    c.stroke();
+    c.restore();
+}
+
+function drawMiniSparkle(c, x, y, r, rot) {
+    c.save();
+    c.translate(x, y);
+    c.rotate(rot);
+    c.beginPath();
+    c.moveTo(0, -r); c.lineTo(r * 0.28, -r * 0.28);
+    c.lineTo(r, 0); c.lineTo(r * 0.28, r * 0.28);
+    c.lineTo(0, r); c.lineTo(-r * 0.28, r * 0.28);
+    c.lineTo(-r, 0); c.lineTo(-r * 0.28, -r * 0.28);
+    c.closePath();
+    c.fillStyle = '#fff4a8';
+    c.fill();
+    c.lineWidth = 1.2;
+    c.strokeStyle = '#8c6600';
+    c.stroke();
+    c.restore();
+}
+
+function drawFruitSparkles(c, bx, by, reaction, t) {
+    c.save();
+    const progress = Math.max(0, Math.min(1, 1 - (reaction / 0.26)));
+    const floatY = -progress * 34;
+    const wobble = Math.sin(progress * 15) * 6;
+
+    c.font = '800 18px Nunito, sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = '#ffe959';
+    c.strokeStyle = '#223d16';
+    c.lineWidth = 2.6;
+    const noteX = bx + 10 + wobble;
+    const noteY = by - 10 + floatY;
+    c.strokeText('♪', noteX, noteY);
+    c.fillText('♪', noteX, noteY);
+
+    const sp1X = bx + 22 + wobble * 0.5;
+    const sp1Y = by - 18 + floatY * 0.8;
+    drawMiniSparkle(c, sp1X, sp1Y, 6, t * 6);
+
+    const sp2X = bx - 4 - wobble * 0.4;
+    const sp2Y = by - 26 + floatY * 1.1;
+    drawMiniSparkle(c, sp2X, sp2Y, 4.5, t * 8 + 1);
+    c.restore();
+}
+
+function drawTurboFlames(c, size, t) {
+    c.save();
+    const tailX = -size * 0.44;
+    const tailY = size * 0.06;
+    c.translate(tailX, tailY);
+
+    for (let f = 0; f < 3; f++) {
+        const angle = 0.08 * (f - 1) + Math.sin(t * 30 + f) * 0.06;
+        const len = (size * 0.46 + Math.sin(t * 40 + f * 2) * (size * 0.15));
+        const w = size * 0.10 - f * (size * 0.02);
+
+        c.save();
+        c.rotate(angle);
+        c.beginPath();
+        c.moveTo(2, -w * 0.6);
+        c.quadraticCurveTo(-len * 0.5, -w, -len, 0);
+        c.quadraticCurveTo(-len * 0.5, w, 2, w * 0.6);
+        c.closePath();
+
+        const grad = c.createLinearGradient(0, 0, -len, 0);
+        if (f === 0) {
+            grad.addColorStop(0, '#ff3700ee');
+            grad.addColorStop(0.6, '#ff8000cc');
+            grad.addColorStop(1, '#ff370000');
+        } else if (f === 1) {
+            grad.addColorStop(0, '#ffbb00ee');
+            grad.addColorStop(0.5, '#ffe600cc');
+            grad.addColorStop(1, '#ff800000');
+        } else {
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.4, '#ffffaacc');
+            grad.addColorStop(1, '#ffea0000');
+        }
+        c.fillStyle = grad;
+        c.fill();
+        c.restore();
+    }
+    c.restore();
+}
+
+function drawTurboWindLines(c, size, t) {
+    c.save();
+    c.strokeStyle = '#ffffffaa';
+    c.lineWidth = 2.2;
+    c.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+        const offset = ((t * 800 + i * 45) % (size * 1.2)) - size * 0.6;
+        const ly = (i - 1) * (size * 0.22);
+        c.beginPath();
+        c.moveTo(-offset - size * 0.2, ly);
+        c.lineTo(-offset, ly);
+        c.stroke();
+    }
+    c.restore();
+}
+
+function drawSweatDrops(c, hx, hy, size, t) {
+    c.save();
+    c.translate(hx, hy);
+    for (let i = 0; i < 2; i++) {
+        const dropPhase = ((t * 2.6 + i * 0.5) % 1);
+        const dx = -dropPhase * 36;
+        const dy = -4 + dropPhase * 20;
+        const alpha = Math.sin(dropPhase * Math.PI);
+        const r = (size * 0.052) * (1 - dropPhase * 0.25);
+
+        c.save();
+        c.globalAlpha = Math.max(0, alpha);
+        c.translate(dx, dy);
+        c.rotate(-0.35);
+
+        c.beginPath();
+        c.arc(0, 0, r, 0, Math.PI);
+        c.lineTo(0, -r * 2.0);
+        c.closePath();
+
+        c.fillStyle = '#5ac9ff';
+        c.fill();
+        c.lineWidth = 1.3;
+        c.strokeStyle = '#1e6ea8';
+        c.stroke();
+
+        c.beginPath();
+        c.arc(-r * 0.3, -r * 0.2, r * 0.35, 0, TAU);
+        c.fillStyle = '#ffffff';
+        c.fill();
+        c.restore();
+    }
+    c.restore();
+}
+
+function drawRefugeHearts(c, x, y, size, t) {
+    c.save();
+    c.translate(x, y);
+    for (let i = 0; i < 2; i++) {
+        const phase = ((t * 1.5 + i * 0.5) % 1);
+        const hx = Math.sin(phase * 4 + i) * 12;
+        const hy = -phase * 35;
+        const scale = (0.7 + phase * 0.4) * Math.sin(phase * Math.PI);
+
+        c.save();
+        c.translate(hx, hy);
+        c.scale(scale, scale);
+        c.beginPath();
+        c.moveTo(0, 3);
+        c.bezierCurveTo(-6, -4, -10, -10, 0, -16);
+        c.bezierCurveTo(10, -10, 6, -4, 0, 3);
+        c.fillStyle = '#ff5b79';
+        c.fill();
+        c.lineWidth = 1;
+        c.strokeStyle = '#a61c3a';
+        c.stroke();
+        c.restore();
+    }
+    c.restore();
+}
+
+export function drawBird(c, {
+    x, y, scale = 1, angle = 0, wing = 0, perched = false, time = 0, surprise = false,
+    reduced = false, reaction = 0, flapImpulse = 0, vy = 0,
+    defeated = false, impactProgress = 0, turbo = false, stamina = 1, won = false
+}) {
+    const pose = flightPose(wing, reduced);
+    const image = images.get(perched ? (surprise ? 'chaua-hero' : 'perch') : `chaua-${pose}`);
+    if (!image) return;
+
+    c.save();
+    c.translate(x, y);
+
+    let renderAngle = angle;
+    if (defeated && !reduced) {
+        const prog = impactProgress > 0 ? impactProgress : 1;
+        const tumble = prog * Math.PI * 2.8;
+        renderAngle = angle - tumble;
+        c.translate(-prog * 8, prog * 22);
+    }
+    c.rotate(renderAngle);
+
+    const breath = reduced ? 1 : 1 + Math.sin(time * 1.8) * .008;
+    const size = (perched ? 115 : 125) * scale;
+    const factor = size / image.naturalWidth;
+    const [ax, ay] = perched ? [.5, .52] : BIRD_ANCHORS[pose];
+    const pop = reduced ? 1 : 1 + Math.sin(Math.max(0, reaction) / .26 * Math.PI) * .08;
+    const spring = !perched && !reduced ? Math.sin(Math.max(0, Math.min(1, flapImpulse)) * Math.PI) * 0.16 : 0;
+    const velSquash = !perched && !reduced ? Math.max(-0.08, Math.min(0.12, (vy || 0) / 3000)) : 0;
+
+    const turboStretchX = turbo && !reduced ? 1.10 : 1;
+    const turboStretchY = turbo && !reduced ? 0.92 : 1;
+    const fatiguePant = !perched && !reduced && stamina < 0.28 ? Math.sin(time * 12) * 0.04 : 0;
+
+    const stretchY = (1 + spring - velSquash + fatiguePant) * turboStretchY;
+    const stretchX = (1 - spring * 0.5 + velSquash * 0.5) * turboStretchX;
+    c.scale(breath * pop * stretchX, breath * pop * stretchY);
+
+    if (turbo && !perched && !reduced) {
+        drawTurboFlames(c, size, time);
+    }
+
+    const q = Math.max(0, (1 - wing) * 4);
+    const blend = !perched && !reduced && wing > 0 ? Math.max(0, (q % 1 - .72) / .28) : 0;
+    const next = images.get(`chaua-${[0, 2, 3, 1][Math.min(3, Math.floor(q) + 1)]}`);
+    c.globalAlpha = 1 - blend;
+    flightLayer(c, image, factor, ax, ay, perched || reduced ? 0 : Math.sin(time * 3) * .018 - angle * .12);
+    if (blend > 0 && next) {
+        const [nx, ny] = BIRD_ANCHORS[[0, 2, 3, 1][Math.min(3, Math.floor(q) + 1)]];
+        c.globalAlpha = blend;
+        flightLayer(c, next, factor, nx, ny, Math.sin(time * 3) * .018 - angle * .12);
+    }
+    c.globalAlpha = 1;
+
+    const eyeX = size * 0.198;
+    const eyeY = -size * 0.088;
+    const eyeRadius = size * 0.075;
+    const headX = size * 0.16;
+    const headY = -size * 0.17;
+    const beakX = size * 0.40;
+    const beakY = -size * 0.03;
+
+    if (defeated && !perched) {
+        drawSpiralEye(c, eyeX, eyeY, eyeRadius, time);
+        if (!reduced) {
+            drawOrbitingStars(c, headX, headY, size, time);
+        }
+    } else if (reaction > 0 && !perched) {
+        drawHappyEye(c, eyeX, eyeY, eyeRadius);
+        if (!reduced) {
+            drawFruitSparkles(c, beakX, beakY, reaction, time);
+        }
+    } else if (!perched && !reduced && stamina < 0.28) {
+        drawSweatDrops(c, headX, headY, size, time);
+    }
+
+    if (turbo && !perched && !reduced) {
+        drawTurboWindLines(c, size, time);
+    }
+
+    if (won && perched && !reduced) {
+        drawRefugeHearts(c, 0, -size * 0.2, size, time);
+    }
+
+    c.restore();
+}
+
+
+// Shared attachment geometry keeps the authored perch positioned harmoniously.
 export function homePerchLayout(width, height) {
-    const mobile=width<=700, scale=mobile?1.65:Math.min(3.6,width/370);
-    const x=width*(mobile?.55:.765), y=mobile?height-238:height*.53;
-    const size=115*scale*1.3, trunkWidth=Math.min(90,width*.16);
-    return {mobile,scale,x,y,size,trunkWidth,trunkX:width-trunkWidth*.65,
-        joinX:x+size*.40, joinY:y+scale*5+size*(727/900)*.225,
-        rootX:width-trunkWidth*.15};
+    const mobile=width<=700, scale=mobile?1.65:Math.min(3.2,Math.max(1.7,width/390));
+    const x=width*(mobile?.55:.745), y=mobile?height-238:height*.52;
+    const size=115*scale*1.3;
+    return {mobile,scale,x,y,size,trunkWidth:0,trunkX:width,joinX:x,joinY:y,rootX:width};
 }
 
 export class Renderer {
@@ -179,26 +499,14 @@ export class Renderer {
             const wash = c.createLinearGradient(0, this.h * .50, 0, this.h * .78); wash.addColorStop(0, '#f0f1da'); wash.addColorStop(1, '#f0f1da00');
             c.fillStyle = '#f0f1da'; c.fillRect(0, 0, this.w, this.h * .5); c.fillStyle = wash; c.fillRect(0, this.h * .5, this.w, this.h * .28);
         }
-        const {x,y,scale,size,trunkWidth,trunkX,joinX,joinY,rootX}=homePerchLayout(this.w,this.h);
-        // A continuous side tree reaches both canvas edges; the branch grows from it.
-        this.wood({x:trunkX,y:-20,w:trunkWidth,h:this.h+40},1);
-        c.save(); c.lineCap='round';
-        c.beginPath(); c.moveTo(joinX-12,joinY);
-        c.bezierCurveTo(joinX+size*.12,joinY-8,rootX-20,joinY-30,rootX,joinY-45);
-        c.lineWidth=size*.12; c.strokeStyle='#5c4c32'; c.stroke();
-        c.lineWidth=size*.085; c.strokeStyle='#85744c'; c.stroke();
-        c.lineWidth=size*.025; c.strokeStyle='#a5a15a'; c.stroke();
-        c.restore();
+        const {x,y,scale}=homePerchLayout(this.w,this.h);
         c.save(); c.translate(x, y);
         drawBird(c, { x: 0, y: scale * 5, scale: scale*1.3, perched: true, wing: reduced ? .08 : .07 + Math.sin(time * .9) * .06, time, reduced });
         c.restore();
-        // Moss and leaves overlap the cut face in the source art and the new joint.
-        leaf(c,joinX+size*.065,joinY-size*.035,size*.075,-.45,'#94a644','#476837');
-        leaf(c,rootX-10,joinY-45,22,-1.15,'#a3b557','#4b713c');
-        // Loose foreground leaves frame the diorama.
+        // Loose foreground leaves frame the diorama naturally.
         if (!mobile) {
-            leaf(c, this.w * 1.015, this.h * .20, 70, -1.15, '#b0c16c', '#497e49');
-            leaf(c, this.w * .995, this.h * .17, 55, -.5, '#a5b96b', '#47794b');
+            leaf(c, this.w * .985, this.h * .38, 75, -1.15, '#b0c16c', '#497e49');
+            leaf(c, this.w * .965, this.h * .34, 55, -.5, '#a5b96b', '#47794b');
             leaf(c, this.w * .61, this.h * .76, 45, -.7, '#92af5d', '#436f40');
         }
     }
@@ -220,19 +528,59 @@ export class Renderer {
             oval(c,bx+wing,by,wing,2.5,'#687f6a',.45);
         }
         c.restore();
-        c.save(); c.beginPath(); c.rect(view.x,view.y,view.w,view.h); c.clip();
-        c.translate(view.x-view.worldLeft*s,view.y); c.scale(s, s);
-        c.beginPath(); c.rect(0,0,WIDTH,HEIGHT); c.clip();
-        c.strokeStyle = '#d9edb6'; c.lineWidth = 2; c.strokeRect(0, 1, WIDTH, HEIGHT-2);
+        let shakeX = 0, shakeY = 0;
+        if (!reduced && game.shakeTime > 0 && game.shakeDuration > 0) {
+            const factor = game.shakeTime / game.shakeDuration;
+            const mag = (game.shakeIntensity || 6) * factor;
+            shakeX = Math.sin(game.shakeTime * 65) * mag;
+            shakeY = Math.cos(game.shakeTime * 80) * mag;
+        }
+        c.save(); c.beginPath(); c.rect(view.x, view.y, view.w, view.h); c.clip();
+        c.translate(view.x - view.worldLeft * s + shakeX, view.y + shakeY); c.scale(s, s);
+        c.beginPath(); c.rect(view.worldLeft - 120, -600, Math.max(WIDTH, view.worldWidth) + 240, HEIGHT + 1200); c.clip();
+        if (game.pepper > 0) {
+            c.save();
+            const remaining = Math.min(1, game.pepper / 2);
+            c.globalAlpha = 0.5 + 0.5 * remaining;
+            const turboRadius = (46 + 14 * remaining) * (reduced ? 1 : 1 + Math.sin(game.elapsed * 12) * 0.08);
+            const aura = c.createRadialGradient(game.x, game.y, 8, game.x, game.y, turboRadius);
+            aura.addColorStop(0, '#ff523366'); aura.addColorStop(0.5, '#ff883344'); aura.addColorStop(1, '#ff330000');
+            oval(c, game.x, game.y, turboRadius, turboRadius, aura);
+            if (!reduced) {
+                for (let i = 1; i <= 8; i++) {
+                    const trailX = game.x - i * 14;
+                    const trailY = game.y + Math.sin(game.elapsed * 16 - i * 0.8) * 8;
+                    const sz = (8 - i) * 1.5;
+                    oval(c, trailX, trailY, sz * 1.8, sz * 0.8, `rgba(255, ${Math.floor(80 + i * 18)}, 40, ${0.8 - i * 0.09})`, -0.2);
+                }
+                c.strokeStyle = '#ffecd166';
+                c.lineWidth = 1.8;
+                for (let i = 0; i < 4; i++) {
+                    const lx = ((game.elapsed * 800 + i * 220) % (view.w + 200)) - 100;
+                    const ly = 80 + (i * 135) % (HEIGHT - 160);
+                    c.beginPath();
+                    c.moveTo(lx, ly);
+                    c.lineTo(lx - 60 - i * 20, ly);
+                    c.stroke();
+                }
+            }
+            c.restore();
+        }
         if (game.feather > 0) {
             c.save();
-            const remaining=Math.min(1,game.feather/3);
-            c.globalAlpha=.4+.6*remaining;
-            const radius=(43+15*remaining)*(reduced?1:1+Math.sin(game.elapsed*3)*.06);
-            const aura=c.createRadialGradient(game.x,game.y,10,game.x,game.y,radius);
-            aura.addColorStop(0,'#ffe29455');aura.addColorStop(.65,'#ffcd4538');aura.addColorStop(1,'#ffd85a00');
-            oval(c,game.x,game.y,radius,radius,aura);
-            if(!reduced) for(let i=1;i<8;i++)oval(c,game.x-i*9,game.y+Math.sin(game.elapsed*7-i)*7,3*(1-i/9),3,`rgba(255,219,112,${.7-i*.08})`);
+            const remaining = Math.min(1, game.feather / 3);
+            c.globalAlpha = 0.5 + 0.5 * remaining;
+            const radius = (66 + 18 * remaining) * (reduced ? 1 : 1 + Math.sin(game.elapsed * 3) * 0.06);
+            const aura = c.createRadialGradient(game.x, game.y, 16, game.x, game.y, radius);
+            aura.addColorStop(0, 'rgba(255, 235, 140, 0.45)');
+            aura.addColorStop(0.65, 'rgba(255, 205, 60, 0.28)');
+            aura.addColorStop(1, 'rgba(255, 216, 80, 0)');
+            oval(c, game.x, game.y, radius, radius, aura);
+            if (!reduced) {
+                for (let i = 1; i < 9; i++) {
+                    oval(c, game.x - i * 11, game.y + Math.sin(game.elapsed * 7 - i) * 8, 4 * (1 - i / 10), 4, `rgba(255, 225, 110, ${0.8 - i * 0.08})`);
+                }
+            }
             c.restore();
         }
         if(game.powerFade>0) {
@@ -257,18 +605,42 @@ export class Renderer {
                 if (e.warning > 0) {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
                     c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
-                } else this.hawk(e.x, e.y, reduced ? 0 : game.elapsed, false, e.retreat ? Math.atan2(e.retreatY || -180,150) : e.dive ? -Math.atan2(e.targetY - e.startY, e.startX - e.targetX) : 0, !!e.retreat);
+                } else this.hawk(e, reduced ? 0 : game.elapsed, reduced);
             } else if (!e.collected) this.pickup(e, game.elapsed, reduced);
         }
         if (game.shield || game.invincible > 0) {
-            const r=43;
-            c.save();c.globalAlpha=game.shield ? .95 : .45;
-            c.strokeStyle='#d8ecae55';c.lineWidth=1;c.beginPath();c.arc(game.x,game.y,r,0,TAU);c.stroke();
-            if(game.shield) for(let i=0;i<9;i++) {
-                const a=i*TAU/9+(reduced?0:game.elapsed*.8);
-                feather(c,game.x+Math.cos(a)*r,game.y+Math.sin(a)*r,10,a+Math.PI/2,i%2?'#d7edab':'#8fb969');
+            const r = 68;
+            c.save();
+            c.globalAlpha = game.shield ? 0.95 : 0.45;
+            const aura = c.createRadialGradient(game.x, game.y, 38, game.x, game.y, r + 10);
+            aura.addColorStop(0, 'rgba(46, 245, 195, 0.04)');
+            aura.addColorStop(0.7, 'rgba(46, 245, 195, 0.28)');
+            aura.addColorStop(1, 'rgba(46, 245, 195, 0)');
+            c.fillStyle = aura;
+            c.beginPath(); c.arc(game.x, game.y, r + 10, 0, TAU); c.fill();
+            c.strokeStyle = '#2ef5c3aa'; c.lineWidth = 2;
+            c.beginPath(); c.arc(game.x, game.y, r, 0, TAU); c.stroke();
+            const shieldImg = images.get('shield');
+            if (game.shield) {
+                const count = 8;
+                for (let i = 0; i < count; i++) {
+                    const a = i * TAU / count + (reduced ? 0 : game.elapsed * 1.2);
+                    const fx = game.x + Math.cos(a) * r;
+                    const fy = game.y + Math.sin(a) * r;
+                    c.save();
+                    c.translate(fx, fy);
+                    c.rotate(a + Math.PI / 2);
+                    if (shieldImg) {
+                        const fw = 30, fh = 30 * shieldImg.naturalHeight / shieldImg.naturalWidth;
+                        c.drawImage(shieldImg, -fw / 2, -fh / 2, fw, fh);
+                    } else {
+                        feather(c, 0, 0, 16, 0, i % 2 ? '#d7edab' : '#8fb969');
+                    }
+                    c.restore();
+                }
             } else {
-                c.setLineDash([5,7]);c.strokeStyle='#d0e9ff';c.lineWidth=2;c.beginPath();c.arc(game.x,game.y,39,0,TAU);c.stroke();c.setLineDash([]);
+                c.setLineDash([5, 7]); c.strokeStyle = '#d0e9ff'; c.lineWidth = 2;
+                c.beginPath(); c.arc(game.x, game.y, 48, 0, TAU); c.stroke(); c.setLineDash([]);
             }
             c.restore();
         }
@@ -276,15 +648,22 @@ export class Renderer {
         if(game.refuge) {
             const r=game.refuge;
             this.trunk('hollow',SPECIAL.hollow,r.x+90,350,false);
-            this.wood({x:r.x-30,y:352,w:140,h:16},1);
-            drawBird(c,{x:r.x+50,y:332,scale:.40,perched:true,reduced});
-            drawBird(c,{x:r.x+85,y:330,scale:.36,perched:true,reduced});
+            drawBird(c,{x:r.x+62,y:355,scale:.38,perched:true,reduced});
+            drawBird(c,{x:r.x+110,y:360,scale:.36,perched:true,reduced});
             if(game.state==='playing') {
                 c.save();c.strokeStyle='#fff3ba';c.lineWidth=3;c.setLineDash([6,6]);
                 c.beginPath();c.ellipse(r.x,r.y,48,60,0,0,TAU);c.stroke();c.restore();
             }
         }
-        drawBird(c, { x: game.x, y: game.y, scale: .78, perched:game.state==='ended'&&game.won, angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: game.elapsed, reaction:game.collectPulse, reduced });
+        const isDefeated = (game.state === 'ended' && !game.won) || game.state === 'impact';
+        const impactProg = game.state === 'impact' ? Math.max(0, 1 - (game.impactRemaining || 0) / 0.42) : (game.state === 'ended' && !game.won ? 1 : 0);
+        drawBird(c, {
+            x: game.x, y: game.y, scale: .74, perched: game.state === 'ended' && game.won,
+            angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: game.elapsed,
+            reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
+            defeated: isDefeated, impactProgress: impactProg, turbo: (game.pepper || 0) > 0,
+            stamina: game.stamina !== undefined ? game.stamina : 1, won: game.state === 'ended' && game.won
+        });
         if (!reduced) for (const p of (this.quality==='low'?game.particles.slice(0,32):game.particles)) {
             c.globalAlpha=Math.max(0,p.life/(p.maxLife??.7));
             if(p.feather)feather(c,p.x,p.y,7,p.rotation,p.color);
@@ -317,7 +696,7 @@ export class Renderer {
             c.save();c.fillStyle='#fff0d9';c.strokeStyle='#70513d';c.lineWidth=1;
             c.beginPath();c.roundRect(x,y,136,25,8);c.fill();c.stroke();
             c.font='800 12px Nunito';c.fillStyle='#49372c';c.textAlign='center';
-            c.fillText(e.snake.branch?'Cobra no galho':'Cobra no tronco',x+68,y+17);c.restore();
+            c.fillText('Cobra no tronco',x+56,y+17);c.restore();
         }
         if (game.state === 'ended' && game.won) {
             for (let i = 0; i < (this.quality==='low'?12:32); i++) {
@@ -332,89 +711,272 @@ export class Renderer {
         const c=this.c, variant=(e.id??0)%3, preset=TRUNKS[variant];
         c.save();
         if(!reduced && game.hit && game.hit.id===e.id) {
-            const t=game.hit.age;c.translate(Math.sin(t*95)*6*Math.max(0,1-t/.3),0);
+            const t = game.hit.age;
+            const decay = Math.max(0, 1 - t / 0.3);
+            c.translate(Math.sin(t * 95) * 8 * decay, Math.cos(t * 110) * 3 * decay);
         }
         if(e.breakFx&&!reduced) {
             c.save();c.globalAlpha=Math.max(0,1-e.breakFx.age/.24);c.translate(0,e.breakFx.age*35);
-            this.trunk(`trunk-${variant}`,preset,e.x+29,e.breakFx.side==='top'?e.top:e.bottom,e.breakFx.side==='top');
+            this.trunk(`trunk-${variant}`,preset,e.x+29,e.breakFx.side==='top'?e.top:e.bottom,e.breakFx.side==='top',0,variant);
             c.restore();
         }
-        const topRects=game.woodRects(e).filter(r=>r.y<e.bottom);
-        // Clip only at real openings; leaves outside the wooden core remain decorative.
-        if(topRects.length) {
+        if (!e.broken || e.brokenSide !== 'top') {
             c.save(); c.beginPath();
-            for(const r of topRects)c.rect(r.x-22,r.y,r.w+44,r.h);
-            c.clip(); this.trunk(`trunk-${variant}`,preset,e.x+29,e.top,true);
+            c.rect(e.x - 180, -1000, 360, e.top + 1000);
+            c.clip();
+            this.trunk(`trunk-${variant}`, preset, e.x + 29, e.top, true, 0, variant);
             c.restore();
         }
-        if(!e.broken || e.brokenSide!=='bottom') {
-            const kind=e.snake&&!e.snake.branch&&!e.snake.retreat?'snake':e.variant==='hollow'?'hollow':`trunk-${variant}`;
-            this.trunk(kind,SPECIAL[kind]??preset,e.x+29,e.bottom,false,reduced?0:game.elapsed);
-            if(e.variant==='branch') {
-                const image=images.get('branch');
-                if(image && !e.snake?.retreat) this.snakeArt(image,e.x-70,e.bottom+8,160,160*image.naturalHeight/image.naturalWidth,'branch',reduced?0:game.elapsed);
-                else this.wood({x:e.x-70,y:e.bottom+30,w:78,h:18},variant);
+        if (!e.broken || e.brokenSide !== 'bottom') {
+            c.save(); c.beginPath();
+            const snakeRetreating = e.snake && e.snake.retreat && (e.snake.retreatTime || 0) < 1.0;
+            const snakeActive = e.snake && (!e.snake.retreat || snakeRetreating);
+            const clipTop = snakeActive ? e.bottom - 45 : e.bottom;
+            c.rect(e.x - 180, clipTop, 360, HEIGHT + 1000);
+            c.clip();
+            const kind = snakeActive && !e.snake.branch ? 'snake' : e.variant === 'hollow' ? 'hollow' : `trunk-${variant}`;
+            const retreatTime = e.snake?.retreat ? (e.snake.retreatTime || 0) : 0;
+            this.trunk(kind, SPECIAL[kind] ?? preset, e.x + 29, e.bottom, false, reduced ? 0 : game.elapsed, variant, retreatTime);
+            c.restore();
+            if (e.variant === 'branch') {
+                const image = images.get('branch');
+                const branchSnakeActive = e.snake && (!e.snake.retreat || (e.snake.retreatTime || 0) < 1.0);
+                if (image && branchSnakeActive) {
+                    this.snakeArt(image, e.x - 70, e.bottom + 8, 160, 160 * image.naturalHeight / image.naturalWidth, 'branch', reduced ? 0 : game.elapsed, retreatTime);
+                } else this.wood({ x: e.x - 70, y: e.bottom + 30, w: 78, h: 18 }, variant);
             }
         }
-        if(e.variant==='broken'&&!e.dryBranchBroken&&(!e.broken||e.brokenSide!=='top'))this.wood({x:e.x+52,y:e.top-35,w:26,h:18},variant);
-        c.restore();
-    }
-
-    trunk(key,preset,x,y,flip,time=0) {
-        const image=images.get(key),c=this.c;
-        if(!image)return;
-        const factor=58/preset.coreWidth, h=image.naturalHeight*factor;
-        c.save();c.translate(x,y);if(flip)c.scale(1,-1);
-        // Extend the base with matching bark if a trunk is shorter than the viewport.
-        this.wood({x:-29,y:Math.max(0,h-8),w:58,h:HEIGHT},0);
-        if(key==='snake')this.snakeArt(image,-image.naturalWidth*factor*preset.originX,0,image.naturalWidth*factor,h,'snake',time);
-        else c.drawImage(image,-image.naturalWidth*factor*preset.originX,0,image.naturalWidth*factor,h);
-        c.restore();
-    }
-
-    wood({x,y,w,h},variant=0) {
-        const image=images.get(`bark-${variant}`); if(!image||h<=0)return;
-        const c=this.c, sx=image.naturalWidth*.34, sy=image.naturalHeight*.12, sw=image.naturalWidth*.32, sh=image.naturalHeight*.6, tileH=sh*w/sw;
-        c.save();c.beginPath();c.rect(x,y,w,h);c.clip();
-        for(let offset=0,index=0;offset<h;offset+=tileH,index++) {
-            c.save();c.translate(x,y+offset+(index%2?tileH:0));
-            if(index%2)c.scale(1,-1);
-            c.drawImage(image,sx,sy,sw,sh,0,0,w,tileH);c.restore();
+        if (e.variant === 'broken' && !e.dryBranchBroken && (!e.broken || e.brokenSide !== 'top')) {
+            this.wood({ x: e.x + 52, y: e.top - 35, w: 26, h: 18 }, variant);
         }
         c.restore();
     }
 
-    snakeArt(image,x,y,w,h,kind,time) {
-        const c=this.c, [sx,sy,sw,sh]=kind==='snake'?[165,90,86,68]:[77,0,86,56];
-        const k=w/image.naturalWidth,dx=x+sx*k,dy=y+sy*k;
-        // Move only the head region; the trunk, coils and collision remain stationary.
-        c.save();c.beginPath();c.rect(x,y,w,h);c.rect(dx,dy,sw*k,sh*k);c.clip('evenodd');c.drawImage(image,x,y,w,h);c.restore();
-        c.save();c.translate(dx+(kind==='snake'?2:sw-2)*k,dy+sh*k*.7);
-        c.rotate(time===0?0:Math.sin(time*1.6)*.035);
-        c.drawImage(image,sx,sy,sw,sh,-(kind==='snake'?2:sw-2)*k,-sh*k*.7,sw*k,sh*k);
+    trunk(key, preset, x, y, flip, time = 0, variant = 0, retreatTime = 0) {
+        const image = images.get(key), c = this.c;
+        if (!image) return;
+        const factor = 58 / preset.coreWidth;
+        const h = image.naturalHeight * factor;
+        const w = image.naturalWidth * factor;
+        const originX = preset.originX ?? 0.5;
+        const left = -w * originX;
+        c.save();
+        c.translate(x, y);
+        if (flip) c.scale(1, -1);
+
+        // 1. Solid bark column extends continuously 1400 units away from opening (into canopy or roots)
+        const trunkW = key === 'hollow' ? w : w * 0.58;
+        const trunkLeft = left + (w - trunkW) * 0.5;
+        this.wood({ x: trunkLeft, y: h - 4, w: trunkW, h: 1400 }, variant);
+
+        // 2. Draw authored details & cut opening
+        if (key === 'snake') {
+            this.snakeArt(image, left, 0, w, h, 'snake', time, retreatTime);
+        } else if (key === 'hollow') {
+            c.drawImage(image, left, 0, w, h);
+        } else {
+            // Full high-resolution 3D tree trunk with foliage, mushrooms and cut rings
+            c.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, left, 0, w, h);
+        }
+
+        // 3. Canopy foliage (flip=true) or forest floor roots (flip=false) anchoring the trunk to edges
+        if (flip) {
+            leaf(c, left - 12, 180, 42, -0.65, '#87b36a', '#3d7349');
+            leaf(c, left + w + 12, 210, 46, 0.72, '#729a55', '#3d7349');
+            leaf(c, left - 16, 320, 52, -0.85, '#5d8c4e', '#2a5233');
+            leaf(c, left + w + 16, 360, 56, 0.88, '#7aa660', '#355f45');
+        } else {
+            leaf(c, left - 14, 200, 38, -1.05, '#4e8054', '#1d513c');
+            leaf(c, left + w + 14, 230, 42, 1.10, '#537b4a', '#244e40');
+            leaf(c, left - 20, 310, 50, -1.25, '#355f45', '#163828');
+            leaf(c, left + w + 20, 340, 54, 1.25, '#355f45', '#163828');
+        }
+
         c.restore();
-        if(time>0&&time%4.8>4.6) {
-            const direction=kind==='snake'?1:-1,mx=kind==='snake'?dx+sw*k:dx,my=dy+sh*k*.67;
-            c.save();c.strokeStyle='#bf6b62';c.lineWidth=1;c.beginPath();c.moveTo(mx,my);c.lineTo(mx+direction*4,my+1);c.lineTo(mx+direction*6,my-1);c.moveTo(mx+direction*4,my+1);c.lineTo(mx+direction*6,my+3);c.stroke();c.restore();
+    }
+
+    wood({ x, y, w, h }, variant = 0) {
+        const image = images.get(`bark-${variant}`) || images.get('bark-0');
+        if (!image || h <= 0) return;
+        const c = this.c;
+        const sx = image.naturalWidth * 0.2;
+        const sy = image.naturalHeight * 0.1;
+        const sw = image.naturalWidth * 0.6;
+        const sh = image.naturalHeight * 0.75;
+        const tileH = sh * w / sw;
+        c.save();
+        c.beginPath();
+        c.rect(x, y, w, h);
+        c.clip();
+        for (let offset = 0, index = 0; offset < h; offset += tileH, index++) {
+            c.save();
+            c.translate(x, y + offset + (index % 2 ? tileH : 0));
+            if (index % 2) c.scale(1, -1);
+            c.drawImage(image, sx, sy, sw, sh, 0, 0, w, tileH + 1);
+            c.restore();
+        }
+        c.restore();
+    }
+
+    snakeArt(image, x, y, w, h, kind, time, retreatTime = 0) {
+        const c = this.c, [sx, sy, sw, sh] = kind === 'snake' ? [130, 10, 185, 140] : [77, 0, 86, 56];
+        const k = w / image.naturalWidth;
+        let dx = x + sx * k, dy = y + sy * k;
+        c.save();
+        if (retreatTime > 0) {
+            const progress = Math.min(1, retreatTime / 1.0);
+            c.globalAlpha = Math.max(0, 1 - progress);
+            dx += (kind === 'snake' ? 1 : -1) * progress * 35 * k;
+        }
+        c.beginPath(); c.rect(x, y, w, h); c.rect(dx, dy, sw * k, sh * k); c.clip('evenodd'); c.drawImage(image, x, y, w, h); c.restore();
+        c.save();
+        if (retreatTime > 0) {
+            const progress = Math.min(1, retreatTime / 1.0);
+            c.globalAlpha = Math.max(0, 1 - progress);
+            dx += (kind === 'snake' ? 1 : -1) * progress * 35 * k;
+        }
+        c.translate(dx + (kind === 'snake' ? 2 : sw - 2) * k, dy + sh * k * .7);
+        c.rotate(time === 0 ? 0 : Math.sin(time * 1.6) * .035);
+        c.drawImage(image, sx, sy, sw, sh, -(kind === 'snake' ? 2 : sw - 2) * k, -sh * k * .7, sw * k, sh * k);
+
+        // Dizzy stars over snake head when atordoada
+        if (retreatTime > 0 && retreatTime < 1.0) {
+            const hx = -(kind === 'snake' ? 2 : sw - 2) * k + (kind === 'snake' ? sw * 0.7 : sw * 0.3) * k;
+            const hy = -sh * k * 0.75;
+            for (let i = 0; i < 2; i++) {
+                const a = retreatTime * 8 + i * Math.PI;
+                const starX = hx + Math.cos(a) * 16 * k;
+                const starY = hy + Math.sin(a) * 7 * k;
+                drawMiniSparkle(c, starX, starY, 4.5 * k, retreatTime * 5 + i);
+            }
+        }
+        c.restore();
+        if (retreatTime === 0 && time > 0 && time % 4.8 > 4.6) {
+            const direction = kind === 'snake' ? 1 : -1, mx = kind === 'snake' ? dx + sw * k : dx, my = dy + sh * k * .67;
+            c.save(); c.strokeStyle = '#bf6b62'; c.lineWidth = 1; c.beginPath(); c.moveTo(mx, my); c.lineTo(mx + direction * 4, my + 1); c.lineTo(mx + direction * 6, my - 1); c.moveTo(mx + direction * 4, my + 1); c.lineTo(mx + direction * 6, my + 3); c.stroke(); c.restore();
         }
     }
 
     foreground(distance,time,reduced) {
         const c=this.c, travel=reduced?0:distance*.65;
         for(let i=0;i<7;i++) {
-            const x=i*180-(travel%180),sway=reduced?0:Math.sin(time*.8)*.09;
-            // Only the outer 12 px: no vegetation crosses the navigable corridor.
-            leaf(c,x,HEIGHT+23,31,-.8+sway,'#779a58','#315638');
-            leaf(c,x+70,-26,32,.7+sway,'#8aa65b','#416542');
+            const x=i*180-(travel%180);
+            const swayBottom=reduced?0:Math.sin(time*1.2+i*0.9)*0.04+Math.cos(time*0.7+i*1.4)*0.02;
+            const swayTop=reduced?0:Math.sin(time*1.0+i*0.8)*0.04+Math.cos(time*0.6+i*1.2)*0.02;
+            leaf(c,x-12,HEIGHT+24,38,-0.9+swayBottom,'#5d8c4e','#264e32');
+            leaf(c,x+24,HEIGHT+28,44,-0.7+swayBottom*1.2,'#7aa858','#34613b');
+            leaf(c,x+60,-28,36,0.75+swayTop,'#8bb25e','#3e6b42');
+            leaf(c,x+95,-32,42,0.60+swayTop*1.1,'#68964d','#2c5333');
         }
     }
 
-    hawk(x, y, time, warning, angle = 0, retreat = false) {
-        const image=images.get(`hawk-${warning||time%5>2.4?1:Math.floor(time*6)%2}`);
+    hawk(entityOrX, yOrTime = 0, timeOrReduced = 0, warning = false, angle = 0, retreat = false) {
+        const c = this.c;
+        let x, y, time, e = null;
+        if (typeof entityOrX === 'object') {
+            e = entityOrX;
+            x = e.x;
+            y = e.y;
+            time = typeof yOrTime === 'number' ? yOrTime : 0;
+            warning = e.warning > 0;
+            retreat = !!e.retreat;
+            angle = e.dive ? -Math.atan2(e.targetY - e.startY, e.startX - e.targetX) : 0;
+        } else {
+            x = entityOrX;
+            y = yOrTime;
+            time = timeOrReduced;
+        }
+
+        // Determine wing flap animation pose (0, 1, 2) or defeat pose (3)
+        let pose = 0;
+        if (retreat || e?.dazed) {
+            pose = 3; // Knockout / Defeat dazed pose with spiral eye
+        } else if (warning || time === 0) {
+            pose = 0; // High wing soaring pose
+        } else {
+            // Natural flapping cycle: 0 -> 1 -> 2 -> 1 -> 0 (~4.2 flaps/sec, faster during dive)
+            const flapSpeed = e?.dive ? 6.5 : 4.2;
+            const cycle = ((time * flapSpeed) % 1 + 1) % 1;
+            if (cycle < 0.28) pose = 0;      // wings up
+            else if (cycle < 0.52) pose = 1; // mid-downstroke
+            else if (cycle < 0.80) pose = 2; // full downstroke
+            else pose = 1;                   // returning up
+        }
+
+        const image = images.get(`hawk-${pose}`) || images.get('hawk-0');
         if (!image) return;
-        const c=this.c, factor=(warning?49:110)/image.naturalWidth;
-        c.save(); c.translate(x,y); c.rotate(angle); if(retreat)c.scale(-1,1);
-        c.drawImage(image,-image.naturalWidth*factor*.43,-image.naturalHeight*factor*.66,image.naturalWidth*factor,image.naturalHeight*factor);
+
+        const factor = (warning ? 49 : 115) / image.naturalWidth;
+        const w = image.naturalWidth * factor;
+        const h = image.naturalHeight * factor;
+
+        // Visual aerodynamic bobbing & hunting undulation (does not affect hitbox)
+        const bob = (!warning && !retreat && time > 0) ? Math.sin(time * 12) * 5 : 0;
+        const huntWave = (!warning && !retreat && !e?.dive && time > 0) ? Math.sin(time * 3.5 + (e?.id || 0)) * 7 : 0;
+
+        // Tumble rotation during defeat vs aerodynamic banking
+        let renderAngle = angle;
+        if (retreat || e?.dazed) {
+            renderAngle = e?.tumbleAngle !== undefined ? e.tumbleAngle : (time * 14);
+        } else if (!warning && time > 0) {
+            renderAngle += Math.sin(time * 4.2) * 0.05;
+        }
+
+        c.save();
+        c.translate(x, y + bob + huntWave);
+        c.rotate(renderAngle);
+
+        if (retreat && !e?.dazed) {
+            c.scale(-1, 1);
+        }
+
+        // Wingtip air trails during high-speed swoop or dive
+        if (!warning && !retreat && (e?.dive || (e?.boost && e.boost > 60))) {
+            c.save();
+            c.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            c.lineWidth = 2.5;
+            c.lineCap = 'round';
+            c.beginPath();
+            c.moveTo(w * 0.42, -h * 0.55);
+            c.lineTo(w * 0.42 + 45, -h * 0.55 - 12);
+            c.stroke();
+            c.beginPath();
+            c.moveTo(-w * 0.35, -h * 0.15);
+            c.lineTo(-w * 0.35 + 40, -h * 0.15 - 8);
+            c.stroke();
+            c.restore();
+        }
+
+        // Draw raptor sprite centered on anchor
+        c.drawImage(image, -w * 0.43, -h * 0.66, w, h);
+
+        // Dizzy spinning stars above head when dazed/defeated
+        if ((retreat || e?.dazed) && time > 0) {
+            const headX = -w * 0.28, headY = -h * 0.42;
+            for (let i = 0; i < 3; i++) {
+                const a = time * 7.5 + i * (Math.PI * 2 / 3);
+                const sx = headX + Math.cos(a) * 22;
+                const sy = headY + Math.sin(a) * 9;
+                c.save();
+                c.translate(sx, sy);
+                c.rotate(a + time * 3);
+                c.fillStyle = i % 2 ? '#ffe042' : '#fff385';
+                c.strokeStyle = '#c99a18';
+                c.lineWidth = 1;
+                c.beginPath();
+                for (let k = 0; k < 5; k++) {
+                    const rot = k * Math.PI / 2.5 - Math.PI / 2;
+                    c.lineTo(Math.cos(rot) * 6, Math.sin(rot) * 6);
+                    const innerRot = rot + Math.PI / 5;
+                    c.lineTo(Math.cos(innerRot) * 2.8, Math.sin(innerRot) * 2.8);
+                }
+                c.closePath();
+                c.fill();
+                c.stroke();
+                c.restore();
+            }
+        }
+
         c.restore();
     }
 
@@ -422,18 +984,62 @@ export class Renderer {
         const c = this.c, float = reduced ? 0 : Math.sin(time * 2 + e.id) * 2;
         c.save(); c.translate(e.x, e.y);
         if (e.kind === 'fruit') {
+            const glow = c.createRadialGradient(0, float, 4, 0, float, 28);
+            glow.addColorStop(0, '#ffffffaa'); glow.addColorStop(0.5, '#f4d87c44'); glow.addColorStop(1, '#ffffff00');
+            oval(c, 0, float, 28, 28, glow);
             const image = this.fruitImages[e.variety];
             if (image?.complete && image.naturalWidth) {
-                const scale = 34 / Math.max(image.naturalWidth,image.naturalHeight);
-                c.drawImage(image,-image.naturalWidth*scale/2,float-image.naturalHeight*scale/2,image.naturalWidth*scale,image.naturalHeight*scale);
-            } else clay(c, 0, float, 13, 15, '#edbb66', '#cb7c42');
+                const scale = 50 / Math.max(image.naturalWidth, image.naturalHeight);
+                c.drawImage(image, -image.naturalWidth * scale / 2, float - image.naturalHeight * scale / 2, image.naturalWidth * scale, image.naturalHeight * scale);
+            } else clay(c, 0, float, 18, 20, '#edbb66', '#cb7c42');
+        } else if (e.kind === 'pepper') {
+            const glow = c.createRadialGradient(0, 0, 4, 0, 0, 36);
+            glow.addColorStop(0, '#ff5233bb'); glow.addColorStop(0.6, '#ff803355'); glow.addColorStop(1, '#ffffff00');
+            oval(c, 0, 0, 36, 36, glow);
+            c.save();
+            c.translate(0, float);
+            c.rotate(reduced ? 0 : Math.sin(time * 3 + e.id) * 0.15);
+            c.beginPath();
+            c.moveTo(0, -14);
+            c.bezierCurveTo(14, -10, 16, 6, 4, 16);
+            c.bezierCurveTo(0, 20, -4, 18, -3, 15);
+            c.bezierCurveTo(-10, 6, -10, -8, 0, -14);
+            const g = c.createRadialGradient(-3, -2, 2, 0, 0, 18);
+            g.addColorStop(0, '#ff785e');
+            g.addColorStop(0.6, '#e62419');
+            g.addColorStop(1, '#940f09');
+            c.fillStyle = g;
+            c.fill();
+            c.beginPath();
+            c.ellipse(-3, -2, 3, 7, -0.2, 0, Math.PI * 2);
+            c.fillStyle = '#ffb3a6aa';
+            c.fill();
+            c.beginPath();
+            c.moveTo(0, -14);
+            c.quadraticCurveTo(4, -20, 8, -22);
+            c.strokeStyle = '#5a963b';
+            c.lineWidth = 3;
+            c.stroke();
+            clay(c, 0, -14, 5, 3, '#7ab852', '#3e6c27', 0);
+            c.restore();
+            c.fillStyle = '#ffe9b6'; c.font = '900 10px Nunito'; c.textAlign = 'center'; c.fillText('TURBO', 0, 32);
         } else {
             const gold = e.kind === 'feather';
-            const glow = c.createRadialGradient(0, 0, 4, 0, 0, 34); glow.addColorStop(0, gold ? '#ffdf9aaa' : '#d0ef91aa'); glow.addColorStop(1, '#ffffff00');
-            oval(c, 0, 0, 34, 34, glow);
-            const image=images.get(e.kind);
-            if(image) { const factor=42/Math.max(image.naturalWidth,image.naturalHeight); c.drawImage(image,-image.naturalWidth*factor/2,float-image.naturalHeight*factor/2,image.naturalWidth*factor,image.naturalHeight*factor); }
-            if(gold) { c.fillStyle='#fff2b6'; c.font='900 10px Nunito'; c.textAlign='center'; c.fillText('×2',0,34); }
+            const glow = c.createRadialGradient(0, 0, 6, 0, 0, 42);
+            glow.addColorStop(0, gold ? '#ffe399dd' : '#a8f5d0dd');
+            glow.addColorStop(0.6, gold ? '#ffd55e66' : '#46e49e66');
+            glow.addColorStop(1, '#ffffff00');
+            oval(c, 0, 0, 42, 42, glow);
+            const image = images.get(e.kind);
+            if (image) {
+                const targetSize = gold ? 64 : 58;
+                const factor = targetSize / Math.max(image.naturalWidth, image.naturalHeight);
+                c.drawImage(image, -image.naturalWidth * factor / 2, float - image.naturalHeight * factor / 2, image.naturalWidth * factor, image.naturalHeight * factor);
+            }
+            if (gold) {
+                c.fillStyle = '#fff4c2'; c.font = '900 12px Nunito'; c.textAlign = 'center';
+                c.fillText('×2', 0, 38);
+            }
         }
         c.restore();
     }

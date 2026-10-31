@@ -54,16 +54,16 @@ export class ForestAudio {
         if(!this.enabled)return;
         // UI-only events should never initialize an audio device.
         const notes={fruit:[660,880],shield:[330,494,660],'shield-break':[220,147],feather:[523,659,784,1046],
-            'feather-end':[660,440],'tutorial-step':[523,659],'tutorial-complete':[659,784,1046],correct:[660,880,990],incorrect:[260,196],lose:[392,330,220],win:[523,659,784,1046,1318]};
+            'feather-end':[660,440],pepper:[440,554,659,880,1108],'pepper-end':[880,659,440],'tutorial-step':[523,659],'tutorial-complete':[659,784,1046],correct:[660,880,990],incorrect:[260,196],lose:[392,330,220],win:[523,659,784,1046,1318]};
         if(type!=='flap'&&!notes[type])return;
         if(!this.ensure())return;
         const now=this.context.currentTime;
         try {
             if(type==='flap') {
                 if(now-this.lastFlap<.15)return;
-                this.lastFlap=now;this.tone(180,now,.1,.018,'triangle',65);return;
+                this.lastFlap=now;this.tone(210,now,.09,.02,'triangle',70);this.tone(140,now+.02,.07,.015,'sine',50);return;
             }
-            notes[type].forEach((f,i)=>this.tone(f,now+i*.075,.18,type==='feather-end' ? .025 : .05,type==='shield-break'?'triangle':'sine'));
+            notes[type].forEach((f,i)=>this.tone(f,now+i*.075,.18,['feather-end','pepper-end'].includes(type) ? .025 : .05,type==='shield-break'?'triangle':'sine'));
         } catch { /* Audio failure never blocks the game. */ }
     }
     update(state,visible,time,stage) {

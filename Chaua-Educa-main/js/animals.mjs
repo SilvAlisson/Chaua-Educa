@@ -2,16 +2,26 @@
 export function advanceHawk(e, dt, speed, playerX) {
     e.age = (e.age || 0) + dt;
     if (e.retreat) {
-        e.phase='retreat';e.harmless=true;e.retreatTime=(e.retreatTime||0)+dt;
-        e.x+=150*dt;e.y+=(e.retreatY||-180)*dt;
-        if(e.retreatTime>=2)e.finished=true;
+        e.phase = 'retreat';
+        e.harmless = true;
+        e.retreatTime = (e.retreatTime || 0) + dt;
+        e.x += 150 * dt;
+        if (e.dazed) {
+            e.tumbleAngle = (e.tumbleAngle || 0) + (e.spin || 12.0) * dt;
+            e.fallVy = (e.fallVy || -170) + 750 * dt;
+            e.y += e.fallVy * dt;
+        } else {
+            e.y += (e.retreatY || -180) * dt;
+        }
+        if (e.retreatTime >= 2) e.finished = true;
         return;
     }
     if (e.warning > 0) {
         e.phase='warning';e.warning=Math.max(0,e.warning-dt);
         return;
     }
-    e.x-=(speed+50)*dt;
+    const hawkBoost = e.boost !== undefined ? e.boost : 50;
+    e.x -= (speed + hawkBoost) * dt;
     const span=e.startX-e.targetX;
     const progress=span>0?Math.max(0,Math.min(1,(e.startX-e.x)/span)):1;
     e.y=e.startY+(e.targetY-e.startY)*progress;

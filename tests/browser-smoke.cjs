@@ -24,13 +24,13 @@ async function begin(page, name = 'Guardião da mata') {
     await playing(page);
 }
 (async () => {
-    const executablePath = process.env.CHROMIUM_PATH || (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
+    const executablePath = process.env.CHROMIUM_PATH || (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : (existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : undefined));
     const browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox'] });
     try {
         const context = await browser.newContext({ viewport: { width:1440, height:960 } });
         const page = await context.newPage(); await inspect(page);
         // Optional practice works before entering a name and never records a ranked flight.
-        await page.locator('#start-training').click();
+        await page.locator('#start-training:not([disabled])').click();
         await playing(page);
         await page.keyboard.down('Space');
         await page.waitForFunction(()=>document.querySelector('#stage-name').textContent.startsWith('2 ·'));

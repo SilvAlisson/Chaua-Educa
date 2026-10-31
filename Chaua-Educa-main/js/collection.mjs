@@ -1,5 +1,15 @@
 import { QUESTIONS, SOURCES, CONTENT_REVIEWED } from './questions.mjs';
 
+export const JOURNAL_ART = {
+  chaua: 'images/journal/field_journal_parrot.png',
+  habitat: 'images/journal/field_journal_habitat.png',
+  alimentos: 'images/journal/field_journal_seeds.png',
+  arvores: 'images/journal/field_journal_flock.png',
+  fauna: 'images/journal/field_journal_curiosities.png',
+  conservacao: 'images/journal/field_journal_threats.png',
+  fantasia: 'images/journal/field_journal_curiosities.png'
+};
+
 export const ENTRIES = [
  {id:'chaua',title:'Conheça o chauá',category:'Ave',text:'Amazona rhodocorytha é o nome científico do papagaio-chauá. Ele vive na Mata Atlântica, no leste do Brasil.',source:'zoo',hint:'Disponível desde o início.'},
  {id:'habitat',title:'Uma floresta para viver',category:'Habitat',text:'A perda e a fragmentação da floresta ameaçam o chauá. Conservar os ambientes naturais é parte de sua proteção.',source:'icmbio',hint:'Chegue às Árvores antigas ou descubra uma pergunta sobre habitat.'},
@@ -28,6 +38,14 @@ export function renderCollection(container, unlocked) {
   const discovered=unlocked.includes(entry.id);
   text.textContent=discovered?entry.text:entry.hint;
   card.classList.toggle('undiscovered',!discovered);
+  if(discovered && JOURNAL_ART[entry.id]){
+    const img=document.createElement('img');
+    img.src=JOURNAL_ART[entry.id];
+    img.alt=entry.title;
+    img.className='journal-thumb';
+    img.loading='lazy';
+    card.append(img);
+  }
   card.append(category,title,text);
   if(discovered){
    const source=SOURCES[entry.source];

@@ -10,6 +10,7 @@ import { FRUITS } from './fruits.mjs';
 import DB from './database.js';
 import { Game, FlightClock, HEIGHT, STAGES } from './engine.mjs';
 import { Renderer, drawBird } from './render.mjs';
+import { flightViewport } from './viewport.mjs';
 
 const $ = selector => document.querySelector(selector);
 const app = $('#app');
@@ -51,13 +52,14 @@ export const game = new Game({ onEvent(event) {
     if(['fruit','correct','incorrect','stage','route-complete','win'].includes(event.type)) DB.advanceMissions(player,event);
     if (event.type === 'fruit') DB.unlock(event.fruit);
     if (['correct','incorrect'].includes(event.type)) DB.recordDiscovery(player,event.questionId,event.type==='correct');
-    const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', 'shield-break': 'Escudo usado · proteção breve para retomar o voo', quiet: 'Uma clareira. Recupere o fôlego.' };
+    const messages = { shield: 'Escudo de penas · um contato protegido', feather: 'Pena dourada · pontos ×2 por 10s de voo', pepper: 'Pimenta da mata · Voo turbo com velocidade e pontos ×2!', 'shield-break': 'Escudo usado · proteção breve para retomar o voo', quiet: 'Uma clareira. Recupere o fôlego.' };
     if(event.type==='stage')toast(event.message);
     if(event.type==='refuge')toast('O bando espera no centro: alinhe o voo para pousar.');
     if(event.type==='medal')toast('200 pontos · medalha conquistada! Continue até o abrigo.');
     if (messages[event.type]) toast(messages[event.type]);
     if(event.type==='shield-kept')toast('Seu escudo já está pronto · proteção mantida');
     if(event.type==='feather' && event.renewed)toast('Pena renovada · mais 10s de pontos ×2');
+    if(event.type==='pepper' && event.renewed)toast('Pimenta renovada · mais 6s de turbo e pontos ×2');
     if(event.type==='route-complete')toast(`Trilha completa · +${event.points} pontos`);
     if (event.type === 'points') {
         $('#score-bonus').textContent = `+${event.value}`; pointsUntil = game.elapsed + 1;
@@ -79,6 +81,9 @@ function resize() {
         clearInputs(); game.pause(); clock.reset(); syncUI();
     }
     lastOrientation=orientation;
+    const view = flightViewport(renderer.w, renderer.h, renderer.safeInsets);
+    game.viewWidth = Math.max(960, Math.ceil(view.worldLeft + view.worldWidth));
+    game.viewLeft = Math.floor(view.worldLeft);
 }
 new ResizeObserver(resize).observe(app);
 window.addEventListener('resize', resize);
@@ -194,7 +199,7 @@ function result() {
     clearInputs();
     const record = DB.upsertPlayerScore(player, game.score, selectedMode);
     const panel = $('#result-dialog .result'); panel.classList.toggle('victory', game.won);
-    $('#result-title').textContent = game.won ? 'Você encontrou o bando!' : 'Opa! Vamos de novo?';
+    $('#result-title').textContent = game.won ? 'A floresta celebra: você encontrou o bando!' : 'Opa! Vamos de novo?';
     $('#result-eyebrow').textContent = game.won ? 'O BANDO ESTÁ REUNIDO' : 'CADA VOO É UM COMEÇO';
     $('#result-reason').textContent = game.reason;
     $('#result-advice').textContent = resultAdvice(game);
@@ -279,6 +284,15 @@ function syncUI() {
     $('#feather-status').classList.toggle('active', game.feather > 0);
     $('#feather-status span').textContent = game.feather > 0 ? `×2 · ${Math.ceil(game.feather)}s` : 'Pena ×2';
     $('#feather-status progress').value = game.feather;
+    const pepperChip = $('#pepper-status');
+    if (pepperChip) {
+        pepperChip.classList.toggle('spicy', game.pepper > 0);
+        pepperChip.classList.toggle('active', game.pepper > 0);
+        const pepperLabel = $('#pepper-status span');
+        if (pepperLabel) pepperLabel.textContent = game.pepper > 0 ? `Turbo · ${Math.ceil(game.pepper)}s` : 'Pimenta turbo';
+        const pepperProg = $('#pepper-status progress');
+        if (pepperProg) pepperProg.value = game.pepper;
+    }
     if (toastUntil < game.elapsed) $('#toast').classList.remove('visible');
     if (pointsUntil < game.elapsed) $('#score-bonus').textContent = '';
 }
@@ -293,7 +307,12 @@ function frame(time) {
     forestAudio.update(game.state,!document.hidden&&document.hasFocus(),time/1000,game.stage);
     if(document.hidden){requestAnimationFrame(frame);return;}
     if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
-    else renderer.game(game.visual(clock.accumulator / (1 / 120)), reducedMotion.matches, time / 1000);
+    else {
+        const view = flightViewport(renderer.w, renderer.h, renderer.safeInsets);
+        game.viewWidth = Math.max(960, Math.ceil(view.worldLeft + view.worldWidth));
+        game.viewLeft = Math.floor(view.worldLeft);
+        renderer.game(game.visual(clock.accumulator / (1 / 120)), reducedMotion.matches, time / 1000);
+    }
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

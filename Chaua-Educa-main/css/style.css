@@ -29,8 +29,11 @@
   box-sizing: border-box;
 }
 
-body {
+html, body {
   margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 button, input {
@@ -90,8 +93,9 @@ svg {
 
 .app {
   position: relative;
-  min-height: 900px;
   height: 100svh;
+  min-height: 100svh;
+  max-height: 100svh;
   isolation: isolate;
   overflow: hidden;
   background: #d6e6b0;
@@ -449,8 +453,9 @@ h2 {
 
 .home-links {
   display: flex;
-  gap: 14px;
+  gap: 10px 14px;
   align-items: center;
+  flex-wrap: wrap;
   margin: 23px 0 0 9px;
   font-size: 14px;
   color: #687a58;
@@ -476,8 +481,10 @@ h2 {
 
 .scene-caption {
   position: absolute;
-  bottom: 103px;
-  left: 58%;
+  bottom: clamp(75px, 11vh, 103px);
+  right: 6%;
+  left: auto;
+  max-width: min(360px, 42vw);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -529,6 +536,11 @@ h2 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  pointer-events: none;
+}
+
+.home-footer > * {
+  pointer-events: auto;
 }
 
 .home-footer > span {
@@ -679,6 +691,16 @@ h2 {
   background: #fff0b5;
   color: #785216;
   border-color: #dbb049;
+}
+
+.power-chip.spicy {
+  background: #ffe3db;
+  color: #9c2317;
+  border-color: #f06148;
+  box-shadow: 0 2px 12px rgba(230, 48, 25, 0.25);
+}
+.power-chip.spicy progress {
+  accent-color: #d6331a;
 }
 
 .power-chip progress {
@@ -1157,6 +1179,16 @@ tr:first-child td:first-child {
   color: #69775e;
 }
 
+.journal-thumb {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #dce2cb;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 12px rgba(24, 63, 44, 0.08);
+}
+
 .guide .guide-note {
   font-size: 11px;
   background: #edf1dc;
@@ -1227,9 +1259,6 @@ dd {
 }
 
 @media (min-width: 1500px) {
-  .app {
-    min-height: 950px;
-  }
   .home {
     padding-top: 60px;
   }
@@ -1237,56 +1266,58 @@ dd {
     margin-top: 34px;
   }
   .scene-caption {
-    left: 61%;
+    right: 7%;
+    left: auto;
     bottom: 130px;
   }
 }
-@media (max-height: 850px) and (min-width: 901px) {
-  .app {
-    min-height: 780px;
-  }
+@media (max-height: 850px) {
   .topbar {
-    height: 90px;
+    height: 80px;
   }
   .home {
-    padding-top: 14px;
-    min-height: calc(100% - 90px);
+    padding-top: 10px;
+    min-height: calc(100% - 80px);
   }
   .home h1 {
-    font-size: 58px;
-    margin: 17px 0 12px;
+    font-size: clamp(38px, 4.5vw, 56px);
+    margin: 12px 0 10px;
   }
   .intro {
     font-size: 13px;
+    line-height: 1.6;
   }
   .start-card {
-    margin-top: 21px;
-    padding: 19px 23px 13px;
+    margin-top: 16px;
+    padding: 18px 22px 12px;
   }
   .home-links {
-    margin-top: 19px;
+    margin-top: 14px;
   }
   .scene-caption {
-    bottom: 95px;
+    bottom: 85px;
   }
   .home-footer {
-    bottom: 20px;
+    bottom: 16px;
   }
 }
 @media (max-width: 1050px) {
   .home h1 {
-    font-size: 55px;
+    font-size: 50px;
   }
   .home-copy {
     width: 52%;
+    max-width: 480px;
   }
   .forest-tag {
     font-size: 8px;
     letter-spacing: 1px;
   }
   .scene-caption {
-    left: 57%;
+    right: 5%;
+    left: auto;
     padding: 12px;
+    max-width: min(320px, 40vw);
   }
   .scene-caption strong {
     font-size: 12px;
@@ -1306,9 +1337,20 @@ dd {
   }
 }
 @media (max-width: 700px) {
+  html, body {
+    overflow-y: auto;
+  }
   .app {
     height: auto;
-    min-height: 1100px;
+    min-height: 100svh;
+    max-height: none;
+    overflow-y: visible;
+  }
+  .app.in-flight {
+    height: 100svh;
+    min-height: 0;
+    max-height: 100svh;
+    overflow: hidden;
   }
   .topbar {
     height: 86px;
