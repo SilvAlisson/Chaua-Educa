@@ -1,6 +1,6 @@
 import { normalizeProgress, advanceProgress } from './missions.mjs';
 import { ENTRIES, INITIAL_ENTRIES } from './collection.mjs';
-export const RULES_VERSION = 'floresta-v5';
+export const RULES_VERSION = 'floresta-v6';
 export default class DB {
     static dbName = `db-chaua-${RULES_VERSION}`;
     static storageAvailable = true;
@@ -26,7 +26,7 @@ export default class DB {
 
     static previousScores() {
         const data = this.readObject('chaua-educa-v2', {});
-        const archived=['floresta-v2','floresta-v3','floresta-v4'].flatMap(ruleset=>{
+        const archived=['floresta-v2','floresta-v3','floresta-v4','floresta-v5'].flatMap(ruleset=>{
             const forest=this.readObject(`db-chaua-${ruleset}`,[]);
             return (Array.isArray(forest)?forest:[]).filter(s=>s && typeof s.playerName==='string' && Number.isFinite(s.score_val) && s.score_val>=0).map(s=>({...s,ruleset}));
         });

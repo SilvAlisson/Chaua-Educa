@@ -38,12 +38,12 @@ export function snakeAnimation(s={},reduced=false){
  if(Number.isFinite(s.age)&&s.age<.8)return sequence(CLIPS.snake.emerge,s.age/.8);
  return sequence(s.phase==='warning'||s.phase==='occupied'?CLIPS.snake.alert:CLIPS.snake.idle,(s.age||0)*1.1,true);
 }
-export function snakePlacement(wood){return {x:wood.snake?.branch?wood.x-24:wood.x+29,y:wood.snake?.branch?wood.bottom+28:wood.bottom+18,factor:.2};}
+export function snakePlacement(wood){return {x:wood.x+29-(wood.snake?.branch?65:5),y:wood.bottom+(wood.snake?.branch?34:32),factor:.34,facing:-1};}
 export function spriteHeadRect(wood,reduced=false){
- const {x,y,factor}=snakePlacement(wood),clip=snakeAnimation(wood.snake,reduced),data=SPRITES.snake;
+ const {x,y,factor,facing}=snakePlacement(wood),clip=snakeAnimation(wood.snake,reduced),data=SPRITES.snake;
  const a=data.frames[clip.frame].head,b=data.frames[clip.next].head,t=clip.blend;
  const [cx,cy,rx,ry]=a.map((v,i)=>v+(b[i]-v)*t);
- return {x:x+(cx-data.anchor[0]-rx)*factor,y:y+(cy-data.anchor[1]-ry)*factor,w:rx*2*factor,h:ry*2*factor};
+ return {x:x+((cx-data.anchor[0])*facing-rx)*factor,y:y+(cy-data.anchor[1]-ry)*factor,w:rx*2*factor,h:ry*2*factor};
 }
 export function placeWarnings(items,view){
  const result=[];

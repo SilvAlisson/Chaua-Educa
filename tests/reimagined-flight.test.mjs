@@ -74,9 +74,9 @@ test('offerPower schedules pepper powerup when due', () => {
     assert.ok(schedule.nextPepper > 15);
 });
 
-test('Chauapedia has field journal art mapped for every discovery', () => {
+test('Chauapedia reuses current game artwork for every discovery', () => {
     for (const entry of ENTRIES) {
         assert.ok(JOURNAL_ART[entry.id], `Missing journal art for ${entry.id}`);
-        assert.ok(JOURNAL_ART[entry.id].endsWith('.png'));
+        assert.ok(JOURNAL_ART[entry.id].endsWith('.webp'));
     }
 });

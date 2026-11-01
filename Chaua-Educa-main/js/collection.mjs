@@ -1,13 +1,11 @@
 import { QUESTIONS, SOURCES, CONTENT_REVIEWED } from './questions.mjs';
+import {FRUITS} from './fruits.mjs';
+import {images} from './assets.mjs';
+import {SPRITES} from './sprite-data.mjs';
 
 export const JOURNAL_ART = {
-  chaua: 'images/journal/field_journal_parrot.png',
-  habitat: 'images/journal/field_journal_habitat.png',
-  alimentos: 'images/journal/field_journal_seeds.png',
-  arvores: 'images/journal/field_journal_flock.png',
-  fauna: 'images/journal/field_journal_curiosities.png',
-  conservacao: 'images/journal/field_journal_threats.png',
-  fantasia: 'images/journal/field_journal_curiosities.png'
+ chaua:'assets/v6/chaua-atlas.webp',habitat:'assets/v3/forest.webp',alimentos:'assets/v3/fruit-Goiaba.webp',
+ arvores:'assets/v3/forest.webp',fauna:'assets/v6/hawk-atlas.webp',conservacao:'assets/v3/forest.webp',fantasia:'assets/v4/feather.webp'
 };
 
 export const ENTRIES = [
@@ -29,31 +27,52 @@ export function discoveriesFor(event) {
  }
  return [];
 }
-export function renderCollection(container, unlocked) {
+function illustration(id){
+ const canvas=document.createElement('canvas');canvas.width=480;canvas.height=280;canvas.className='journal-illustration';canvas.setAttribute('aria-hidden','true');
+ const c=canvas.getContext('2d'),bg=c.createLinearGradient(0,0,480,280);bg.addColorStop(0,'#e9efd9');bg.addColorStop(1,'#d4e3bd');c.fillStyle=bg;c.fillRect(0,0,480,280);
+ const sprite=(name,frame,x,y,factor)=>{const image=images.get(`${name}-atlas`),data=SPRITES[name];if(image)c.drawImage(image,...data.frames[frame].rect,x-data.anchor[0]*factor,y-data.anchor[1]*factor,data.cell*factor,data.cell*factor);};
+ if(['habitat','arvores','conservacao'].includes(id)){
+  const forest=images.get('forest');if(forest){const w=forest.naturalWidth,h=forest.naturalHeight,sourceW=h*480/280;c.drawImage(forest,Math.max(0,(w-sourceW)*(id==='arvores'?.7:.25)),0,Math.min(sourceW,w),h,0,0,480,280);}
+ }else if(id==='fauna')sprite('hawk',8,235,150,1.4);
+ else if(id==='alimentos')FRUITS.slice(0,3).forEach((f,i)=>{const im=images.get(`fruit-${f.id}`);if(im)c.drawImage(im,45+i*140,75,110,110);});
+ else if(id==='fantasia')for(const [i,key]of ['shield','feather'].entries()){const im=images.get(key);if(im)c.drawImage(im,95+i*160,65,130,130);}
+ else sprite('chaua',12,240,138,1.1);
+ return canvas;
+}
+export function renderCollection(container,unlocked,{foods=[],foodContainer,detailContainer}={}){
+ let previousFocus=null;
+ const openDetail=(entry,button)=>{
+  if(!detailContainer)return;
+  previousFocus=button;detailContainer.closest('.journal-shell').classList.add('is-reading');
+  const back=document.createElement('button');back.type='button';back.className='journal-back';back.textContent='← Voltar às descobertas';
+  const title=document.createElement('h3');title.id='journal-detail-title';title.textContent=entry.title;
+  const category=document.createElement('span');category.className='journal-category';category.textContent=entry.category;
+  const text=document.createElement('p');text.className='journal-reading';text.textContent=entry.text;
+  const content=document.createElement('div');content.className='journal-detail-copy';content.append(category,title,text);
+  if(entry.source&&entry.source!=='game'){
+   const link=document.createElement('a');link.href=SOURCES[entry.source].url;link.textContent='Ler a fonte desta descoberta ↗';link.target='_blank';link.rel='noopener noreferrer';content.append(link);
+  }
+  const note=document.createElement('p');note.className='journal-footnote';note.textContent=entry.source==='game'?'Esta ficha descreve elementos da aventura.':`Conteúdo revisado em ${CONTENT_REVIEWED.split('-').reverse().join('/')}.`;
+  content.append(note);detailContainer.replaceChildren(back,illustration(entry.id),content);detailContainer.hidden=false;container.hidden=true;if(foodContainer)foodContainer.hidden=true;
+  detailContainer.closest('dialog').scrollTop=0;back.focus({preventScroll:true});
+  back.addEventListener('click',()=>{detailContainer.closest('.journal-shell').classList.remove('is-reading');detailContainer.hidden=true;container.hidden=false;previousFocus?.focus({preventScroll:true});});
+ };
  container.replaceChildren(...ENTRIES.map(entry=>{
-  const card=document.createElement('article');
+  const discovered=unlocked.includes(entry.id),card=document.createElement('article');card.className='journal-card';card.classList.toggle('is-locked',!discovered);
+  const art=document.createElement('div');art.className='journal-art';art.append(illustration(entry.id));
+  const state=document.createElement('span');state.className='journal-state';state.textContent=discovered?'Descoberto':'Por descobrir';art.append(state);
+  const copy=document.createElement('div');copy.className='journal-card-copy';
+  const category=document.createElement('span');category.className='journal-category';category.textContent=entry.category;
   const title=document.createElement('h3');title.textContent=entry.title;
-  const category=document.createElement('small');category.textContent=entry.category;
-  const text=document.createElement('p');
-  const discovered=unlocked.includes(entry.id);
-  text.textContent=discovered?entry.text:entry.hint;
-  card.classList.toggle('undiscovered',!discovered);
-  if(discovered && JOURNAL_ART[entry.id]){
-    const img=document.createElement('img');
-    img.src=JOURNAL_ART[entry.id];
-    img.alt=entry.title;
-    img.className='journal-thumb';
-    img.loading='lazy';
-    card.append(img);
-  }
-  card.append(category,title,text);
-  if(discovered){
-   const source=SOURCES[entry.source];
-   if(entry.source!=='game'){
-    const link=document.createElement('a');link.href=source.url;link.textContent='Consultar fonte';link.target='_blank';link.rel='noopener noreferrer';card.append(link);
-   }
-   const date=document.createElement('small');date.textContent=`Revisado em ${CONTENT_REVIEWED.split('-').reverse().join('/')}`;card.append(date);
-  }
-  return card;
+  const text=document.createElement('p');text.textContent=discovered?entry.text.slice(0,135)+(entry.text.length>135?'…':''):entry.hint;
+  const button=document.createElement('button');button.type='button';button.className='journal-open';button.textContent=discovered?'Ler descoberta →':'Continue explorando';button.disabled=!discovered;
+  if(discovered)button.addEventListener('click',()=>openDetail(entry,button));
+  copy.append(category,title,text,button);card.append(art,copy);return card;
+ }));
+ if(foodContainer)foodContainer.replaceChildren(...FRUITS.map(f=>{
+  const card=document.createElement('article');card.className='journal-food';const found=foods.includes(f.id);card.classList.toggle('is-locked',!found);
+  const img=document.createElement('img');img.src=`assets/v3/fruit-${f.id}.webp`;img.alt='';img.width=100;img.height=100;
+  const title=document.createElement('h3');title.textContent=f.name;const text=document.createElement('p');text.textContent=found?f.description:'Recolha este item durante o voo para registrar sua descoberta.';
+  const state=document.createElement('span');state.className='journal-category';state.textContent=found?'Registrado':'Ainda não coletado';const copy=document.createElement('div');copy.append(state,title,text);card.append(img,copy);return card;
  }));
 }

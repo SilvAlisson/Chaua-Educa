@@ -34,7 +34,9 @@ const {chromium}=require('playwright');
     }
     return {mode:g.mode,won:g.won,reason:g.reason,score:g.score,correct:g.correct,elapsed:g.elapsed,stages:[...stages],encounters:[...hits]};
    });
-   console.log(JSON.stringify(summary));assert.equal(summary.won,true,summary.reason);assert.equal(summary.stages.length,4);assert.ok(summary.correct>=2);assert.ok(summary.encounters.includes('hawk'));assert.ok(summary.encounters.includes('snake'));assert.deepEqual(errors,[]);await page.close();
+   console.log(JSON.stringify(summary));assert.equal(summary.won,true,summary.reason);
+   await page.locator('#result-dialog').waitFor({state:'visible'});await page.waitForTimeout(750);
+   assert.equal(await page.locator('#result-dialog').evaluate(d=>d.querySelector('h2').getBoundingClientRect().top>=d.getBoundingClientRect().top),true,'result opens with the complete title visible');assert.equal(summary.stages.length,4);assert.ok(summary.correct>=2);assert.ok(summary.encounters.includes('hawk'));assert.ok(summary.encounters.includes('snake'));assert.deepEqual(errors,[]);await page.close();
   }
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -69,3 +69,17 @@ A verificação exploratória da `main` em `25aa68a` encontrou três casos não 
 A seleção da pose da cobra agora é compartilhada entre desenho e colisão também com movimento reduzido. O piscar mantém a pose de repouso como base e aplica apenas a região do olho do quadro fechado; corpo, bico e pés permanecem registrados. A mensagem distingue o suporte real da cobra.
 
 Os testes novos reproduziram as falhas antes da correção. Depois: 144 testes de lógica aprovados, build consistente, regressão por pixels do piscar em quatro escalas sem mudanças fora da região do olho e comparação da colisão com o quadro efetivamente desenhado para cobras em tronco/galho, em quatro fases e cinco instantes. Os dois percursos completos, os controles e as cinco resoluções continuam aprovados. Na reprodução visual do menu, o deslocamento dos pés passou de 11 para 0 pixels.
+
+## Revisão guiada pelos prints do jogador · 2.2.0
+
+Os testes funcionais anteriores não validavam a coerência visual do conjunto. Os prints do jogador evidenciaram seis problemas: folhas em faixas, escala do abrigo, galhos em blocos e cobra pequena, janela retangular, ave sobreposta à madeira após impacto e Chauapédia comprimida.
+
+- Removidas as faixas adicionais de folhagem. A ilustração da mata fornece o enquadramento natural.
+- Madeira de obstáculos ampliada para 110 unidades; abrigo com tronco contínuo de 215 unidades e ramo ligado à árvore. Removidas as duas aves em miniatura. Galhos curvos são desenhados antes do tronco para não deixar uma linha de corte colada sobre a casca.
+- Cobra com corpo completo em escala maior, voltada para a aproximação. Desenho e cabeça perigosa continuam usando os mesmos metadados, inclusive com movimento reduzido. As aberturas dos encontros com cobra aumentaram 44 unidades para manter passagem e reação. Os planos consideram 220 unidades de madeira/ramificações na troca de altura.
+- A janela retangular foi retirada. Novos encontros geram somente madeira simples ou ramificada; variantes antigas com janela são tratadas como madeira sólida.
+- Colisão das aves continua arredondada. Após contato fatal com madeira, a posição de desenho é corrigida com os limites dos quadros e a rotação de impacto, evitando que a sprite entre na árvore. Não há alongamento nem redução da ave.
+- Chauapédia reconstruída: cartões ilustrados, uma coluna no celular, ficha de leitura, aba de alimentos e navegação pelo teclado. Fatos e referências existentes foram conservados; fontes/datas ficam na leitura da ficha. Sem bordas tracejadas de cartões vazios nem miniaturas de caderno antigo.
+- Incluídas as três correções pendentes do relatório: botões de fechar independentes dos CTAs, rolagem do menu baixo em paisagem e resultado aberto no topo sem rolagem causada pelo foco.
+
+149 testes de lógica/geometria aprovados; regressão nativa da Chauapédia em 320, 390 e 1440 px, leitura/retorno, alimentos, teclado, fontes locais e ausência de recursos faltando. Testes visuais e de interface preservados. Percursos completos em Desafio e Amigável passaram pelas quatro etapas e três perguntas; o teste verifica que o título do resultado permanece visível. São ensaios em Chromium com toque emulado, não em aparelhos físicos. Ranking floresta-v6; recordes v5 ficam no Histórico, missões/coleção preservadas.

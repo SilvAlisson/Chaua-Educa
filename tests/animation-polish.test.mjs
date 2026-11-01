@@ -84,10 +84,10 @@ test('reduced motion fixes the hawk pose and removes all tumble rotation',()=>{
     assert.deepEqual(capture.rotations,[0]);
 });
 
-test('hollow opening is clipped out of the upper trunk as well as the collision core',()=>{
+test('legacy hollow art no longer cuts a rectangular hole through the tree',()=>{
     const capture=recordingContext(),r=Object.create(Renderer.prototype);r.c=capture.context;r.trunk=()=>{};r.wood=()=>{};
     r.obstacle({id:3,x:400,top:200,bottom:440,variant:'hollow'},{elapsed:1},false);
-    assert.equal(capture.clips[0],'evenodd');
+    assert.equal(capture.clips.length,0);
 });
 
 test('pepper, feather and their combination apply consistently to fruit, route and quiz',()=>{

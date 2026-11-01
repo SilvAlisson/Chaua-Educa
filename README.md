@@ -244,4 +244,12 @@ O Chauá, o predador e a cobra têm três spritesheets novas, com 16 poses compl
 
 Artes, fontes originais, metadados, briefing de geração e preparação reproduzível: [assets/v6](Chaua-Educa-main/assets/v6/README.md). A [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md) registra falhas confirmadas, correções, evidências e limites da validação.
 
-Validação atual: 144 testes automatizados (`npm test`), build Sass e, com servidor e Chromium disponíveis, `npm run test:visual`, `npm run test:browser` e `npm run test:journey`. Os testes visuais verificam 48 células, 60 quadros do Chauá e 144 do predador; as jornadas completam ambos os modos com comandos simulados. `GAME_URL` e `CHROMIUM_PATH` permitem configurar o ambiente de navegador.
+Validação atual: 149 testes automatizados (`npm test`), build Sass e, com servidor e Chromium disponíveis, `npm run test:visual`, `npm run test:browser` e `npm run test:journey`. Os testes visuais verificam 48 células, 60 quadros do Chauá e 144 do predador; as jornadas completam ambos os modos com comandos simulados. `GAME_URL` e `CHROMIUM_PATH` permitem configurar o ambiente de navegador.
+
+### Floresta e Chauapédia · 2.2.0
+
+A revisão retira as faixas repetidas de folhas e a janela retangular dos obstáculos. A madeira tem 110 unidades de largura, com galhos curvos ligados ao tronco; o abrigo usa uma árvore contínua de 215 unidades e um ramo de pouso, sem papagaios em miniatura. A cobra é maior e olha para a aproximação. Os encontros com cobra ganham 44 unidades de abertura para compensar a nova área ocupada. O planejamento também reserva mais espaço entre madeiras largas. Corpo e cabeça das aves mantêm suas formas de colisão; a pose após contato fatal é posicionada fora da madeira, considerando a extensão e a rotação dos quadros.
+
+A Chauapédia foi reconstruída com ilustrações do jogo, cartões responsivos, leitura individual, abas de temas/alimentos e fontes na ficha. Descobertas e coleção anteriores permanecem. Corrigidos também os botões de fechar, a rolagem do menu em paisagem e a abertura do resultado no topo. Como a geometria dos encontros mudou, o ranking atual passa a floresta-v6; v5 permanece no Histórico.
+
+Validação: 149 testes de lógica, build Sass, verificação por pixels, interfaces em cinco resoluções e dois percursos completos. `npm run test:immersion` cobre Chauapédia, leitura, abas, teclado, botões de fechar, rolagem em paisagem e captura das cenas de floresta, cobra, abrigo e impacto. Os testes de percurso também verificam o título completo do resultado no celular.
