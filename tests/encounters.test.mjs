@@ -1,3 +1,4 @@
+import {pilotTarget} from './helpers/pilot.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
@@ -38,7 +39,7 @@ test('80 complete journeys are navigable without shields, fruit or quiz pauses',
    // No pickups, shielding or quiz pauses may hide an unsafe corridor.
    g.entities=g.entities.filter(e=>e.kind==='wood'||e.kind==='hawk');
    const wood=g.entities.find(e=>e.kind==='wood'&&e.x+100>g.x);
-   const target=wood?(wood.top+wood.bottom)/2:320;
+   const target=pilotTarget(g);
    if(g.y>target+12&&g.vy>0&&g.flapCooldown<=0){g.press();g.release();}
    g.tick(STEP);
    if(g.state==='ended'){assert.equal(g.won,true,`${mode} seed ${seed}: ${g.reason}`);break;}

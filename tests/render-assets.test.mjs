@@ -42,12 +42,12 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  r.game(g,false);
  r.game(g,true);
  r.setQuality('low');r.game(g,false);assert.equal(r.dpr,1);
- for(const name of ['forest','perch','chaua-0','snake','branch','hollow','hawk-0','shield','feather'])
+ for(const name of ['forest','chaua-atlas','snake-atlas','hawk-atlas','shield','feather'])
   assert.ok(calls.some(url=>url.endsWith(`/${name}.webp`)),`${name} must be rendered`);
  assert.equal(images.size,Object.keys(ASSET_PATHS).length);
 });
 test('snake collision follows lower trunk and clears after shield retreat',()=>{
  const g=new Game(),e={x:400,top:180,bottom:450,snake:{retreat:false}};
- assert.ok(g.snakeRects(e).every(r=>r.y>=e.bottom));
+ assert.ok(g.snakeRects(e).every(r=>r.y>=e.bottom-40&&r.y<e.bottom));
  e.snake.retreat=true;assert.deepEqual(g.snakeRects(e),[]);
 });

@@ -15,10 +15,10 @@ test('passed hawks become harmless, shield retreat exits within two seconds',()=
  g.entities=[bird];g.collide(bird,true);const x=bird.x;advanceHawk(bird,.1,g.speed,g.x);assert.ok(bird.x>x);assert.equal(bird.phase,'retreat');assert.equal(g.score,0);
  advanceHawk(bird,1.9,g.speed,g.x);assert.equal(bird.finished,true);g.nextSpawn=Infinity;g.y=300;g.tick(STEP);assert.equal(g.entities.length,0);
 });
-test('snake stages change without moving its occupied collision area',()=>{
+test('snake stages advance while its animated head stays near the announced position',()=>{
  const g=new Game();const e={kind:'wood',x:900,bottom:400,snake:{y:435,retreat:false}};
  advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'watching');
- e.x=700;const rects=g.snakeRects(e);advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'warning');assert.deepEqual(g.snakeRects(e),rects);
+ e.x=700;const rects=g.snakeRects(e);advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'warning');assert.ok(Math.abs(g.snakeRects(e)[0].x-rects[0].x)<12);assert.ok(Math.abs(g.snakeRects(e)[0].y-rects[0].y)<12);
  e.x=300;advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'occupied');e.x=100;advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'leaving');
  e.snake.retreat=true;advanceSnake(e,.2,220);assert.equal(e.snake.phase,'retreat');assert.equal(g.snakeRects(e).length,0);
 });

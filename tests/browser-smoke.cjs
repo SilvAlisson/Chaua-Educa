@@ -29,6 +29,21 @@ async function begin(page, name = 'Guardião da mata') {
     try {
         const context = await browser.newContext({ viewport: { width:1440, height:960 } });
         const page = await context.newPage(); await inspect(page);
+        // Weighted poses must preserve opaque bodies on a transparent canvas.
+        assert.equal(await page.evaluate(async()=>{
+            const {drawBird}=await import('/js/render.mjs');
+            const {images}=await import('/js/assets.mjs');
+            const source=document.createElement('canvas');source.width=1536;source.height=1536;
+            source.getContext('2d').fillRect(0,0,1536,1536);
+            const image=new Image();image.src=source.toDataURL();await image.decode();
+            const original=images.get('chaua-atlas');
+            try {
+                images.set('chaua-atlas',image);
+                const canvas=document.createElement('canvas');canvas.width=300;canvas.height=300;
+                const context=canvas.getContext('2d');drawBird(context,{x:150,y:150,wing:.8});
+                return context.getImageData(150,150,1,1).data[3];
+            } finally {images.set('chaua-atlas',original);}
+        }),255);
         // Optional practice works before entering a name and never records a ranked flight.
         await page.locator('#start-training:not([disabled])').click();
         await playing(page);
@@ -55,6 +70,13 @@ async function begin(page, name = 'Guardião da mata') {
         await page.keyboard.press('Escape'); assert.equal(await page.locator('#guide-dialog').isVisible(),false);
         await page.locator('#inputPlayer').fill('Guardião da mata');
         await page.locator('#btnStart').click();
+        // Repeated submits during countdown cannot reset the run or its identity.
+        assert.equal(await page.evaluate(async()=>{
+            const {game}=await import('/js/script.js');
+            const before=JSON.stringify([game.seed,game.countdown,game.mode,game.y]);
+            for(let i=0;i<10;i++)document.querySelector('#start-form').dispatchEvent(new Event('submit',{cancelable:true}));
+            return before===JSON.stringify([game.seed,game.countdown,game.mode,game.y]);
+        }),true);
         await page.keyboard.down('Space');
         assert.equal(await model(page,g=>g.state),'countdown');
         assert.equal(await model(page,g=>g.held),true);
@@ -78,12 +100,21 @@ async function begin(page, name = 'Guardião da mata') {
         assert.equal(await model(page,g=>g.entities[0].contacted && !g.entities[0].broken),true);
         await model(page,g=>{g.entities=[];g.y=300;g.vy=0;g.fruits=1;g.feather=2;g.collect({kind:'fruit',x:g.x,y:g.y});g.elapsed=g.nextQuizAt;g.maybeOpenQuiz();});
         await page.locator('#quiz-dialog').waitFor({state:'visible'});
-        assert.match(await page.locator('#quiz-bonus').innerText(),/garantida/);
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('#quiz-dialog').isVisible(),true);
+        assert.equal(await model(page,g=>g.state),'quiz');
+        assert.equal(await page.locator('#quiz-continue').isVisible(),false);
+        assert.match(await page.locator('#quiz-bonus').innerText(),/garantido/);
         const quizTime = await model(page,g=>g.feather); await page.waitForTimeout(250);
         assert.equal(await model(page,g=>g.feather),quizTime);
         const right = await model(page,g=>g.question.answer);
         await page.keyboard.press(right ? 'v' : 'f');
         assert.match(await page.locator('#answer-feedback').innerText(),/\+4/);
+        const explanation=await page.locator('#answer-feedback').innerText();
+        const answerScore=await model(page,g=>g.score);
+        await page.keyboard.press(right ? 'v' : 'f');
+        assert.equal(await page.locator('#answer-feedback').innerText(),explanation);
+        assert.equal(await model(page,g=>g.score),answerScore);
         await page.locator('#quiz-continue').click(); await playing(page);
         await model(page,g=>{g.score=42;g.end(false,'Você encostou na cobra do galho.');});
         await page.locator('#result-dialog').waitFor({state:'visible'});
@@ -106,7 +137,7 @@ async function begin(page, name = 'Guardião da mata') {
         // Local record survives reload and the old record is untouched.
         await page.reload({waitUntil:'networkidle'});
         assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua'))[0].score_val),777);
-        assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua-floresta-v4'))[0].score_val),200);
+        assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua-floresta-v5'))[0].score_val),200);
         console.log('PASS desktop: keyboard, pause, shield, quiz, multiplier, defeat, victory, immediate restart, isolated ranking, persistence');
 
         const mobile = await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
@@ -115,6 +146,9 @@ async function begin(page, name = 'Guardião da mata') {
         await touch.locator('#inputPlayer').fill('Asas pequenas'); await touch.locator('input[value=tranquilo]').check();
         await touch.locator('#btnStart').tap(); await playing(touch);
         assert.equal(await model(touch,g=>g.mode),'tranquilo');
+        assert.equal(await touch.locator('.power-bar').evaluate(bar=>[...bar.children].every(chip=>{
+            const r=chip.getBoundingClientRect();return r.x>=0&&r.right<=innerWidth;
+        })),true);
         const session = await mobile.newCDPSession(touch);
         const box = await touch.locator('#flap-button').boundingBox(), point={x:box.x+box.width/2,y:box.y+box.height/2};
         await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
@@ -151,6 +185,14 @@ async function begin(page, name = 'Guardião da mata') {
             assert.equal(await touch.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
             await touch.locator('#guide-dialog .primary').scrollIntoViewIfNeeded();
             await touch.locator('#guide-dialog .primary').click();
+            if(viewport.width===320){
+                await begin(touch,'Voo compacto');
+                assert.equal(await touch.locator('.power-bar').evaluate(bar=>[...bar.children].every(chip=>{
+                    const r=chip.getBoundingClientRect();return r.x>=0&&r.right<=innerWidth;
+                })),true);
+                assert.equal(await touch.locator('.orientation-hint').evaluate(hint=>hint.getBoundingClientRect().top>=document.querySelector('.power-bar').getBoundingClientRect().bottom),true);
+                await touch.locator('#pause-button').tap();await touch.locator('#pause-dialog .back-home').tap();
+            }
         }
         await touch.setViewportSize({width:844,height:390}); await begin(touch,'Voo de lado');
         const flapBounds=await touch.locator('#flap-button').boundingBox();

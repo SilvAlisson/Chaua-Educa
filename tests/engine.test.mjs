@@ -1,3 +1,4 @@
+import {pilotTarget} from './helpers/pilot.mjs';
 import { QUESTIONS } from '../Chaua-Educa-main/js/questions.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -129,7 +130,7 @@ test('desktop and portrait routes are flyable through the full progression', () 
         let sawSnake=false, sawHawk=false;
         for (let i=0;i<180/STEP;i++) {
             const nextWood=game.entities.find(e=>e.kind==='wood'&&e.x+100>game.x);
-            const target=nextWood?(nextWood.top+nextWood.bottom)/2:320;
+            const target=pilotTarget(game);
             if (game.y>target+12 && game.vy>0 && game.flapCooldown<=0) {game.press();game.release();}
             if (game.state==='quiz') {game.answer(game.question.answer);game.continueQuiz();}
             game.tick(STEP);

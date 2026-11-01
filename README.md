@@ -21,7 +21,7 @@ A nova aventura mantém o objetivo educativo do Chauá e acrescenta voo com plan
 - **Escudo de penas:** absorve um contato e concede 1,6 s para sair da colisão. Reposiciona o Chauá na passagem sem destruir troncos vivos; apenas o galho seco saliente pode se quebrar. Afasta animais sem destruí-los e protege dos limites superior e inferior. Contatos protegidos não dão pontos de passagem. Recolher mais escudos não acumula vidas. Não protege de resposta incorreta.
 - **Pena dourada:** dobra os pontos por 10 s de voo. Outra pena renova o tempo; não aumenta o multiplicador. Pausas e perguntas congelam o relógio. O multiplicador da resposta é capturado quando o quiz abre e permanece garantido durante a leitura.
 - **Aprendizado:** uma passagem vale 1 ponto; um fruto, 3; uma resposta correta, 2. Coletar prepara uma descoberta única. Após pelo menos 30 s de voo, novos encontros aguardam e a pergunta abre somente depois de a rota ficar livre e a ave estar longe dos limites, em velocidade vertical moderada. No Desafio, a resposta incorreta encerra o voo após a explicação; no Amigável, permite continuar. As 24 perguntas incluem explicação, fonte e data de revisão e não se repetem até esgotar a lista. Com 200 pontos, há uma medalha; a vitória acontece ao chegar ao abrigo do bando.
-- **Ranking:** Desafio e Amigável (identificadores internos `aventura` e `tranquilo`) têm classificações próprias em `db-chaua-floresta-v4` (jornada atual); as classificações `floresta-v2` e `floresta-v3` ficam no histórico. O ranking clássico continua intacto em `db-chaua` e pode ser consultado separadamente. Dados ficam no navegador; se o armazenamento estiver indisponível, os novos resultados ficam só na sessão.
+- **Ranking:** Desafio e Amigável (identificadores internos `aventura` e `tranquilo`) têm classificações próprias em `db-chaua-floresta-v5` (jornada atual); as classificações `floresta-v2`, `floresta-v3` e `floresta-v4` ficam no histórico. O ranking clássico continua intacto em `db-chaua` e pode ser consultado separadamente. Dados ficam no navegador; se o armazenamento estiver indisponível, os novos resultados ficam só na sessão.
 - **Acessibilidade:** botões e quizzes por teclado/toque, diálogos com foco contido, pausa ao sair da aba, controle de som e respeito a `prefers-reduced-motion`. O voo é um jogo visual; a navegação e os resultados têm rótulos para tecnologias assistivas.
 
 ### Desenvolver
@@ -221,3 +221,27 @@ Canvas limitado a 4 milhões de pixels em qualquer resolução; DPR máximo 2 na
 HUD atualizado a cada 80 ms, com transições de estado imediatas. A simulação mantém passo fixo de 120 Hz e a renderização continua interpolada na frequência do monitor. Abas ocultas deixam de desenhar. O filtro de vento é atualizado no máximo 10 vezes/s, o áudio tem limite de 24 vozes simultâneas e volume ajustável com transição suave. Perda de foco silencia também efeitos; o treino ganhou sinais sonoros de avanço e conclusão, respeitando a opção de som.
 
 Validação: testes de limites de pixels, qualidade automática e manual, estabilidade da simulação, renderização econômica com os assets existentes, volume, perda de foco e limite de vozes. Os resultados são verificações funcionais; ainda não representam benchmark de FPS/GPU nem teste auditivo ou visual em dispositivo real.
+
+### Correções e polimento das animações
+
+- Inícios repetidos durante a contagem não reiniciam a partida nem trocam o jogador. Perguntas continuam obrigatórias: Esc não fecha o quiz, e respostas repetidas não duplicam pontos ou explicações.
+- As poses do Chauá e do gavião usam transições suaves com composição em uma única superfície reutilizada, sem deixar o corpo transparente. O impacto começa na posição exata do voo e termina com uma inclinação curta. Movimento reduzido também desativa a rotação do gavião atordoado.
+- Distância do cenário, asas, recuo da cobra e giro do gavião são interpolados entre os ticks. A folhagem mantém identidade e fase de vento ao atravessar uma emenda e cobre telas largas. O tronco permanece opaco quando a cabeça da cobra recua; a passagem do tronco oco fica visível e alinhada à colisão.
+- O bônus já existente da pimenta passa a valer também para frutas, trilhas e perguntas: ×2 por poder ou ×4 quando pena e pimenta estão juntas. O valor da resposta fica garantido durante o quiz. O guia, o ranking e o detalhamento dos pontos explicam os dois poderes.
+- Os três indicadores de poderes cabem em telas de 320 px, sem esconder o turbo nem sobrepor a dica de orientação.
+
+Validação: 123 testes de lógica e renderização instrumentada, build SCSS, teste de navegador Chromium com teclado/toque, início repetido, quiz obrigatório, opacidade das poses, pausa, derrota, vitória, reinício, persistência e cinco tamanhos de tela. As cenas de voo, troncos e recuo dos animais também foram capturadas e inspecionadas com os recursos reais.
+
+### Revisão da experiência · 2.1.0
+
+A [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md) separa falhas reproduzidas de melhorias de apresentação e corrige o enquadramento móvel, a escala da madeira, a colisão das cobras e a geração de galhos. O gavião mantém um aviso durante a aproximação e ganha articulação de asa independente do torso; suas rotas exigem desvio, sem perseguir o jogador. O Amigável agora oferece maior espaço e cadência mais lenta que o Desafio. A mata recebe folhas com dobra e luz, névoa e enquadramento por copa e musgo.
+
+O ranking atual passa a `db-chaua-floresta-v5`; v4 entra no Histórico sem ser alterado. Missões e coleções continuam preservadas. `npm run test:journey`, com o servidor ativo e `CHROMIUM_PATH` quando necessário, executa os dois percursos completos no navegador com comandos simulados.
+
+### Spritesheets e acabamento atual
+
+O Chauá, o predador e a cobra têm três spritesheets novas, com 16 poses completas cada. Voo, pouso, repouso e reações usam registros comuns; o voo evita a sobreposição translúcida de asas em posições diferentes. A cobra inteira se recolhe, separada de troncos e galhos contínuos desenhados em Canvas. Avisos compartilham posicionamento, limites de copa/chão ficam visíveis e os poderes cabem no modo paisagem estreito.
+
+Artes, fontes originais, metadados, briefing de geração e preparação reproduzível: [assets/v6](Chaua-Educa-main/assets/v6/README.md). A [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md) registra falhas confirmadas, correções, evidências e limites da validação.
+
+Validação atual: 142 testes automatizados (`npm test`), build Sass e, com servidor e Chromium disponíveis, `npm run test:visual`, `npm run test:browser` e `npm run test:journey`. Os testes visuais verificam 48 células, 60 quadros do Chauá e 144 do predador; as jornadas completam ambos os modos com comandos simulados. `GAME_URL` e `CHROMIUM_PATH` permitem configurar o ambiente de navegador.
