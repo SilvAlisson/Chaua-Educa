@@ -37,6 +37,18 @@ function atlasAnimation(c,name,clip,factor){
     if(clip.blend>0&&clip.frame!==clip.next)blendSprite(c,layer=>atlasFrame(layer,name,clip.frame,factor),layer=>atlasFrame(layer,name,clip.next,factor),clip.blend);
     else atlasFrame(c,name,clip.frame,factor);
 }
+function perchedSprite(c,clip,factor){
+    // Blink changes only the eye. Switching whole idle poses moves the feet
+    // because the generated closed-eye pose has a different body silhouette.
+    atlasFrame(c,'chaua',12,factor);
+    const closed=clip.frame===13?1-clip.blend:clip.next===13?clip.blend:0;
+    if(closed<=0)return;
+    const openEye=SPRITES.chaua.frames[12].eye;
+    c.save();c.beginPath();
+    c.ellipse((openEye[0]-192)*factor,(openEye[1]-192)*factor,21*factor,25*factor,0,0,TAU);c.clip();
+    c.globalAlpha*=closed;
+    atlasFrame(c,'chaua',13,factor);c.restore();
+}
 function birdFoot(scale){
     const f=SPRITES.chaua.frames[12];return (f.content[1]+f.content[3]-f.anchor[1])*27.7027*scale/SPRITES.chaua.landmarkWidth;
 }
@@ -47,7 +59,8 @@ function animatedBird(c,p){
     c.save();c.translate(x,y);
     if(defeated&&!reduced){const hit=impactPose(impactProgress);c.translate(hit.x,hit.y);c.rotate(angle+hit.angle);}else c.rotate(angle);
     if(turbo&&!perched&&!reduced)drawTurboFlames(c,size,time);
-    atlasAnimation(c,'chaua',clip,factor);
+    if(perched&&!surprise&&!defeated&&landing===null)perchedSprite(c,clip,factor);
+    else atlasAnimation(c,'chaua',clip,factor);
     const a=SPRITES.chaua.frames[clip.frame].eye,b=SPRITES.chaua.frames[clip.next].eye;
     const ex=(a[0]+(b[0]-a[0])*clip.blend-192)*factor,ey=(a[1]+(b[1]-a[1])*clip.blend-192)*factor;
     if(defeated||surprise){drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);if(!reduced)drawOrbitingStars(c,ex,ey-size*.35,size,time);}
@@ -756,7 +769,7 @@ export class Renderer {
         c.lineWidth=width*.5;c.strokeStyle='#c19355';c.beginPath();c.moveTo(x1,y1);c.quadraticCurveTo((x1+x2)/2,y1+3,x2,y2);c.stroke();c.restore();
     }
     snake(wood,reduced){
-        const s=wood.snake,place=snakePlacement(wood),clip=reduced?{frame:s.retreat?11:0,next:s.retreat?11:0,blend:0}:snakeAnimation(s),c=this.c;
+        const s=wood.snake,place=snakePlacement(wood),clip=snakeAnimation(s,reduced),c=this.c;
         c.save();c.translate(place.x,place.y);
         if(s.retreat)c.globalAlpha=Math.max(0,1-smoothstep(((s.retreatTime||0)-.95)/.35));
         atlasAnimation(c,'snake',clip,place.factor);c.restore();

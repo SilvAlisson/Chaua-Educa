@@ -32,14 +32,15 @@ export function hawkAnimation(e,time=0,reduced=false){
  if(e.dive)return sequence(CLIPS.hawk.dive,(Math.sin(time*4)+1)/2);
  return flightFrame(CLIPS.hawk.flight,time*2.2+(e.id||0)*.13);
 }
-export function snakeAnimation(s={}){
+export function snakeAnimation(s={},reduced=false){
+ if(reduced){const frame=s.retreat?11:0;return {frame,next:frame,blend:0};}
  if(s.retreat)return sequence(CLIPS.snake.withdraw,(s.retreatTime||0)/.85);
  if(Number.isFinite(s.age)&&s.age<.8)return sequence(CLIPS.snake.emerge,s.age/.8);
  return sequence(s.phase==='warning'||s.phase==='occupied'?CLIPS.snake.alert:CLIPS.snake.idle,(s.age||0)*1.1,true);
 }
 export function snakePlacement(wood){return {x:wood.snake?.branch?wood.x-24:wood.x+29,y:wood.snake?.branch?wood.bottom+28:wood.bottom+18,factor:.2};}
-export function spriteHeadRect(wood){
- const {x,y,factor}=snakePlacement(wood),clip=snakeAnimation(wood.snake),data=SPRITES.snake;
+export function spriteHeadRect(wood,reduced=false){
+ const {x,y,factor}=snakePlacement(wood),clip=snakeAnimation(wood.snake,reduced),data=SPRITES.snake;
  const a=data.frames[clip.frame].head,b=data.frames[clip.next].head,t=clip.blend;
  const [cx,cy,rx,ry]=a.map((v,i)=>v+(b[i]-v)*t);
  return {x:x+(cx-data.anchor[0]-rx)*factor,y:y+(cy-data.anchor[1]-ry)*factor,w:rx*2*factor,h:ry*2*factor};
