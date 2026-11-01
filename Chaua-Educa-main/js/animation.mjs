@@ -1,3 +1,5 @@
+import {SNAKE_WRAP} from './snake-wrap-data.mjs';
+import {SNAKE_TIMING} from './animals.mjs';
 import {SPRITES} from './sprite-data.mjs';
 const clamp=v=>Math.max(0,Math.min(1,v));
 const ease=v=>{const t=clamp(v);return t*t*(3-2*t);};
@@ -35,11 +37,21 @@ export function hawkAnimation(e,time=0,reduced=false){
 export function snakeAnimation(s={},reduced=false){
  if(reduced){const frame=s.retreat?15:0;return {frame,next:frame,blend:0};}
  if(s.retreat)return sequence(CLIPS.snake.withdraw,(s.retreatTime||0)/.85);
- if(Number.isFinite(s.age)&&s.age<.8)return sequence(CLIPS.snake.emerge,s.age/.8);
- if(s.phase==='occupied')return sequence(CLIPS.snake.attack,(s.age||0)*.65,true);
- return sequence(s.phase==='warning'||s.phase==='occupied'?CLIPS.snake.alert:CLIPS.snake.idle,(s.age||0)*1.1,true);
+ if(s.phase==='windup')return sequence([7,8],(s.phaseAge||0)/SNAKE_TIMING.windup);
+ if(s.phase==='striking')return sequence([8,9,10],(s.phaseAge||0)/SNAKE_TIMING.strike);
+ if(s.phase==='recovering')return sequence([10,11,12,13,15],(s.phaseAge||0)/SNAKE_TIMING.recovery);
+ if(['spent','leaving'].includes(s.phase))return {frame:15,next:15,blend:0};
+ if(s.phase==='warning')return sequence([0,4,5,6,7],(s.warningAge||0)/SNAKE_TIMING.warning);
+ return sequence(CLIPS.snake.idle,(s.age||0)*.45,true);
 }
-export function snakePlacement(wood){return {x:wood.x+29-(wood.snake?.branch?65:5),y:wood.bottom+(wood.snake?.branch?34:8),factor:.37,facing:1};}
+export function snakePlacement(wood){return {x:wood.x+29,y:wood.bottom+20,factor:.52,facing:1};}
+export function spriteBodyRects(wood,reduced=false){
+ const p=snakePlacement(wood),clip=snakeAnimation(wood.snake,reduced),frame=clip.blend>.5?clip.next:clip.frame;
+ // Forgiving ellipse inside the visible coil; the empty center is not treated
+ // as an extra rectangular obstacle. Most of its lower half meets solid wood.
+ return [{x:p.x-112*p.factor,y:p.y-66*p.factor,w:224*p.factor,h:62*p.factor},...SNAKE_WRAP.neckMasks[frame].map(([x,y,w,h])=>({x:p.x+(x-192)*p.factor,y:p.y+(y-328)*p.factor,w:w*p.factor,h:h*p.factor})),...SNAKE_WRAP.colliders.map(([x,y,w,h])=>({x:p.x+x,y:p.y+y,w,h}))];
+}
+
 export function spriteHeadRect(wood,reduced=false){
  const {x,y,factor,facing}=snakePlacement(wood),clip=snakeAnimation(wood.snake,reduced),data=SPRITES.snake;
  const a=data.frames[clip.frame].head,b=data.frames[clip.next].head,t=clip.blend;

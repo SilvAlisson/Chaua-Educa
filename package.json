@@ -1,6 +1,6 @@
 {
   "name": "chaua-educa",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "private": true,
   "type": "module",
   "description": "Uma aventura educativa do papagaio-chauá pela Mata Atlântica.",
@@ -13,7 +13,8 @@
     "test:journey": "node tests/browser-journey.cjs",
     "test:visual": "node tests/browser-visual.cjs",
     "test:immersion": "node tests/browser-immersion.cjs",
-    "test:reference-art": "node tests/browser-reference-art.cjs"
+    "test:reference-art": "node tests/browser-reference-art.cjs",
+    "test:snake": "node tests/browser-snake-strike.cjs"
   },
   "engines": {
     "node": ">=22"

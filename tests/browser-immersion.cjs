@@ -26,7 +26,7 @@ const root=process.env.GAME_URL||'http://127.0.0.1:5501/',out=process.env.SCREEN
  for(const [name,mode]of [['floresta','forest'],['cobra','snake'],['abrigo','refuge'],['impacto','impact']]){
   const metrics=await art.evaluate(mode=>{
    const {r,Game}=window.scene,g=new Game();g.state='paused';g.y=300;g.wing=.65;g.sceneTime=44;g.elapsed=44;g.stage=1;g.stageAge=10;g.distance=9000;
-   g.entities=mode==='refuge'?[]:[{id:1,kind:'wood',x:520,top:180,bottom:430,variant:mode==='snake'?'branch':'plain',snake:mode==='snake'?{branch:true,phase:'occupied',age:2,retreat:false}:null}];
+   g.entities=mode==='refuge'?[]:[{id:1,kind:'wood',x:520,top:180,bottom:430,variant:mode==='snake'?'branch':'plain',snake:mode==='snake'?{branch:true,phase:'warning',warningAge:.8,age:2,retreat:false}:null}];
    if(mode==='refuge'){g.refuge={x:330,y:320};g.y=320;g.won=true;g.state='ended';g.arrival={offset:110,age:1.6};}
    if(mode==='impact'){g.state='playing';g.entities=[{id:2,kind:'wood',x:g.x-10,top:350,bottom:550,variant:'plain'}];g.nextSpawn=Infinity;g.tick(1/120);g.tick(.18);}
    r.game(g,false,44);return {state:g.state,impactContact:g.impactContact};

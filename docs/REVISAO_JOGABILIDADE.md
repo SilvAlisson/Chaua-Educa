@@ -93,3 +93,13 @@ Os testes funcionais anteriores não validavam a coerência visual do conjunto. 
 - Cobra: 16 células registradas pela largura da parte enrolada e base; olho fechado sem confusão de landmark com narina; último quadro idêntico ao primeiro; orientação esquerda e animação de bote/recuo.
 - Maior abertura nos encontros com cobra, validada com decisões a 30 Hz e 120 ms de reação. Histórico mantém pontuações v6 e anteriores.
 - CI ampliado: Chromium, atlas, interface, Chauapédia, contato com a madeira e conclusão da jornada nos dois modos.
+
+
+## Cobra: presença e sequência de ataque — 2.4.0
+
+- Escala 0,52, contra 0,37; novo segmento de corpo com centro transparente envolvendo a madeira.
+- Alerta mínimo de 0,8 s, preparação de 0,45 s, bote de 0,22 s e recuperação de 0,6 s; trava por entidade impede repetição.
+- Colisões no pescoço e corpo além da cabeça; máscaras inscritas na arte, sem retângulo fechando o espaço entre curvas.
+- Geometria acompanha o quadro dominante do corpo e a interpolação da cabeça. Movimento reduzido usa pose e contato estáticos correspondentes.
+- Verificação detalhada só dentro do alcance; rejeição por limites antes das elipses evita custo de colisão distante.
+- Nova abertura nos encontros, 157 testes e jornadas completas nos dois modos. Histórico preserva v7 e anteriores.

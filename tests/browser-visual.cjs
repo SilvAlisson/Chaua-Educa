@@ -63,13 +63,13 @@ function components(pixels,width,height,select){
   for(const r of blinkChecks){if('outside'in r)assert.equal(r.outside,0,`blink moves body/feet at scale ${r.scale}, time ${r.time}`);else assert.ok(r.eyeChanges>0,`blink missing at scale ${r.scale}`);}
   console.log('PASS perched blink at four scales: only the eye changes, body and feet stay registered');
   const snakeChecks=await page.evaluate(async()=>{
-   const {Game}=await import('/js/engine.mjs'),{SPRITES}=await import('/js/sprite-data.mjs'),{snakePlacement}=await import('/js/animation.mjs');
+   const {images}=await import('/js/assets.mjs'),{Game}=await import('/js/engine.mjs'),{SPRITES}=await import('/js/sprite-data.mjs'),{snakePlacement}=await import('/js/animation.mjs');
    const {r}=window.visualTest,c=r.c,g=new Game();g.reducedMotion=true;const results=[];
    const original=c.drawImage;
    try{
-    for(const branch of [false,true])for(const phase of ['watching','warning','occupied','leaving'])for(const age of [.1,.4,.8,1.3,2]){
+    for(const branch of [false,true])for(const phase of ['watching','warning','windup','striking','recovering','spent','leaving'])for(const age of [.1,.4,.8,1.3,2]){
      const wood={kind:'wood',x:220,bottom:320,snake:{branch,phase,age,retreat:false}},calls=[];
-     c.drawImage=function(image,...args){calls.push(args);return original.call(this,image,...args);};r.base();r.snake(wood,true);
+     c.drawImage=function(image,...args){if(image===images.get('snake-atlas'))calls.push(args);return original.call(this,image,...args);};r.base();r.snake(wood,true);
      const [sx,sy,sw,sh,dx,dy,dw,dh]=calls[0],frame=SPRITES.snake.frames.find(f=>f.rect[0]===sx&&f.rect[1]===sy),[cx,cy,rx,ry]=frame.head,p=snakePlacement(wood);
      const shown={x:p.x+dx+(cx-rx)*dw/sw,y:p.y+dy+(cy-ry)*dh/sh,w:rx*2*dw/sw,h:ry*2*dh/sh},actual=g.snakeRects(wood)[0];
      results.push({branch,phase,age,delta:Math.max(...Object.keys(shown).map(k=>Math.abs(shown[k]-actual[k])))});

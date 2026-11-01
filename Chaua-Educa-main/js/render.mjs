@@ -1,3 +1,4 @@
+import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
@@ -669,14 +670,14 @@ export class Renderer {
         const notices=[];
         for(const e of game.entities)if(e.kind==='hawk'&&!e.harmless&&e.x>game.x+100){
             const p=warningPosition(view,e.startY);notices.push({...p,w:116,h:38,type:'hawk',entity:e});
-        }else if(e.kind==='wood'&&e.snake?.phase==='warning'){
-            notices.push({x:view.x+(e.x-view.worldLeft)*s-30,y:view.y+(e.bottom+42)*s,w:136,h:26,type:'snake',entity:e});
+        }else if(e.kind==='wood'&&['warning','windup','striking'].includes(e.snake?.phase)){
+            notices.push({x:view.x+(e.x-view.worldLeft)*s-30,y:view.y+(e.bottom-155)*s,w:136,h:26,type:'snake',entity:e});
         }
         for(const box of placeWarnings(notices,view)){
             c.save();c.fillStyle='#fff4dbee';c.strokeStyle='#70513d';c.lineWidth=1.2;
             c.beginPath();c.roundRect(box.x,box.y,box.w,box.h,8);c.fill();c.stroke();
             c.fillStyle='#49372c';c.textAlign='center';c.font='800 12px Nunito';
-            if(box.type==='snake')c.fillText(box.entity.snake.branch?'Cobra no galho':'Cobra no tronco',box.x+box.w/2,box.y+18);
+            if(box.type==='snake')c.fillText(box.entity.snake.phase==='striking'?'Bote!':box.entity.snake.phase==='windup'?'Cobra vai atacar':'Cobra à frente',box.x+box.w/2,box.y+18);
             else {const e=box.entity;c.fillText(e.dive?'↙ MERGULHO':'← TRAVESSIA',box.x+box.w/2,box.y+15);c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:'Em aproximação',box.x+box.w/2,box.y+30);}
             c.restore();
         }
@@ -705,6 +706,8 @@ export class Renderer {
         const s=wood.snake,place=snakePlacement(wood),clip=snakeAnimation(s,reduced),c=this.c;
         c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
         if(s.retreat)c.globalAlpha=Math.max(0,1-smoothstep(((s.retreatTime||0)-.95)/.35));
+        const wrap=images.get('snake-wrap');
+        if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
         atlasAnimation(c,'snake',clip,place.factor);c.restore();
     }
     flightBorders(view){

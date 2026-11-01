@@ -19,7 +19,7 @@ test('snake stages advance while its animated head stays near the announced posi
  const g=new Game();const e={kind:'wood',x:900,bottom:400,snake:{y:435,retreat:false}};
  advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'watching');
  e.x=700;const rects=g.snakeRects(e);advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'warning');assert.ok(Math.abs(g.snakeRects(e)[0].x-rects[0].x)<12);assert.ok(Math.abs(g.snakeRects(e)[0].y-rects[0].y)<12);
- e.x=300;advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'occupied');e.x=100;advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'leaving');
+ e.x=300;advanceSnake(e,.8,220);assert.equal(e.snake.phase,'windup');e.x=90;advanceSnake(e,STEP,220);assert.equal(e.snake.phase,'leaving');
  e.snake.retreat=true;advanceSnake(e,.2,220);assert.equal(e.snake.phase,'retreat');assert.equal(g.snakeRects(e).length,0);
 });
 test('pause freezes both animal phases and warning clocks',()=>{
@@ -33,19 +33,19 @@ test('reduced motion keeps the snake collider on the static rendered head in eve
   const wood={kind:'wood',x:400,top:180,bottom:420,snake:{branch,retreat:false}};
   const shown=g.snakeRects(wood);
   g.reducedMotion=true;
-  for(const phase of ['watching','warning','occupied','leaving'])for(const age of [.1,.4,.8,1,1.3,1.6,2,4]){
+  for(const phase of ['watching','warning','windup','striking','recovering','spent','leaving'])for(const age of [.1,.4,.8,1,1.3,1.6,2,4]){
    wood.snake={branch,retreat:false,phase,age};assert.deepEqual(g.snakeRects(wood),shown,`${branch} ${phase} ${age}`);
   }
-  g.reducedMotion=false;wood.snake={branch,retreat:false,phase:'occupied',age:1};const moving=g.snakeRects(wood);
-  wood.snake.age=2;assert.notDeepEqual(g.snakeRects(wood),moving);
+  g.reducedMotion=false;wood.snake={branch,retreat:false,phase:'striking',phaseAge:0,age:1};const moving=g.snakeRects(wood);
+  wood.snake.phaseAge=.2;assert.notDeepEqual(g.snakeRects(wood),moving);
   g.reducedMotion=true;wood.snake.retreat=true;assert.deepEqual(g.snakeRects(wood),[]);
   g.reducedMotion=false;
  }
 });
-test('snake loss messages identify the actual trunk or branch perch',()=>{
+test('snake contact message remains correct on both tree variants',()=>{
  for(const branch of [false,true]){
   const g=new Game();g.state='playing';const snake={branch,retreat:false},wood={kind:'wood',id:1,snake,variant:branch?'branch':'plain'};
   g.collide(snake,true,wood);
-  assert.equal(g.endCause,'snake');assert.equal(g.reason,`Você encostou na cobra do ${branch?'galho':'tronco'}.`);
+  assert.equal(g.endCause,'snake');assert.equal(g.reason,'Você encostou na cobra.');
  }
 });
