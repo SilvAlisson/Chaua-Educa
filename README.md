@@ -244,4 +244,4 @@ O Chauá, o predador e a cobra têm três spritesheets novas, com 16 poses compl
 
 Artes, fontes originais, metadados, briefing de geração e preparação reproduzível: [assets/v6](Chaua-Educa-main/assets/v6/README.md). A [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md) registra falhas confirmadas, correções, evidências e limites da validação.
 
-Validação atual: 142 testes automatizados (`npm test`), build Sass e, com servidor e Chromium disponíveis, `npm run test:visual`, `npm run test:browser` e `npm run test:journey`. Os testes visuais verificam 48 células, 60 quadros do Chauá e 144 do predador; as jornadas completam ambos os modos com comandos simulados. `GAME_URL` e `CHROMIUM_PATH` permitem configurar o ambiente de navegador.
+Validação atual: 144 testes automatizados (`npm test`), build Sass e, com servidor e Chromium disponíveis, `npm run test:visual`, `npm run test:browser` e `npm run test:journey`. Os testes visuais verificam 48 células, 60 quadros do Chauá e 144 do predador; as jornadas completam ambos os modos com comandos simulados. `GAME_URL` e `CHROMIUM_PATH` permitem configurar o ambiente de navegador.

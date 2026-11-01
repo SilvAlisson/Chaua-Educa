@@ -26,3 +26,26 @@ test('pause freezes both animal phases and warning clocks',()=>{
  const g=new Game();g.state='playing';g.entities=[hawk(),{kind:'wood',x:700,top:200,bottom:420,snake:{y:455,retreat:false,phase:'warning'}}];g.pause();
  const before=JSON.stringify(g.entities);for(let i=0;i<240;i++)g.tick(STEP);assert.equal(JSON.stringify(g.entities),before);
 });
+
+test('reduced motion keeps the snake collider on the static rendered head in every phase',()=>{
+ const g=new Game();
+ for(const branch of [false,true]){
+  const wood={kind:'wood',x:400,top:180,bottom:420,snake:{branch,retreat:false}};
+  const shown=g.snakeRects(wood);
+  g.reducedMotion=true;
+  for(const phase of ['watching','warning','occupied','leaving'])for(const age of [.1,.4,.8,1,1.3,1.6,2,4]){
+   wood.snake={branch,retreat:false,phase,age};assert.deepEqual(g.snakeRects(wood),shown,`${branch} ${phase} ${age}`);
+  }
+  g.reducedMotion=false;wood.snake={branch,retreat:false,phase:'occupied',age:1};const moving=g.snakeRects(wood);
+  wood.snake.age=2;assert.notDeepEqual(g.snakeRects(wood),moving);
+  g.reducedMotion=true;wood.snake.retreat=true;assert.deepEqual(g.snakeRects(wood),[]);
+  g.reducedMotion=false;
+ }
+});
+test('snake loss messages identify the actual trunk or branch perch',()=>{
+ for(const branch of [false,true]){
+  const g=new Game();g.state='playing';const snake={branch,retreat:false},wood={kind:'wood',id:1,snake,variant:branch?'branch':'plain'};
+  g.collide(snake,true,wood);
+  assert.equal(g.endCause,'snake');assert.equal(g.reason,`Você encostou na cobra do ${branch?'galho':'tronco'}.`);
+ }
+});

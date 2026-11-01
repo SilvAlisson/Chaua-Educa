@@ -61,3 +61,11 @@ Esta etapa substitui as poses antigas e a asa articulada do predador por três s
 - O carregamento do Canvas não baixa mais as antigas imagens de personagens e troncos que foram substituídas. Elas permanecem no repositório como referências.
 
 Validação: 142 testes de lógica/geometria/renderização instrumentada, build Sass, verificações de pixels em 48 células autorais, 60 quadros do Chauá e 144 do predador. O teste visual considera conectividade em oito direções, para não tratar uma borda diagonal como fragmento separado. Testes de interface cobrem cinco resoluções, teclado/toque, quiz obrigatório, pausa, derrota, vitória e reinício; dois percursos no navegador completam as quatro etapas, com cobras, galhos, travessias, mergulhos e três perguntas. Capturas reais do renderizador foram inspecionadas, inclusive com as colisões sobrepostas. A avaliação de desempenho é local; não representa teste em celulares físicos.
+
+## Correções da verificação após o merge
+
+A verificação exploratória da `main` em `25aa68a` encontrou três casos não cobertos pela suíte anterior: a cobra permanecia na pose estática com movimento reduzido, enquanto a colisão seguia os quadros animados (até 8,4 unidades de diferença no centro); o piscar da ave pousada trocava o desenho inteiro e deslocava os pés em 11 pixels no tamanho do menu desktop; a mensagem de derrota chamava toda cobra de “cobra do galho”.
+
+A seleção da pose da cobra agora é compartilhada entre desenho e colisão também com movimento reduzido. O piscar mantém a pose de repouso como base e aplica apenas a região do olho do quadro fechado; corpo, bico e pés permanecem registrados. A mensagem distingue o suporte real da cobra.
+
+Os testes novos reproduziram as falhas antes da correção. Depois: 144 testes de lógica aprovados, build consistente, regressão por pixels do piscar em quatro escalas sem mudanças fora da região do olho e comparação da colisão com o quadro efetivamente desenhado para cobras em tronco/galho, em quatro fases e cinco instantes. Os dois percursos completos, os controles e as cinco resoluções continuam aprovados. Na reprodução visual do menu, o deslocamento dos pés passou de 11 para 0 pixels.

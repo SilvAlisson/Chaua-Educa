@@ -233,7 +233,7 @@ export class Game {
             this.onEvent({ type: 'shield-break', animal, boundary });
         } else {
             const reason = boundary ? (boundary === 'top' ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!')
-                : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra do galho.') : 'Você esbarrou na madeira.';
+                : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : `Você encostou na cobra do ${entity.branch?'galho':'tronco'}.`) : 'Você esbarrou na madeira.';
             this.endCause=boundary || (animal ? (entity.kind==='hawk'?'hawk':'snake') : 'wood');
             this.triggerShake(14, 0.35);
             this.end(false, reason, true);
@@ -393,7 +393,7 @@ export class Game {
 
     snakeRects(entity) {
         if (!entity.snake || entity.snake.retreat) return [];
-        return [snakeHeadRect(entity)];
+        return [snakeHeadRect(entity,this.reducedMotion)];
     }
 
     spawn() {

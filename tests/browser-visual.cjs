@@ -39,6 +39,46 @@ function components(pixels,width,height,select){
   });
   for(const f of atlasChecks){assert.equal(f.gutter,0,`${f.name} ${f.i}: clipped gutter`);assert.ok(f.body>300&&f.connected>.97,`${f.name} ${f.i}: missing or fragmented body`);}
   console.log('PASS 48 authored atlas cells: transparent gutters, complete principal silhouettes');
+  const blinkChecks=await page.evaluate(async()=>{
+   const {drawBird}=window.visualTest,{SPRITES}=await import('/js/sprite-data.mjs');
+   const canvas=document.createElement('canvas');canvas.width=800;canvas.height=700;const c=canvas.getContext('2d',{willReadFrequently:true}),results=[];
+   for(const scale of [.36,.74,2.145,4.16]){
+    const factor=27.7027*scale/SPRITES.chaua.landmarkWidth,eye=SPRITES.chaua.frames[12].eye;
+    const ex=400+(eye[0]-192)*factor,ey=250+(eye[1]-192)*factor;
+    const draw=time=>{c.clearRect(0,0,800,700);drawBird(c,{x:400,y:250,scale,perched:true,time});return c.getImageData(0,0,800,700).data;};
+    const initial=draw(0);let eyeChanges=0;
+    for(const time of [3.6,3.66,3.775,3.86,3.99,4]){
+     const pixels=draw(time);let outside=0;
+     for(let y=0;y<700;y++)for(let x=0;x<800;x++){
+      const k=(y*800+x)*4,changed=initial[k]!==pixels[k]||initial[k+1]!==pixels[k+1]||initial[k+2]!==pixels[k+2]||initial[k+3]!==pixels[k+3];
+      if(!changed)continue;
+      if(Math.abs(x-ex)>21*factor+2||Math.abs(y-ey)>25*factor+2)outside++;else eyeChanges++;
+     }
+     results.push({scale,time,outside});
+    }
+    results.push({scale,eyeChanges});
+   }
+   return results;
+  });
+  for(const r of blinkChecks){if('outside'in r)assert.equal(r.outside,0,`blink moves body/feet at scale ${r.scale}, time ${r.time}`);else assert.ok(r.eyeChanges>0,`blink missing at scale ${r.scale}`);}
+  console.log('PASS perched blink at four scales: only the eye changes, body and feet stay registered');
+  const snakeChecks=await page.evaluate(async()=>{
+   const {Game}=await import('/js/engine.mjs'),{SPRITES}=await import('/js/sprite-data.mjs'),{snakePlacement}=await import('/js/animation.mjs');
+   const {r}=window.visualTest,c=r.c,g=new Game();g.reducedMotion=true;const results=[];
+   const original=c.drawImage;
+   try{
+    for(const branch of [false,true])for(const phase of ['watching','warning','occupied','leaving'])for(const age of [.1,.4,.8,1.3,2]){
+     const wood={kind:'wood',x:220,bottom:320,snake:{branch,phase,age,retreat:false}},calls=[];
+     c.drawImage=function(image,...args){calls.push(args);return original.call(this,image,...args);};r.base();r.snake(wood,true);
+     const [sx,sy,sw,sh,dx,dy,dw,dh]=calls[0],frame=SPRITES.snake.frames.find(f=>f.rect[0]===sx&&f.rect[1]===sy),[cx,cy,rx,ry]=frame.head,p=snakePlacement(wood);
+     const shown={x:p.x+dx+(cx-rx)*dw/sw,y:p.y+dy+(cy-ry)*dh/sh,w:rx*2*dw/sw,h:ry*2*dh/sh},actual=g.snakeRects(wood)[0];
+     results.push({branch,phase,age,delta:Math.max(...Object.keys(shown).map(k=>Math.abs(shown[k]-actual[k])))});
+    }
+   }finally{c.drawImage=original;}
+   return results;
+  });
+  for(const r of snakeChecks)assert.ok(r.delta<1e-8,`reduced-motion head mismatch: ${JSON.stringify(r)}`);
+  console.log('PASS reduced-motion snake geometry matches the actual rendered atlas frame on trunks and branches');
   const beaks=[];
   for(let i=0;i<60;i++){
    const beak=await page.evaluate(i=>{
