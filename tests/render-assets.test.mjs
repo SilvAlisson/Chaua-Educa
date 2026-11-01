@@ -48,6 +48,6 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
 });
 test('snake collision follows lower trunk and clears after shield retreat',()=>{
  const g=new Game(),e={x:400,top:180,bottom:450,snake:{retreat:false}};
- assert.ok(g.snakeRects(e).every(r=>r.y>=e.bottom-65&&r.y<e.bottom));
+ assert.ok(g.snakeRects(e).every(r=>r.y>=e.bottom-85&&r.y<e.bottom));
  e.snake.retreat=true;assert.deepEqual(g.snakeRects(e),[]);
 });

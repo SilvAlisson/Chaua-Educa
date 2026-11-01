@@ -1,4 +1,4 @@
-import {drawLivingTrunk,drawLivingBranch,drawRefugeTree} from './tree-art.mjs';
+import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
 import {birdAnimation,hawkAnimation,snakeAnimation,snakePlacement,placeWarnings} from './animation.mjs';
@@ -68,7 +68,7 @@ export function woodContactPosition(game,progress=0,reduced=false){
     return {x:Math.min(game.x,rect.x-maxX-2),y:game.y};
 }
 function birdFoot(scale){
-    const f=SPRITES.chaua.frames[12];return (f.content[1]+f.content[3]-f.anchor[1])*27.7027*scale/SPRITES.chaua.landmarkWidth;
+    const f=SPRITES.chaua.frames[12];return (f.content[1]+f.content[3]-5-f.anchor[1])*27.7027*scale/SPRITES.chaua.landmarkWidth;
 }
 function animatedBird(c,p){
     const {x,y,scale=1,angle=0,time=0,reduced=false,reaction=0,defeated=false,impactProgress=0,turbo=false,stamina=1,perched=false,surprise=false,won=false,landing=null}=p;
@@ -489,7 +489,7 @@ export class Renderer {
         }
         const {x,y,scale}=homePerchLayout(this.w,this.h);
         c.save(); c.translate(x, y);
-        if(images.has('chaua-atlas'))this.branch(-scale*60,scale*5+birdFoot(scale*1.3),this.w-x+80,scale*5+birdFoot(scale*1.3)+12,Math.max(12,scale*8));
+        if(images.has('chaua-atlas'))drawRefugeTree(c,{x:0},scale*5+birdFoot(scale*1.3),time,scale*95,scale*1.3*9.65*27.7027/60);
         drawBird(c, { x: 0, y: scale * 5, scale: scale*1.3, perched: true, wing: reduced ? .08 : .07 + Math.sin(time * .9) * .06, time, reduced });
         c.restore();
         // Loose foreground leaves frame the diorama naturally.
@@ -693,17 +693,13 @@ export class Renderer {
         const c=this.c,time=reduced?0:(game.sceneTime??game.elapsed),variant=(e.id??0)%3,cx=e.x+29;
         if(!e.broken||e.brokenSide!=='top')this.trunk(`trunk-${variant}`,null,cx,e.top,true,time,variant);
         if(!e.broken||e.brokenSide!=='bottom'){
-            if(e.variant==='branch')drawLivingBranch(c,{rootX:cx+12,rootY:e.bottom+77,tipX:cx-102,tipY:e.bottom+28,thickness:39});
-            this.trunk(`trunk-${variant}`,null,cx,e.bottom,false,time,variant);
+
+            this.trunk(`trunk-${variant}`,null,cx,e.bottom,false,time,e.variant==='branch'?3:variant);
             if(e.snake)this.snake(e,reduced);
         }
-        if(e.variant==='broken'&&!e.dryBranchBroken)drawLivingBranch(c,{rootX:cx+40,rootY:e.top-55,tipX:cx+79,tipY:e.top-30,thickness:15});
     }
     trunk(key,preset,x,y,flip,time=0,variant=0){
         drawLivingTrunk(this.c,{x,y,upper:flip,width:TREE_WIDTH,length:1000,variant,time});
-    }
-    branch(x1,y1,x2,y2,width=12){
-        drawLivingBranch(this.c,{rootX:x2,rootY:y2,tipX:x1,tipY:y1,thickness:width*1.8});
     }
     snake(wood,reduced){
         const s=wood.snake,place=snakePlacement(wood),clip=snakeAnimation(s,reduced),c=this.c;

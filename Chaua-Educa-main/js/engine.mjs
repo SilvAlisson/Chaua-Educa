@@ -428,7 +428,7 @@ export class Game {
             const variants = ['plain', 'branch', 'plain'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'branch':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
             const hasSnake=this.elapsed>profile.snakeAt&&(n%2===0||variant==='branch');
-            const encounterGap=gap+(hasSnake?44:0);
+            const encounterGap=gap+(hasSnake?110:0);
             this.encounterHistory.at(-1).gap=encounterGap;
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - encounterGap / 2, bottom: center + encounterGap / 2, variant, scored: false, route:n, encounter:plan.id };
             if (hasSnake) wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};

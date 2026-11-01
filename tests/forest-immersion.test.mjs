@@ -18,7 +18,7 @@ test('new encounters never generate hollow windows or pasted dry wood blocks',()
 });
 test('snake faces the approaching bird and its complete body is comparable in size',()=>{
  const w={x:500,bottom:420,snake:{branch:true,age:2,phase:'occupied'}},p=snakePlacement(w),r=spriteHeadRect(w);
- assert.equal(p.facing,-1);assert.ok(p.factor*260>=85);assert.ok(r.x+r.w/2<p.x);assert.ok(r.y<w.bottom);
+ assert.equal(p.facing,1);assert.ok(p.factor*260>=85);assert.ok(r.x+r.w/2<p.x);assert.ok(r.y<w.bottom);
 });
 test('every fatal wood impact pose is kept fully outside the obstacle, including rotation',()=>{
  for(const reduced of [false,true])for(let n=0;n<=100;n++){

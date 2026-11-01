@@ -13,3 +13,14 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: git diff --exit-code -- Chaua-Educa-main/css/style.css
+      - run: npx playwright install --with-deps chromium
+      - name: Verify actual browser rendering and complete journeys
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
+          chaua_server_pid=$!
+          trap 'kill "$chaua_server_pid" 2>/dev/null' EXIT
+          npm run test:reference-art
+          npm run test:visual
+          npm run test:immersion
+          npm run test:browser
+          npm run test:journey

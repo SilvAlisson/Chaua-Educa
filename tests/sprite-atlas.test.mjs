@@ -24,7 +24,7 @@ test('clips meet at the same weighted pose at every boundary, including a wrappe
  }
  assert.equal(birdAnimation({landing:1}).frame,birdAnimation({perched:true,time:0}).frame);
  assert.equal(hawkAnimation({retreat:true,retreatTime:2}).frame,15);
- assert.equal(snakeAnimation({retreat:true,retreatTime:2}).frame,11);
+ assert.equal(snakeAnimation({retreat:true,retreatTime:2}).frame,15);
  const g=new Game();g.won=true;g.reset();assert.equal(g.won,false);
 });
 test('simultaneous predator and snake notices stay in the viewport without overlapping',()=>{

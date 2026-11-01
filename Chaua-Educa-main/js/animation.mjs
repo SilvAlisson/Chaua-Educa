@@ -12,7 +12,7 @@ function flightFrame(frames,progress){const clip=sequence(frames,progress,true);
 export const CLIPS=Object.freeze({
  chaua:{flight:[0,1,2,3,4,5,6,7],landing:[8,9,10,11,12],idle:[12,13],recoil:[14,15]},
  hawk:{flight:[0,1,2,3,4,5,6,7],glide:[8,9],dive:[10,11],recoil:[12,13,14,15]},
- snake:{idle:[0,1,2,3],alert:[4,5,6,7],withdraw:[8,9,10,11],emerge:[12,13,14,15]},
+ snake:{idle:[0,1,2,3],alert:[4,5,6,7],attack:[7,8,9,10,11,7],withdraw:[11,12,13,14,15],emerge:[15,0]},
 });
 export function birdAnimation({wing=0,time=0,perched=false,landing=null,defeated=false,impactProgress=0,reduced=false}={}){
  const flight=reduced?{frame:3,next:3,blend:0}:flightFrame(CLIPS.chaua.flight,wing>0?(1-wing):.42);
@@ -33,12 +33,13 @@ export function hawkAnimation(e,time=0,reduced=false){
  return flightFrame(CLIPS.hawk.flight,time*2.2+(e.id||0)*.13);
 }
 export function snakeAnimation(s={},reduced=false){
- if(reduced){const frame=s.retreat?11:0;return {frame,next:frame,blend:0};}
+ if(reduced){const frame=s.retreat?15:0;return {frame,next:frame,blend:0};}
  if(s.retreat)return sequence(CLIPS.snake.withdraw,(s.retreatTime||0)/.85);
  if(Number.isFinite(s.age)&&s.age<.8)return sequence(CLIPS.snake.emerge,s.age/.8);
+ if(s.phase==='occupied')return sequence(CLIPS.snake.attack,(s.age||0)*.65,true);
  return sequence(s.phase==='warning'||s.phase==='occupied'?CLIPS.snake.alert:CLIPS.snake.idle,(s.age||0)*1.1,true);
 }
-export function snakePlacement(wood){return {x:wood.x+29-(wood.snake?.branch?65:5),y:wood.bottom+(wood.snake?.branch?34:32),factor:.34,facing:-1};}
+export function snakePlacement(wood){return {x:wood.x+29-(wood.snake?.branch?65:5),y:wood.bottom+(wood.snake?.branch?34:8),factor:.37,facing:1};}
 export function spriteHeadRect(wood,reduced=false){
  const {x,y,factor,facing}=snakePlacement(wood),clip=snakeAnimation(wood.snake,reduced),data=SPRITES.snake;
  const a=data.frames[clip.frame].head,b=data.frames[clip.next].head,t=clip.blend;

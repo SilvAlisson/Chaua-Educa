@@ -253,3 +253,12 @@ A revisão retira as faixas repetidas de folhas e a janela retangular dos obstá
 A Chauapédia foi reconstruída com ilustrações do jogo, cartões responsivos, leitura individual, abas de temas/alimentos e fontes na ficha. Descobertas e coleção anteriores permanecem. Corrigidos também os botões de fechar, a rolagem do menu em paisagem e a abertura do resultado no topo. Como a geometria dos encontros mudou, o ranking atual passa a floresta-v6; v5 permanece no Histórico.
 
 Validação: 149 testes de lógica, build Sass, verificação por pixels, interfaces em cinco resoluções e dois percursos completos. `npm run test:immersion` cobre Chauapédia, leitura, abas, teclado, botões de fechar, rolagem em paisagem e captura das cenas de floresta, cobra, abrigo e impacto. Os testes de percurso também verificam o título completo do resultado no celular.
+
+
+### Artes de referência integradas — 2.3.0
+
+Os troncos e a cobra agora usam os atlas `assets/v7`, preparados a partir das referências fornecidas pelo autor. Há quatro troncos inferiores, quatro superiores com iluminação própria e 16 poses da cobra. A arte mantém suas proporções; apenas uma faixa sem decoração prolonga a casca. O abrigo e a tela inicial usam o galho integrado à imagem, com contato de pouso medido na madeira. Nenhuma miniatura de ave é adicionada.
+
+A cobra possui base e largura registradas, orientação fixa à esquerda, alerta/bote/recuperação e geometria de cabeça compartilhada com o renderizador, inclusive no movimento reduzido. A abertura dos encontros foi ajustada à altura da nova arte. Os resultados usam `floresta-v7`; registros v6 e anteriores continuam no Histórico, sem alteração de coleção ou missões.
+
+Reprodução dos atlas: `python3 scripts/prepare_forest_v7.py` (Pillow, NumPy e SciPy). Fontes WebP sem perdas em `assets/v7-source`. Metadados em `forest-art-data.mjs`. Validação: 153 testes de lógica, build, registro de 16 quadros no navegador, 48 células com margens transparentes, regressão de papagaio/predador, interface em cinco resoluções, Chauapédia e jornadas completas nos dois modos. O CI também executa as verificações no Chromium real.

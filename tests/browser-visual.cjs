@@ -71,7 +71,7 @@ function components(pixels,width,height,select){
      const wood={kind:'wood',x:220,bottom:320,snake:{branch,phase,age,retreat:false}},calls=[];
      c.drawImage=function(image,...args){calls.push(args);return original.call(this,image,...args);};r.base();r.snake(wood,true);
      const [sx,sy,sw,sh,dx,dy,dw,dh]=calls[0],frame=SPRITES.snake.frames.find(f=>f.rect[0]===sx&&f.rect[1]===sy),[cx,cy,rx,ry]=frame.head,p=snakePlacement(wood);
-     const shown={x:p.x-(dx+(cx+rx)*dw/sw),y:p.y+dy+(cy-ry)*dh/sh,w:rx*2*dw/sw,h:ry*2*dh/sh},actual=g.snakeRects(wood)[0];
+     const shown={x:p.x+dx+(cx-rx)*dw/sw,y:p.y+dy+(cy-ry)*dh/sh,w:rx*2*dw/sw,h:ry*2*dh/sh},actual=g.snakeRects(wood)[0];
      results.push({branch,phase,age,delta:Math.max(...Object.keys(shown).map(k=>Math.abs(shown[k]-actual[k])))});
     }
    }finally{c.drawImage=original;}

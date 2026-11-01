@@ -28,7 +28,7 @@ test('only the dry branch disappears while trunk remains solid',()=>{
  assert.ok(g.woodRects(e).some(r=>r.y===0));assert.ok(g.particles.some(p=>p.chip));
 });
 test('snake and wood simultaneous contact consumes one shield and awards no points',()=>{
- const {g,events}=setup();const e={id:1,kind:'wood',x:g.x-10,top:140,bottom:312,variant:'plain',snake:{y:305,retreat:false}};
+ const {g,events}=setup();const e={id:1,kind:'wood',x:g.x-10,top:140,bottom:365,variant:'plain',snake:{y:305,retreat:false}};
  g.entities=[e];g.shield=true;g.tick(STEP);
  assert.equal(g.state,'playing');assert.equal(e.snake.retreat,true);assert.equal(e.broken,undefined);
  assert.equal(events.filter(e=>e.type==='shield-break').length,1);assert.equal(g.score,0);

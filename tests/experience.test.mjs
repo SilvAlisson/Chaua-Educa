@@ -31,7 +31,7 @@ test('snake head collider follows the actual source crop on trunks and branches'
     for(let age=0;age<2;age+=.05){
         wood.snake.age=age;const r=snakeHeadRect(wood);
         assert.ok(r.x>wood.x-20&&r.x+r.w<wood.x+70);
-        assert.ok(r.y>wood.bottom-65&&r.y+r.h<wood.bottom+20);
+        assert.ok(r.y>wood.bottom-95&&r.y+r.h<wood.bottom+20);
         assert.ok(r.w>5&&r.h>5);
     }
     wood.snake.branch=true;const branch=snakeHeadRect(wood);
