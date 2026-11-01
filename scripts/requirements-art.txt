@@ -1,0 +1,4 @@
+# Optional: only for rebuilding the generated sprite atlases.
+numpy==2.3.5
+Pillow==12.3.0
+scipy==1.17.0

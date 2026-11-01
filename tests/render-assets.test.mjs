@@ -42,7 +42,7 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  r.game(g,false);
  r.game(g,true);
  r.setQuality('low');r.game(g,false);assert.equal(r.dpr,1);
- for(const name of ['forest','perch','chaua-0','snake','branch','hollow','hawk-0','shield','feather'])
+ for(const name of ['forest','chaua-atlas','snake-atlas','hawk-atlas','shield','feather'])
   assert.ok(calls.some(url=>url.endsWith(`/${name}.webp`)),`${name} must be rendered`);
  assert.equal(images.size,Object.keys(ASSET_PATHS).length);
 });

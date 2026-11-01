@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
 import {flightViewport} from '../Chaua-Educa-main/js/viewport.mjs';
-import {SNAKE_ART,snakeHeadRect} from '../Chaua-Educa-main/js/geometry.mjs';
+import {snakeHeadRect} from '../Chaua-Educa-main/js/geometry.mjs';
 import {planEncounter} from '../Chaua-Educa-main/js/encounters.mjs';
 import {pilotTarget} from './helpers/pilot.mjs';
 import DB from '../Chaua-Educa-main/js/database.js';
@@ -28,11 +28,12 @@ test('window changes do not move the player inside physical encounters',()=>{
 });
 test('snake head collider follows the actual source crop on trunks and branches',()=>{
     const wood={x:400,bottom:420,snake:{retreat:false}};
-    const r=snakeHeadRect(wood),k=58/SNAKE_ART.coreWidth;
-    const renderedLeft=429-634*.38*k+130*k,renderedTop=420-230*k+10*k;
-    assert.ok(r.x>=renderedLeft&&r.x+r.w<=renderedLeft+185*k);
-    assert.ok(r.y>=renderedTop&&r.y+r.h<=renderedTop+140*k);
-    assert.ok(r.y<wood.bottom,'the head visibly occupies the edge of the gap');
+    for(let age=0;age<2;age+=.05){
+        wood.snake.age=age;const r=snakeHeadRect(wood);
+        assert.ok(r.x>wood.x-20&&r.x+r.w<wood.x+70);
+        assert.ok(r.y>wood.bottom-65&&r.y+r.h<wood.bottom+20);
+        assert.ok(r.w>5&&r.h>5);
+    }
     wood.snake.branch=true;const branch=snakeHeadRect(wood);
     assert.ok(branch.x<wood.x&&branch.y<wood.bottom+30);
 });

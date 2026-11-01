@@ -33,16 +33,16 @@ async function begin(page, name = 'Guardião da mata') {
         assert.equal(await page.evaluate(async()=>{
             const {drawBird}=await import('/js/render.mjs');
             const {images}=await import('/js/assets.mjs');
-            const source=document.createElement('canvas');source.width=627;source.height=627;
-            source.getContext('2d').fillRect(0,0,627,627);
+            const source=document.createElement('canvas');source.width=1536;source.height=1536;
+            source.getContext('2d').fillRect(0,0,1536,1536);
             const image=new Image();image.src=source.toDataURL();await image.decode();
-            const originals=[images.get('chaua-0'),images.get('chaua-2')];
+            const original=images.get('chaua-atlas');
             try {
-                images.set('chaua-0',image);images.set('chaua-2',image);
+                images.set('chaua-atlas',image);
                 const canvas=document.createElement('canvas');canvas.width=300;canvas.height=300;
                 const context=canvas.getContext('2d');drawBird(context,{x:150,y:150,wing:.8});
                 return context.getImageData(150,150,1,1).data[3];
-            } finally {images.set('chaua-0',originals[0]);images.set('chaua-2',originals[1]);}
+            } finally {images.set('chaua-atlas',original);}
         }),255);
         // Optional practice works before entering a name and never records a ranked flight.
         await page.locator('#start-training:not([disabled])').click();

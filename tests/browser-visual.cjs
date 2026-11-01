@@ -7,7 +7,7 @@ function components(pixels,width,height,select){
  for(let i=0;i<seen.length;i++)if(!seen[i]&&selected(i)){
   let read=0,write=1,minX=width,minY=height,maxX=0,maxY=0;queue[0]=i;seen[i]=1;
   while(read<write){const at=queue[read++],x=at%width,y=Math.floor(at/width);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
-   for(const n of [x>0?at-1:-1,x<width-1?at+1:-1,at-width,at+width])if(n>=0&&n<seen.length&&!seen[n]&&selected(n)){seen[n]=1;queue[write++]=n;}
+   for(const n of [x>0?at-1:-1,x<width-1?at+1:-1,at-width,at+width,x>0?at-width-1:-1,x<width-1?at-width+1:-1,x>0?at+width-1:-1,x<width-1?at+width+1:-1])if(n>=0&&n<seen.length&&!seen[n]&&selected(n)){seen[n]=1;queue[write++]=n;}
   }
   parts.push({area:write,x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1});
  }
@@ -25,6 +25,20 @@ function components(pixels,width,height,select){
    const r=new Renderer(canvas);await r.ready;window.visualTest={r,drawBird};
   });
   await page.evaluate(source=>{window.pixelComponents=Function('return ('+source+')')();},components.toString());
+  const atlasChecks=await page.evaluate(async()=>{
+   const {SPRITES}=await import('/js/sprite-data.mjs'),{images}=await import('/js/assets.mjs');
+   const result=[];const cell=document.createElement('canvas');cell.width=384;cell.height=384;const c=cell.getContext('2d',{willReadFrequently:true});
+   for(const [name,data]of Object.entries(SPRITES))for(let i=0;i<16;i++){
+    c.clearRect(0,0,384,384);c.drawImage(images.get(`${name}-atlas`),...data.frames[i].rect,0,0,384,384);
+    const p=c.getImageData(0,0,384,384).data;let gutter=0;
+    for(let y=0;y<384;y++)for(let x=0;x<384;x++)if(x<10||y<10||x>=374||y>=374)gutter=Math.max(gutter,p[(y*384+x)*4+3]);
+    const parts=window.pixelComponents(p,384,384,(r,g,b,a)=>a>100),total=parts.reduce((n,p)=>n+p.area,0);
+    result.push({name,i,gutter,body:parts[0]?.area||0,connected:(parts[0]?.area||0)/total});
+   }
+   return result;
+  });
+  for(const f of atlasChecks){assert.equal(f.gutter,0,`${f.name} ${f.i}: clipped gutter`);assert.ok(f.body>300&&f.connected>.97,`${f.name} ${f.i}: missing or fragmented body`);}
+  console.log('PASS 48 authored atlas cells: transparent gutters, complete principal silhouettes');
   const beaks=[];
   for(let i=0;i<60;i++){
    const beak=await page.evaluate(i=>{

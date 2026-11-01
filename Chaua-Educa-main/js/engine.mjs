@@ -53,7 +53,7 @@ export class Game {
         this.previous = { arrivalOffset:this.arrival?.offset||0, refugeX:this.refuge?.x, y: this.y, angle: this.angle,
             distance:this.distance, elapsed:this.elapsed, sceneTime:this.sceneTime, stage:this.stage, stageAge:this.stageAge,
             wing:this.wing, flapImpulse:this.flapImpulse,
-            entities:new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y, tumbleAngle:e.tumbleAngle, retreatTime:e.snake?.retreatTime}])) };
+            entities:new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y, tumbleAngle:e.tumbleAngle, retreatTime:e.snake?.retreatTime,snakeAge:e.snake?.age,hawkRetreatTime:e.retreatTime}])) };
     }
 
     visual(alpha) {
@@ -78,7 +78,8 @@ export class Game {
             if (!old) return e;
             const entity = {...e, x:lerp(old.x,e.x), y:lerp(old.y,e.y)};
             if(Number.isFinite(e.tumbleAngle))entity.tumbleAngle=lerp(old.tumbleAngle??0,e.tumbleAngle);
-            if(e.snake)entity.snake={...e.snake,retreatTime:lerp(old.retreatTime??0,e.snake.retreatTime??0)};
+            if(Number.isFinite(e.retreatTime))entity.retreatTime=lerp(old.hawkRetreatTime??0,e.retreatTime);
+            if(e.snake)entity.snake={...e.snake,age:lerp(old.snakeAge??0,e.snake.age??0),retreatTime:lerp(old.retreatTime??0,e.snake.retreatTime??0)};
             return entity;
         });
         return view;
@@ -89,7 +90,7 @@ export class Game {
         this.encounterRandom = this.randomOverride ?? seededRandom(this.seed);
         this.powerRandom = this.randomOverride ?? seededRandom(this.seed ^ 0x85ebca6b);
         Object.assign(this, {
-            tutorial:null, endCause:null, stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
+            tutorial:null, won:false, endCause:null, stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
             scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:0,nextShield:0,nextFeather:18,nextPepper:26},
             mode, state: 'menu', elapsed: 0, sceneTime: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, pepper: 0, invincible: 0, held: false, holdAge: 0,

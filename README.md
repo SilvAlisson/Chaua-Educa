@@ -238,8 +238,10 @@ A [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md) separa falhas reprodu
 
 O ranking atual passa a `db-chaua-floresta-v5`; v4 entra no Histórico sem ser alterado. Missões e coleções continuam preservadas. `npm run test:journey`, com o servidor ativo e `CHROMIUM_PATH` quando necessário, executa os dois percursos completos no navegador com comandos simulados.
 
-### Estabilidade visual e colisões
+### Spritesheets e acabamento atual
 
-A revisão final remove o surgimento abrupto do abrigo e as deformações de escala do Chauá. O gavião usa uma base estável com asa articulada, sem fragmentos das poses alternativas. Corpo e cabeça das aves têm colisões arredondadas que acompanham a inclinação; penas e detalhes decorativos continuam tolerantes. Troncos se estendem até as bordas do cenário e a folhagem recebeu sombreamento mais suave.
+O Chauá, o predador e a cobra têm três spritesheets novas, com 16 poses completas cada. Voo, pouso, repouso e reações usam registros comuns; o voo evita a sobreposição translúcida de asas em posições diferentes. A cobra inteira se recolhe, separada de troncos e galhos contínuos desenhados em Canvas. Avisos compartilham posicionamento, limites de copa/chão ficam visíveis e os poderes cabem no modo paisagem estreito.
 
-Com o servidor ativo, `npm run test:visual` verifica 60 quadros do Chauá e 144 do predador por pixels, além dos 138 testes de lógica/geometria de `npm test`. O comando aceita `GAME_URL` e `CHROMIUM_PATH`, como os testes de navegador. Detalhes e limites estão na [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md).
+Artes, fontes originais, metadados, briefing de geração e preparação reproduzível: [assets/v6](Chaua-Educa-main/assets/v6/README.md). A [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md) registra falhas confirmadas, correções, evidências e limites da validação.
+
+Validação atual: 142 testes automatizados (`npm test`), build Sass e, com servidor e Chromium disponíveis, `npm run test:visual`, `npm run test:browser` e `npm run test:journey`. Os testes visuais verificam 48 células, 60 quadros do Chauá e 144 do predador; as jornadas completam ambos os modos com comandos simulados. `GAME_URL` e `CHROMIUM_PATH` permitem configurar o ambiente de navegador.

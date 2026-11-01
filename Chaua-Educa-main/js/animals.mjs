@@ -7,9 +7,8 @@ export function advanceHawk(e, dt, speed, playerX) {
         e.retreatTime = (e.retreatTime || 0) + dt;
         e.x += 150 * dt;
         if (e.dazed) {
-            e.tumbleAngle = (e.tumbleAngle || 0) + (e.spin || 12.0) * dt;
-            e.fallVy = (e.fallVy ?? -170) + 750 * dt;
-            e.y += e.fallVy * dt;
+            e.tumbleAngle=0;
+            e.y+=(e.retreatY||-120)*.55*dt;
         } else {
             e.y += (e.retreatY || -180) * dt;
         }
@@ -31,6 +30,7 @@ export function advanceHawk(e, dt, speed, playerX) {
 
 export function advanceSnake(wood, dt, playerX) {
     const s=wood.snake;if(!s)return;
+    s.age=(s.age||0)+dt;
     if(s.retreat){s.phase='retreat';s.retreatTime=(s.retreatTime||0)+dt;return;}
     // This is an occupied perch, not a tracking attack or an extending hitbox.
     if(wood.x+85<playerX-18)s.phase='leaving';

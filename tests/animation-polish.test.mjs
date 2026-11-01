@@ -44,7 +44,7 @@ test('impact starts at the exact flight anchor and settles without a full-body s
     assert.ok(Math.abs(impactPose(.001).angle)<.00001);
     assert.ok(Math.abs(impactPose(1).angle)<Math.PI/2);
     assert.deepEqual(impactPose(1,true),impactPose(0));
-    for(let i=0;i<4;i++)images.set(`chaua-${i}`,{naturalWidth:627,naturalHeight:627});
+    for(let i=0;i<4;i++)images.set('chaua-atlas',{naturalWidth:1536,naturalHeight:1536});
     const a=recordingContext();drawBird(a.context,{x:10,y:20,defeated:true,impactProgress:0,angle:.1});
     assert.equal(a.rotations[0],.1);
 });
@@ -70,23 +70,15 @@ test('flight interpolation includes terrain, wings and animals without mutating 
     g.state='playing';g.end(false,'impact',true);g.tick(STEP);assert.ok(g.sceneTime>time);
 });
 
-test('snake retreats leave the same opaque trunk art before and after the animation',()=>{
-    const image={naturalWidth:634,naturalHeight:1080},r=Object.create(Renderer.prototype);
-    for(const retreat of [0,.5,1,2]){
-        const capture=recordingContext();r.c=capture.context;
-        r.snakeArt(image,0,0,200,340,'snake',3,retreat);
-        assert.equal(capture.draws[0].alpha,1,'bark must not fade');
-        assert.equal(capture.draws[0].image,image);
-        assert.ok(capture.draws[1].alpha>=0&&capture.draws[1].alpha<=1);
-        if(retreat>=1)assert.equal(capture.draws[1].alpha,0);
-    }
-    const kinds=[];r.c=recordingContext().context;r.trunk=(kind)=>kinds.push(kind);r.wood=()=>{};
-    r.obstacle({id:1,x:450,top:180,bottom:440,variant:'plain',snake:{retreat:true,retreatTime:2}},{elapsed:4},false);
-    assert.ok(kinds.includes('snake'),'do not swap in a different living trunk after retreat');
+test('snake retreat never changes or fades the supporting procedural trunk',()=>{
+    const r=Object.create(Renderer.prototype),kinds=[];
+    r.c=recordingContext().context;r.trunk=(kind)=>kinds.push(kind);r.wood=()=>{};r.snake=()=>{};
+    for(const retreatTime of [0,.5,1.5])r.obstacle({id:1,x:450,top:180,bottom:440,variant:'plain',snake:{retreat:true,retreatTime}},{elapsed:4},false);
+    assert.equal(kinds.length,6);assert.deepEqual(kinds.slice(0,2),kinds.slice(2,4));assert.deepEqual(kinds.slice(0,2),kinds.slice(4,6));
 });
 
 test('reduced motion fixes the hawk pose and removes all tumble rotation',()=>{
-    const r=Object.create(Renderer.prototype);images.set('hawk-0',{naturalWidth:980,naturalHeight:1080});
+    const r=Object.create(Renderer.prototype);images.set('hawk-atlas',{naturalWidth:1536,naturalHeight:1536});
     const capture=recordingContext();r.c=capture.context;
     r.hawk({x:400,y:320,retreat:true,dazed:true,tumbleAngle:9},0,true);
     assert.deepEqual(capture.rotations,[0]);
@@ -119,10 +111,10 @@ test('simultaneous fatal hazards stop scoring and emit one loss',()=>{
     assert.equal(events.filter(e=>e.type==='lose').length,1);assert.equal(g.score,0);assert.equal(g.fruits,0);
 });
 
-test('stage palette starts smoothly and the hawk preserves zero falling velocity',async()=>{
+test('stage palette starts smoothly and the recoiling hawk leaves without tumbling',async()=>{
     const g=new Game();g.state='playing';g.distance=6999.9;g.stageAge=40;g.y=300;g.nextSpawn=Infinity;
     g.tick(STEP);assert.equal(g.stage,1);assert.ok(g.visual(.1).stageAge<STEP*2);
     const {advanceHawk}=await import('../Chaua-Educa-main/js/animals.mjs');
     const hawk={x:400,y:300,retreat:true,dazed:true,fallVy:0};
-    advanceHawk(hawk,.1,200,220);assert.equal(hawk.fallVy,75);assert.equal(hawk.y,307.5);
+    advanceHawk(hawk,.1,200,220);assert.equal(hawk.fallVy,0);assert.equal(hawk.tumbleAngle,0);assert.equal(hawk.y,293.4);assert.equal(hawk.x,415);
 });
