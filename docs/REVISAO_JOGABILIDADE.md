@@ -35,3 +35,15 @@ Troncos se alinham à madeira sólida; folhas próximas têm forma pontuda, dobr
 - Inspeção de capturas com as artes reais e checagem de continuidade das poses. Medidas locais de renderização são do ambiente de teste, não promessa de FPS em celulares físicos.
 
 As mudanças de ritmo inauguram `floresta-v5`: resultados v4 ficam no Histórico, preservados. Pontos, coleção, missões e perguntas antigas não são apagados.
+
+## Fechamento das falhas visuais identificadas depois da revisão
+
+A inspeção quadro a quadro do PR encontrou pendências adicionais: surgimento do abrigo em x=800 dentro do campo visível, fragmentos nas artes alternativas do gavião, reescala do corpo do Chauá durante efeitos e estrelas de impacto encobrindo parte do bico. Essas pendências foram corrigidas na atualização seguinte:
+
+- Abrigo gerado além da borda direita, com margem para a arte inteira, entrada por deslocamento contínuo e interpolação entre ticks. Pausa também congela sua entrada.
+- Predador usa uma arte base registrada, sem os fragmentos das imagens alternativas. A asa é articulada com máscara completa e junta coberta pelo corpo; o olho de atordoamento é desenhado sobre essa mesma base. Travessia e mergulho mantêm a mesma escala do corpo.
+- Chauá não recebe mais achatamento, alongamento ou pulsação de escala em queda, turbo, coleta, cansaço ou impacto. As poses foram normalizadas por uma referência do bico, e a pose no instante da colisão é preservada. Olhos de reação foram reduzidos à região da pupila e as estrelas de impacto ficam acima da face.
+- Perigos usam duas formas elípticas por ave (corpo e cabeça), acompanhando a inclinação. Colisões são calculadas por polígonos convexos de 20 vértices por elipse; penas, bico e pés continuam intencionalmente tolerantes. Cabeça da cobra usa forma arredondada. Núcleos de madeira seguem suas áreas sólidas, sem tornar a folhagem perigosa. Isso melhora a correspondência sem adotar colisão por pixel de cada pena.
+- Troncos se prolongam até as bordas do cenário, sem terminar no recorte da faixa de voo. A linha reta do chão foi retirada. Folhas ganharam sombreamento gradual e posições menos regulares; o enquadramento e o espaço de reação permanecem os mesmos.
+
+Validação adicional: 138 testes automatizados de lógica/geometria; comparação de pixels em 60 quadros do Chauá (poses e efeitos), sem variação da posição ou das dimensões do bico no conjunto testado; 144 quadros do predador em travessia e mergulho, sem fragmentos visíveis da ave separados do corpo. Os traços brancos translúcidos de vento são efeitos intencionais e não entram nessa contagem. A inspeção inclui a sobreposição das formas reais de colisão às imagens. Os dois percursos completos no navegador continuam chegando ao abrigo; interfaces de teclado/toque, movimento reduzido e cinco tamanhos de tela também foram verificados. Esses resultados cobrem os cenários descritos, não constituem garantia de ausência de qualquer defeito visual em todo dispositivo.

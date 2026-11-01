@@ -1,8 +1,9 @@
+import {hawkAngle} from './collision.mjs';
 import { SNAKE_ART } from './geometry.mjs';
 import { canvasResolution } from './quality.mjs';
 import { flightViewport, warningPosition } from './viewport.mjs';
-import { images, loadAssets, BIRD_ANCHORS, TRUNKS, SPECIAL } from './assets.mjs';
-import { birdBlend, hawkBlend, impactPose, borderCells, smoothstep } from './motion.mjs';
+import { images, loadAssets, BIRD_ANCHORS, TRUNKS, SPECIAL, BIRD_SCALES } from './assets.mjs';
+import { birdBlend, impactPose, borderCells, smoothstep } from './motion.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 const TAU = Math.PI * 2;
@@ -37,9 +38,10 @@ function clay(c, x, y, rx, ry, light, dark, angle = 0) {
 function leaf(c, x, y, size, rotation, light = '#87b36a', dark = '#3d7349') {
     c.save(); c.translate(x, y); c.rotate(rotation);
     c.beginPath();c.moveTo(-size,0);c.bezierCurveTo(-size*.4,-size*.65,size*.55,-size*.45,size,0);
-    c.bezierCurveTo(size*.35,size*.45,-size*.5,size*.5,-size,0);c.fillStyle=dark;c.fill();
+    c.bezierCurveTo(size*.35,size*.45,-size*.5,size*.5,-size,0);
+    const shade=c.createLinearGradient(0,-size*.45,0,size*.45);shade.addColorStop(0,light);shade.addColorStop(.52,dark);shade.addColorStop(1,light);c.fillStyle=shade;c.fill();
     c.beginPath();c.moveTo(-size*.9,0);c.bezierCurveTo(-size*.3,-size*.5,size*.5,-size*.35,size*.9,0);
-    c.quadraticCurveTo(0,-size*.07,-size*.9,0);c.fillStyle=light;c.fill();
+    c.quadraticCurveTo(0,-size*.07,-size*.9,0);const opacity=Number.isFinite(c.globalAlpha)?c.globalAlpha:1;c.globalAlpha=opacity*.35;c.fillStyle=light;c.fill();c.globalAlpha=opacity;
     c.beginPath();c.moveTo(-size*.88,0);c.quadraticCurveTo(0,-size*.1,size*.85,0);
     c.strokeStyle='#d9e6a64a';c.lineWidth=Math.max(.7,size*.025);c.stroke();
     c.restore();
@@ -55,13 +57,15 @@ function feather(c,x,y,size,rotation,color) {
 
 function hawkLayer(c,image,w,h,time,reduced,dive,dazed) {
     const factor=w/image.naturalWidth,dx=-w*.43,dy=-h*.66;
-    const points=[[365,680],[460,455],[650,40],[980,0],[980,620],[680,720],[475,745]];
+    const points=[[350,660],[390,530],[500,330],[650,-10],[1000,-10],[1000,620],[650,755],[450,735]];
     const polygon=()=>{c.moveTo(dx+points[0][0]*factor,dy+points[0][1]*factor);for(const [x,y]of points.slice(1))c.lineTo(dx+x*factor,dy+y*factor);c.closePath();};
     if(reduced||dazed){c.drawImage(image,dx,dy,w,h);return;}
-    c.save();c.beginPath();c.rect(dx,dy,w,h);polygon();c.clip('evenodd');c.drawImage(image,dx,dy,w,h);c.restore();
-    c.save();const px=dx+430*factor,py=dy+690*factor;
-    c.translate(px,py);c.rotate(.27+.33*Math.sin(time*(dive?16:11)));c.translate(-px,-py);
+    const px=dx+430*factor,py=dy+690*factor;
+    // A complete wing mask includes every tip; draw the stable torso over the joint.
+    c.save();c.translate(px,py);c.rotate(.16+.20*Math.sin(time*(dive?16:11)));c.translate(-px,-py);
     c.beginPath();polygon();c.clip();c.drawImage(image,dx,dy,w,h);c.restore();
+    clay(c,px,py,46*factor,50*factor,'#784e30','#59341e');
+    c.save();c.beginPath();c.rect(dx,dy,w,h);polygon();c.clip('evenodd');c.drawImage(image,dx,dy,w,h);c.restore();
 }
 
 function flightLayer(c,image,factor,ax,ay,bend) {
@@ -82,7 +86,7 @@ function drawSpiralEye(c, ex, ey, r, t) {
     c.arc(ex, ey, r, 0, TAU);
     c.fillStyle = '#ffffff';
     c.fill();
-    c.lineWidth = 1.6;
+    c.lineWidth = Math.max(.7,r*.2);
     c.strokeStyle = '#18311a';
     c.stroke();
 
@@ -96,7 +100,7 @@ function drawSpiralEye(c, ex, ey, r, t) {
         if (a === 0) c.moveTo(px, py);
         else c.lineTo(px, py);
     }
-    c.lineWidth = 2.0;
+    c.lineWidth = Math.max(.65,r*.22);
     c.strokeStyle = '#152b17';
     c.stroke();
     c.restore();
@@ -155,13 +159,13 @@ function drawHappyEye(c, ex, ey, r) {
     c.arc(ex, ey, r, 0, TAU);
     c.fillStyle = '#ffffff';
     c.fill();
-    c.lineWidth = 1.4;
+    c.lineWidth = Math.max(.7,r*.2);
     c.strokeStyle = '#18311a';
     c.stroke();
 
     c.beginPath();
     c.arc(ex, ey + 3, r * 0.85, Math.PI * 1.15, Math.PI * 1.85);
-    c.lineWidth = 2.8;
+    c.lineWidth = Math.max(.9,r*.3);
     c.strokeStyle = '#152b17';
     c.lineCap = 'round';
     c.stroke();
@@ -335,7 +339,7 @@ export function drawBird(c, {
     reduced = false, reaction = 0, flapImpulse = 0, vy = 0,
     defeated = false, impactProgress = 0, turbo = false, stamina = 1, won = false
 }) {
-    const {pose,next:nextPose,blend} = birdBlend(defeated?0:wing, reduced);
+    const {pose,next:nextPose,blend} = birdBlend(wing, reduced);
     const image = images.get(perched ? (surprise ? 'chaua-hero' : 'perch') : `chaua-${pose}`);
     if (!image) return;
 
@@ -350,21 +354,11 @@ export function drawBird(c, {
     }
     c.rotate(renderAngle);
 
-    const breath = reduced ? 1 : 1 + Math.sin(time * 1.8) * .008;
+
     const size = (perched ? 115 : 125) * scale;
-    const factor = size / image.naturalWidth;
+    const factor = size / image.naturalWidth * (perched?1:BIRD_SCALES[pose]);
     const [ax, ay] = perched ? [.5, .52] : BIRD_ANCHORS[pose];
-    const pop = reduced ? 1 : 1 + Math.sin(Math.max(0, reaction) / .26 * Math.PI) * .08;
-    const spring = !perched && !reduced && !defeated ? Math.sin(Math.max(0, Math.min(1, flapImpulse)) * Math.PI) * .07 : 0;
-    const velSquash = !perched && !reduced ? Math.max(-0.08, Math.min(0.12, (vy || 0) / 3000)) : 0;
-
-    const turboStretchX = turbo && !reduced ? 1.10 : 1;
-    const turboStretchY = turbo && !reduced ? 0.92 : 1;
-    const fatiguePant = !perched && !reduced && stamina < 0.28 ? Math.sin(time * 12) * 0.04 : 0;
-
-    const stretchY = (1 + spring - velSquash + fatiguePant) * turboStretchY;
-    const stretchX = (1 - spring * 0.5 + velSquash * 0.5) * turboStretchX;
-    c.scale(breath * pop * stretchX, breath * pop * stretchY);
+    // Body proportions stay fixed during flaps, fatigue, pickups, turbo and impact.
 
     if (turbo && !perched && !reduced) {
         drawTurboFlames(c, size, time);
@@ -376,12 +370,12 @@ export function drawBird(c, {
     if (blendAlpha > 0 && next) {
         const [nx, ny] = BIRD_ANCHORS[nextPose];
         blendSprite(c,layer=>flightLayer(layer,image,factor,ax,ay,bend),
-            layer=>flightLayer(layer,next,factor,nx,ny,bend),blendAlpha);
+            layer=>flightLayer(layer,next,size/next.naturalWidth*BIRD_SCALES[nextPose],nx,ny,bend),blendAlpha);
     } else flightLayer(c,image,factor,ax,ay,bend);
 
     const eyeX = size * 0.198;
     const eyeY = -size * 0.088;
-    const eyeRadius = size * 0.075;
+    const eyeRadius = size * .028;
     const headX = size * 0.16;
     const headY = -size * 0.17;
     const beakX = size * 0.40;
@@ -390,7 +384,7 @@ export function drawBird(c, {
     if (defeated && !perched) {
         drawSpiralEye(c, eyeX, eyeY, eyeRadius, time);
         if (!reduced) {
-            drawOrbitingStars(c, headX, headY, size, time);
+            drawOrbitingStars(c, headX, headY-size*.2, size, time);
         }
     } else if (reaction > 0 && !perched) {
         drawHappyEye(c, eyeX, eyeY, eyeRadius);
@@ -573,7 +567,7 @@ export class Renderer {
             shakeX = Math.sin(game.shakeTime * 65) * mag;
             shakeY = Math.cos(game.shakeTime * 80) * mag;
         }
-        c.save(); c.beginPath(); c.rect(view.x, view.y, view.w, view.h); c.clip();
+        c.save(); c.beginPath(); c.rect(view.x, 0, view.w, this.h); c.clip();
         c.translate(view.x - view.worldLeft * s + shakeX, view.y + shakeY); c.scale(s, s);
         c.beginPath(); c.rect(view.worldLeft - 120, -600, Math.max(WIDTH, view.worldWidth) + 240, HEIGHT + 1200); c.clip();
         if (game.pepper > 0) {
@@ -698,7 +692,7 @@ export class Renderer {
         const impactProg = game.state === 'impact' ? Math.max(0, 1 - (game.impactRemaining || 0) / 0.42) : (game.state === 'ended' && !game.won ? 1 : 0);
         drawBird(c, {
             x: game.x, y: game.y, scale: .74, perched: game.state === 'ended' && game.won,
-            angle: reduced ? 0 : game.angle, wing: reduced ? .2 : game.wing, time: sceneTime,
+            angle: game.angle, wing: reduced ? .2 : game.wing, time: sceneTime,
             reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
             defeated: isDefeated, impactProgress: impactProg, turbo: (game.pepper || 0) > 0,
             stamina: game.stamina !== undefined ? game.stamina : 1, won: game.state === 'ended' && game.won
@@ -901,18 +895,14 @@ export class Renderer {
 
     foreground(distance,time,reduced,left=0,width=WIDTH) {
         const c=this.c, travel=reduced?0:distance*.65;
-        // The moss line marks the actual world floor; stones and roots stay below it.
-        c.save();c.fillStyle='#284c35';c.beginPath();c.moveTo(left-10,HEIGHT+12);
-        for(let x=left-10;x<=left+width+20;x+=16)c.lineTo(x,HEIGHT-3+Math.sin((x+travel)*.025)*2);
-        c.lineTo(left+width+20,HEIGHT+30);c.closePath();c.fill();c.restore();
         for(const {index:i,x} of borderCells(travel,180,left,width)) {
             const swayBottom=reduced?0:Math.sin(time*1.2+i*0.9)*0.04+Math.cos(time*0.7+i*1.4)*0.02;
             const swayTop=reduced?0:Math.sin(time*1.0+i*0.8)*0.04+Math.cos(time*0.6+i*1.2)*0.02;
-            leaf(c,x-12,HEIGHT+5,38,-0.9+swayBottom,'#5d8c4e','#264e32');
-            leaf(c,x+50,HEIGHT+8,48,-0.7+swayBottom*1.2,'#7aa858','#34613b');
-            leaf(c,x+60,-8,54,0.35+swayTop,'#8bb25e','#3e6b42');
-            leaf(c,x+130,-8,58,-0.25+swayTop*1.1,'#68964d','#2c5333');
-            leaf(c,x+125,HEIGHT+7,42,-1.25+swayBottom,'#68934f','#294d32');
+            leaf(c,x-12,HEIGHT+12+Math.sin(i)*6,34,-0.9+swayBottom,'#5d8c4e','#264e32');
+            leaf(c,x+50,HEIGHT+18+Math.sin(i*1.4)*9,42,-0.7+swayBottom*1.2,'#7aa858','#34613b');
+            leaf(c,x+60,-18+Math.sin(i*2.3)*9,48,0.35+Math.sin(i)*.55+swayTop,'#8bb25e','#3e6b42');
+            leaf(c,x+130,-22+Math.sin(i*1.7)*8,52,-0.25+Math.sin(i*2)*.45+swayTop*1.1,'#68964d','#2c5333');
+            leaf(c,x+125,HEIGHT+13+Math.sin(i*2.1)*8,38,-1.25+swayBottom,'#68934f','#294d32');
         }
     }
 
@@ -926,7 +916,7 @@ export class Renderer {
             time = typeof yOrTime === 'number' ? yOrTime : 0;
             warning = e.warning > 0;
             retreat = !!e.retreat;
-            angle = e.dive ? -Math.atan2(e.targetY - e.startY, e.startX - e.targetX) : 0;
+            angle = hawkAngle(e);
         } else {
             x = entityOrX;
             y = yOrTime;
@@ -934,9 +924,9 @@ export class Renderer {
         }
 
         const reduced = typeof entityOrX === 'object' ? timeOrReduced === true : time === 0;
-        const {pose,next,blend} = hawkBlend(time,{dive:e?.dive,dazed:retreat||e?.dazed,reduced:reduced||warning,id:e?.id||0});
-        const image = images.get(`hawk-${pose}`) || images.get('hawk-0');
-        const nextImage = images.get(`hawk-${next}`);
+        // One registered master keeps body, head and far wing attached. The
+        // replacement pose bitmaps contained disconnected feather fragments.
+        const image = images.get('hawk-0');
         if (!image) return;
 
         const factor = (warning ? 49 : 115) / image.naturalWidth;
@@ -948,11 +938,9 @@ export class Renderer {
         // Tumble rotation during defeat vs aerodynamic banking
         let renderAngle = angle;
         if (reduced) {
-            renderAngle = 0;
+            renderAngle = retreat||e?.dazed ? 0 : angle;
         } else if (retreat || e?.dazed) {
             renderAngle = e?.tumbleAngle !== undefined ? e.tumbleAngle : (time * 14);
-        } else if (!warning && time > 0) {
-            renderAngle += Math.sin(time * 4.2) * 0.05;
         }
 
         c.save();
@@ -981,10 +969,8 @@ export class Renderer {
         }
 
         // Draw raptor sprite centered on anchor
-        if(blend>0&&nextImage)blendSprite(c,
-            layer=>hawkLayer(layer,image,w,h,time,reduced,e?.dive,retreat||e?.dazed),
-            layer=>hawkLayer(layer,nextImage,w,h,time,reduced,e?.dive,retreat||e?.dazed),blend);
-        else hawkLayer(c,image,w,h,time,reduced,e?.dive,retreat||e?.dazed);
+        hawkLayer(c,image,w,h,time,reduced,e?.dive,retreat||e?.dazed);
+        if(retreat||e?.dazed)drawSpiralEye(c,(150-image.naturalWidth*.43)*factor,(655-image.naturalHeight*.66)*factor,2.5,reduced?0:time);
 
         // Dizzy spinning stars above head when dazed/defeated
         if ((retreat || e?.dazed) && time > 0 && !reduced) {

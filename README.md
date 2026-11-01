@@ -237,3 +237,9 @@ Validação: 123 testes de lógica e renderização instrumentada, build SCSS, t
 A [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md) separa falhas reproduzidas de melhorias de apresentação e corrige o enquadramento móvel, a escala da madeira, a colisão das cobras e a geração de galhos. O gavião mantém um aviso durante a aproximação e ganha articulação de asa independente do torso; suas rotas exigem desvio, sem perseguir o jogador. O Amigável agora oferece maior espaço e cadência mais lenta que o Desafio. A mata recebe folhas com dobra e luz, névoa e enquadramento por copa e musgo.
 
 O ranking atual passa a `db-chaua-floresta-v5`; v4 entra no Histórico sem ser alterado. Missões e coleções continuam preservadas. `npm run test:journey`, com o servidor ativo e `CHROMIUM_PATH` quando necessário, executa os dois percursos completos no navegador com comandos simulados.
+
+### Estabilidade visual e colisões
+
+A revisão final remove o surgimento abrupto do abrigo e as deformações de escala do Chauá. O gavião usa uma base estável com asa articulada, sem fragmentos das poses alternativas. Corpo e cabeça das aves têm colisões arredondadas que acompanham a inclinação; penas e detalhes decorativos continuam tolerantes. Troncos se estendem até as bordas do cenário e a folhagem recebeu sombreamento mais suave.
+
+Com o servidor ativo, `npm run test:visual` verifica 60 quadros do Chauá e 144 do predador por pixels, além dos 138 testes de lógica/geometria de `npm test`. O comando aceita `GAME_URL` e `CHROMIUM_PATH`, como os testes de navegador. Detalhes e limites estão na [revisão de jogabilidade](docs/REVISAO_JOGABILIDADE.md).

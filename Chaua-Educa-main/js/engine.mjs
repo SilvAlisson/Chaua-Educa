@@ -1,3 +1,4 @@
+import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect,roundedShape} from './collision.mjs';
 import { snakeHeadRect } from './geometry.mjs';
 import { createTutorial, advanceTutorial } from './tutorial.mjs';
 import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
@@ -49,7 +50,7 @@ export class Game {
     }
 
     snapshot() {
-        this.previous = { arrivalOffset:this.arrival?.offset||0, y: this.y, angle: this.angle,
+        this.previous = { arrivalOffset:this.arrival?.offset||0, refugeX:this.refuge?.x, y: this.y, angle: this.angle,
             distance:this.distance, elapsed:this.elapsed, sceneTime:this.sceneTime, stage:this.stage, stageAge:this.stageAge,
             wing:this.wing, flapImpulse:this.flapImpulse,
             entities:new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y, tumbleAngle:e.tumbleAngle, retreatTime:e.snake?.retreatTime}])) };
@@ -59,6 +60,7 @@ export class Game {
         if (!['playing','arrival'].includes(this.state) || !this.previous) return this;
         const lerp = (a,b) => a + (b-a) * Math.max(0, Math.min(1, alpha));
         const view = Object.create(this);
+        if(this.refuge&&Number.isFinite(this.previous.refugeX))view.refuge={...this.refuge,x:lerp(this.previous.refugeX,this.refuge.x)};
         if(this.arrival)view.arrival={...this.arrival,offset:lerp(this.previous.arrivalOffset,this.arrival.offset)};
         view.y = lerp(this.previous.y, this.y);
         view.angle = lerp(this.previous.angle, this.angle);
@@ -447,7 +449,7 @@ export class Game {
         if(this.distance<JOURNEY_LENGTH)return;
         const danger=this.entities.some(e=>(e.kind==='wood'&&e.x+85>this.x-36)||(e.kind==='hawk'&&!e.harmless&&e.x+30>this.x-36));
         if(danger || (this.quizDue&&!this.refuge))return;
-        if(!this.refuge){this.refuge={x:800,y:320};this.onEvent({type:'refuge'});}
+        if(!this.refuge){this.refuge={x:Math.max(this.width,this.viewWidth||this.width)+220,y:320};this.onEvent({type:'refuge'});}
         this.refuge.x=Math.max(330,this.refuge.x-this.speed*dt);
         if(this.refuge.x<=330 && Math.abs(this.y-this.refuge.y)<=60) {
             this.state='arrival';this.arrival={age:0,offset:0,fromY:this.y};this.cancelInput();this.snapshot();
@@ -520,18 +522,19 @@ export class Game {
         if (this.nextSpawn <= 0 && !this.quizDue && this.distance<JOURNEY_LENGTH) this.spawn();
         for (const e of this.entities) {
             if (this.state !== 'playing') break;
+            const playerBody=playerShapes(this.x,this.y,this.angle);
             if (e.kind === 'hawk') {
                 advanceHawk(e,dt,this.speed,this.x);
-                if (e.phase !== 'warning' && !e.harmless && overlaps(this.body, { x: e.x - 30, y: e.y - 13, w: 60, h: 26 })) this.collide(e, true);
+                if (e.phase !== 'warning' && !e.harmless && shapesIntersect(playerBody,hawkShapes(e))) this.collide(e, true);
                 continue;
             }
             e.x -= this.speed * dt;
             if (e.kind === 'wood') {
                 advanceSnake(e,dt,this.x);
                 if (e.snake && !e.snake.retreat) {
-                    if (this.snakeRects(e).some(rect => overlaps(this.body, rect))) this.collide(e.snake, true, e);
+                    if (this.snakeRects(e).some(rect => shapesIntersect(playerBody,[roundedShape(rect)]))) this.collide(e.snake, true, e);
                 }
-                const woodHit = this.woodRects(e).find(rect => overlaps(this.body, rect));
+                const woodHit = this.woodRects(e).find(rect => shapesHitRect(playerBody,rect));
                 if (woodHit) { e.hitPart = woodHit.part; e.hitSide = woodHit.y >= e.bottom ? 'bottom' : 'top'; this.collide(e); }
                 if (this.state !== 'playing') break;
                 if (!e.scored && e.x + 85 < this.x - 20) { e.scored = true; if (!e.broken && !e.contacted) this.addScore(1); }

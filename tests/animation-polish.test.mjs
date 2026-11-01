@@ -86,7 +86,7 @@ test('snake retreats leave the same opaque trunk art before and after the animat
 });
 
 test('reduced motion fixes the hawk pose and removes all tumble rotation',()=>{
-    const r=Object.create(Renderer.prototype);images.set('hawk-3',{naturalWidth:980,naturalHeight:1080});
+    const r=Object.create(Renderer.prototype);images.set('hawk-0',{naturalWidth:980,naturalHeight:1080});
     const capture=recordingContext();r.c=capture.context;
     r.hawk({x:400,y:320,retreat:true,dazed:true,tumbleAngle:9},0,true);
     assert.deepEqual(capture.rotations,[0]);

@@ -10,7 +10,8 @@
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser-smoke.cjs",
     "dev": "python -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main",
-    "test:journey": "node tests/browser-journey.cjs"
+    "test:journey": "node tests/browser-journey.cjs",
+    "test:visual": "node tests/browser-visual.cjs"
   },
   "engines": {
     "node": ">=22"
