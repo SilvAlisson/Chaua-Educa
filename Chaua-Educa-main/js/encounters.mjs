@@ -22,9 +22,9 @@ export function planEncounter({sequence,elapsed,lastCenter,lastPattern,profile,s
     const eligible=ENCOUNTERS.filter(p=>p.unlock<=elapsed && p.id!==lastPattern).flatMap(p=>JOURNEY[stage].patterns.includes(p.id)?[p,p]:[p]);
     const pattern=sequence===0?ENCOUNTERS[0]:eligible[Math.min(eligible.length-1,Math.floor(random()*eligible.length))];
     const interval=Math.max(profile.minInterval,profile.interval-elapsed*profile.ramp)+pattern.interval;
-    // Conservative travel budget after clearing 160 units of wood/branches,
+    // Conservative travel budget after clearing 220 units of wood/branches,
     // allowing 0.45s to release, reverse or wait for a wingbeat.
-    const available=Math.max(0,(interval*speed-160)/300-.45);
+    const available=Math.max(0,(interval*speed-220)/300-.45);
     const maxShift=Math.min(55,available*100);
     const shift=Math.max(-maxShift,Math.min(maxShift,pattern.shift+(random()-.5)*16));
     const center=Math.max(200,Math.min(440,lastCenter+shift));

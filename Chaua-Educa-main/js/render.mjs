@@ -1,10 +1,12 @@
+import {drawLivingTrunk,drawLivingBranch,drawRefugeTree} from './tree-art.mjs';
+import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
 import {birdAnimation,hawkAnimation,snakeAnimation,snakePlacement,placeWarnings} from './animation.mjs';
 import {hawkAngle} from './collision.mjs';
 import { canvasResolution } from './quality.mjs';
 import { flightViewport, warningPosition } from './viewport.mjs';
-import { images, loadAssets, TRUNKS, SPECIAL } from './assets.mjs';
-import { impactPose, borderCells, smoothstep } from './motion.mjs';
+import { images, loadAssets } from './assets.mjs';
+import { impactPose, smoothstep } from './motion.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 const TAU = Math.PI * 2;
@@ -48,6 +50,22 @@ function perchedSprite(c,clip,factor){
     c.ellipse((openEye[0]-192)*factor,(openEye[1]-192)*factor,21*factor,25*factor,0,0,TAU);c.clip();
     c.globalAlpha*=closed;
     atlasFrame(c,'chaua',13,factor);c.restore();
+}
+export function woodContactPosition(game,progress=0,reduced=false){
+    const rect=game.impactContact;
+    if(!rect||!['impact','ended'].includes(game.state)||game.won)return {x:game.x,y:game.y};
+    const pose=reduced?{x:0,y:0,angle:0}:impactPose(progress),angle=game.angle+pose.angle;
+    const clip=birdAnimation({wing:game.wing,defeated:true,impactProgress:progress,reduced});
+    const points=[];const factor=27.7027*.74/SPRITES.chaua.landmarkWidth;
+    for(const i of new Set([clip.frame,clip.next])){
+        const f=SPRITES.chaua.frames[i],[x,y,w,h]=f.content;
+        for(const [px,py]of [[x,y],[x+w,y],[x,y+h],[x+w,y+h]]){
+            const dx=(px-192)*factor,dy=(py-192)*factor;
+            points.push({x:dx*Math.cos(angle)-dy*Math.sin(angle)+pose.x,y:dx*Math.sin(angle)+dy*Math.cos(angle)+pose.y});
+        }
+    }
+    const maxX=Math.max(...points.map(p=>p.x));
+    return {x:Math.min(game.x,rect.x-maxX-2),y:game.y};
 }
 function birdFoot(scale){
     const f=SPRITES.chaua.frames[12];return (f.content[1]+f.content[3]-f.anchor[1])*27.7027*scale/SPRITES.chaua.landmarkWidth;
@@ -454,23 +472,6 @@ export class Renderer {
             const y = ((i * 93.4 + (reduced ? 0 : time * 3)) % (h * .9));
             oval(c, x, y, 1.6, 1.6, '#ffedb275');
         }
-        // Foliage is sculpted from rounded, softly lit forms.
-        for (let edge = 0; edge < 2; edge++) {
-            for (const {index:i,x} of borderCells(offset*.25,102,0,w)) {
-                const y = edge ? h + 12 : -28;
-                const sway = reduced ? 0 : Math.sin(time*.8)*.08+Math.sin(time*1.7+i)*.025;
-                leaf(c, x, y, 74 + Math.sin(i * 3.1) * 18, (edge ? -.9 : .8) + Math.sin(i) * .5 + sway, edge ? '#4e8054' : '#729a55', edge ? '#1d513c' : '#335e37');
-            }
-        }
-        // Small vines and flowers remain in the decorative border, never the passage.
-        c.save();c.strokeStyle='#56754288';c.lineWidth=2;
-        for(const {index:i,x} of borderCells(offset*.28,190,0,w)) {
-            const sway=reduced?0:Math.sin(time*.8+i)*7;
-            c.beginPath();c.moveTo(x,0);c.quadraticCurveTo(x+sway,24,x+10+sway,43);c.stroke();
-            leaf(c,x+10+sway,40,7,.9,'#9ab66a','#4a7243');
-            if(stage>=1) for(let k=0;k<4;k++)leaf(c,x+40,h-7,12,-1.8+k*.4,stage===3?'#d6a05f':'#b39176','#765c48');
-        }
-        c.restore();
         if (home) {
             const wash = c.createLinearGradient(0, 0, w * .7, 0);
             wash.addColorStop(0, '#f1f2da'); wash.addColorStop(.66, '#f0f1d9ef'); wash.addColorStop(1, '#e7edcb00');
@@ -636,20 +637,14 @@ export class Renderer {
         }
 
         if(game.refuge) {
-            const r=game.refuge,support=320+birdFoot(.74),livingTime=game.state==='ended'&&game.won?visualTime:sceneTime;
-            this.trunk('hollow',SPECIAL.hollow,r.x+90,support+9,false);
-            this.branch(r.x-36,support,r.x+130,support+3,12);
-            drawBird(c,{x:r.x+62,y:support-birdFoot(.38),scale:.38,perched:true,reduced,time:livingTime});
-            drawBird(c,{x:r.x+110,y:support-birdFoot(.36),scale:.36,perched:true,reduced,time:livingTime});
-            if(game.state==='playing') {
-                c.save();c.strokeStyle='#fff3ba';c.lineWidth=3;c.setLineDash([6,6]);
-                c.beginPath();c.ellipse(r.x,r.y,48,60,0,0,TAU);c.stroke();c.restore();
-            }
+            const support=320+birdFoot(.74);
+            drawRefugeTree(c,game.refuge,support,reduced?0:sceneTime);
         }
         const isDefeated = (game.state === 'ended' && !game.won) || game.state === 'impact';
         const impactProg = game.state === 'impact' ? Math.max(0, 1 - (game.impactRemaining || 0) / 0.42) : (game.state === 'ended' && !game.won ? 1 : 0);
+        const contact=woodContactPosition(game,impactProg,reduced);
         drawBird(c, {
-            x: game.x, y: game.y, scale: .74, perched: game.state === 'ended' && game.won,
+            x: contact.x, y: contact.y, scale: .74, perched: game.state === 'ended' && game.won,
             angle: game.angle, wing: reduced ? .2 : game.wing, time: game.state==='ended'&&game.won?visualTime:sceneTime,
             landing: game.arrival&&!game.won?Math.min(1,game.arrival.age/1.6):null,
             reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
@@ -669,7 +664,6 @@ export class Renderer {
             c.lineWidth=3;c.strokeStyle='#254a35';c.strokeText(p.text,p.x,p.y);
             c.fillStyle=p.gold?'#ffe392':'#f1ffd4';c.fillText(p.text,p.x,p.y);c.restore();
         }
-        this.foreground(game.distance,sceneTime,reduced,view.worldLeft,view.w/s);
         c.restore();
         this.flightBorders(view);
         const notices=[];
@@ -696,81 +690,24 @@ export class Renderer {
     }
 
     obstacle(e, game, reduced=false) {
-        const c=this.c, variant=(e.id??0)%3, preset=TRUNKS[variant];
-        const time=reduced?0:(game.sceneTime??game.elapsed);
-        c.save();
-        if(!reduced && game.hit && game.hit.id===e.id) {
-            const t = game.hit.age;
-            const decay = Math.max(0, 1 - t / 0.3);
-            c.translate(Math.sin(t * 95) * 8 * decay, Math.cos(t * 110) * 3 * decay);
-        }
-        if(e.breakFx&&!reduced) {
-            c.save();c.globalAlpha=Math.max(0,1-e.breakFx.age/.24);c.translate(0,e.breakFx.age*35);
-            this.trunk(`trunk-${variant}`,preset,e.x+29,e.breakFx.side==='top'?e.top:e.bottom,e.breakFx.side==='top',0,variant);
-            c.restore();
-        }
-        if (!e.broken || e.brokenSide !== 'top') {
-            c.save(); c.beginPath();
-            c.rect(e.x - 180, -1000, 360, e.top + 1000);
-            // Match the passable hollow to woodRects; never draw solid bark over it.
-            if(e.variant==='hollow' && e.top>150)c.roundRect(e.x-2,e.top-110,62,70,8);
-            c.clip('evenodd');
-            this.trunk(`trunk-${variant}`, preset, e.x + 29, e.top, true, time, variant);
-            if(e.variant==='hollow' && e.top>150){
-                c.strokeStyle='#70452c';c.lineWidth=4;
-                c.beginPath();c.roundRect(e.x-2,e.top-110,62,70,8);c.stroke();
-            }
-            c.restore();
-        }
-        if (!e.broken || e.brokenSide !== 'bottom') {
-            c.save(); c.beginPath();
-            const snakeActive = !!e.snake;
-            const clipTop = snakeActive ? e.bottom - 40 : e.bottom;
-            c.rect(e.x - 180, clipTop, 360, HEIGHT + 1000);
-            c.clip();
-            const kind=e.variant==='hollow'?'hollow':`trunk-${variant}`;
-            this.trunk(kind,SPECIAL[kind]??preset,e.x+29,e.bottom,false,time,variant);
-            c.restore();
-            if(e.variant==='branch')this.wood({x:e.x-70,y:e.bottom+30,w:78,h:18},variant);
+        const c=this.c,time=reduced?0:(game.sceneTime??game.elapsed),variant=(e.id??0)%3,cx=e.x+29;
+        if(!e.broken||e.brokenSide!=='top')this.trunk(`trunk-${variant}`,null,cx,e.top,true,time,variant);
+        if(!e.broken||e.brokenSide!=='bottom'){
+            if(e.variant==='branch')drawLivingBranch(c,{rootX:cx+12,rootY:e.bottom+77,tipX:cx-102,tipY:e.bottom+28,thickness:39});
+            this.trunk(`trunk-${variant}`,null,cx,e.bottom,false,time,variant);
             if(e.snake)this.snake(e,reduced);
         }
-        if (e.variant === 'broken' && !e.dryBranchBroken && (!e.broken || e.brokenSide !== 'top')) {
-            this.wood({ x: e.x + 52, y: e.top - 35, w: 26, h: 18 }, variant);
-        }
-        c.restore();
+        if(e.variant==='broken'&&!e.dryBranchBroken)drawLivingBranch(c,{rootX:cx+40,rootY:e.top-55,tipX:cx+79,tipY:e.top-30,thickness:15});
     }
-
-    trunk(key,preset,x,y,flip,time=0,variant=0) {
-        const c=this.c; c.save();c.translate(x,y);
-        this.wood({x:-29,y:flip?-1500:0,w:58,h:1500},variant);
-        // Each cap keeps upper-left illumination; the tree art is never inverted.
-        const ring=c.createLinearGradient(-29,-6,29,8);ring.addColorStop(0,'#f0cc8e');ring.addColorStop(.55,'#d8ae70');ring.addColorStop(1,'#a97642');
-        oval(c,0,0,29,7,ring);c.strokeStyle='#9b6b3d';c.lineWidth=1;
-        for(const radius of [10,18,25]){c.beginPath();c.ellipse(0,0,radius,radius*.22,0,0,TAU);c.stroke();}
-        const wind=time?Math.sin(time*1.1+variant)*.03:0;
-        for(let i=0;i<3;i++)leaf(c,(i%2?1:-1)*29,(flip?-1:1)*(95+i*90),22+i*4,(i%2?.9:-.8)+wind,'#6d9650','#365a38');
-        c.restore();
-    }
-    wood({x,y,w,h},variant=0) {
-        if(h<=0)return;
-        const c=this.c,tones=[['#704426','#b97d43','#d59a55'],['#68432b','#a66e3d','#c18b51'],['#745035','#bd8c54','#d6a669']][variant%3];
-        const bark=c.createLinearGradient(x,0,x+w,0);bark.addColorStop(0,tones[0]);bark.addColorStop(.24,tones[1]);bark.addColorStop(.56,tones[2]);bark.addColorStop(1,tones[0]);
-        c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.fillStyle=bark;c.fillRect(x,y,w,h);
-        c.strokeStyle='#59362066';c.lineWidth=1.2;
-        for(let i=0;i<6;i++){
-            const xx=x+6+i*w/6;c.beginPath();c.moveTo(xx,y);
-            for(let yy=y;yy<y+h;yy+=48)c.quadraticCurveTo(xx+Math.sin(i*3+yy*.03)*3,yy+24,xx+Math.sin(i+yy*.017)*2,yy+48);
-            c.stroke();
-        }
-        c.restore();
+    trunk(key,preset,x,y,flip,time=0,variant=0){
+        drawLivingTrunk(this.c,{x,y,upper:flip,width:TREE_WIDTH,length:1000,variant,time});
     }
     branch(x1,y1,x2,y2,width=12){
-        const c=this.c;c.save();c.lineCap='round';c.lineWidth=width;c.strokeStyle='#79522f';c.beginPath();c.moveTo(x1,y1+2);c.quadraticCurveTo((x1+x2)/2,y1+6,x2,y2+2);c.stroke();
-        c.lineWidth=width*.5;c.strokeStyle='#c19355';c.beginPath();c.moveTo(x1,y1);c.quadraticCurveTo((x1+x2)/2,y1+3,x2,y2);c.stroke();c.restore();
+        drawLivingBranch(this.c,{rootX:x2,rootY:y2,tipX:x1,tipY:y1,thickness:width*1.8});
     }
     snake(wood,reduced){
         const s=wood.snake,place=snakePlacement(wood),clip=snakeAnimation(s,reduced),c=this.c;
-        c.save();c.translate(place.x,place.y);
+        c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
         if(s.retreat)c.globalAlpha=Math.max(0,1-smoothstep(((s.retreatTime||0)-.95)/.35));
         atlasAnimation(c,'snake',clip,place.factor);c.restore();
     }
@@ -783,19 +720,6 @@ export class Renderer {
             c.font='800 9px Nunito';c.fillStyle='#284c32';c.textAlign='right';c.fillText(label,view.x+view.w-8,py+(upper?12:-5));c.restore();
         }
     }
-    foreground(distance,time,reduced,left=0,width=WIDTH) {
-        const c=this.c, travel=reduced?0:distance*.65;
-        for(const {index:i,x} of borderCells(travel,180,left,width)) {
-            const swayBottom=reduced?0:Math.sin(time*1.2+i*0.9)*0.04+Math.cos(time*0.7+i*1.4)*0.02;
-            const swayTop=reduced?0:Math.sin(time*1.0+i*0.8)*0.04+Math.cos(time*0.6+i*1.2)*0.02;
-            leaf(c,x-12,HEIGHT+12+Math.sin(i)*6,34,-0.9+swayBottom,'#5d8c4e','#264e32');
-            leaf(c,x+50,HEIGHT+18+Math.sin(i*1.4)*9,42,-0.7+swayBottom*1.2,'#7aa858','#34613b');
-            leaf(c,x+60,-18+Math.sin(i*2.3)*9,48,0.35+Math.sin(i)*.55+swayTop,'#8bb25e','#3e6b42');
-            leaf(c,x+130,-22+Math.sin(i*1.7)*8,52,-0.25+Math.sin(i*2)*.45+swayTop*1.1,'#68964d','#2c5333');
-            leaf(c,x+125,HEIGHT+13+Math.sin(i*2.1)*8,38,-1.25+swayBottom,'#68934f','#294d32');
-        }
-    }
-
     hawk(entityOrX, yOrTime = 0, timeOrReduced = 0, warning = false, angle = 0, retreat = false) {
         const c = this.c;
         let x, y, time, e = null;

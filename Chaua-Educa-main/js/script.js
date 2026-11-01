@@ -217,7 +217,7 @@ function result() {
     const birdCanvas = document.createElement('canvas'); birdCanvas.width = 300; birdCanvas.height = 210;
     const bc = birdCanvas.getContext('2d'); bc.scale(2, 2); drawBird(bc, { x: 68, y: 53, scale: 1.05, perched: true, surprise: !game.won, reduced: true });
     $('#result-bird').replaceChildren(birdCanvas);
-    openDialog('#result-dialog'); $('#restart-button').focus();
+    openDialog('#result-dialog'); $('#restart-button').focus({preventScroll:true}); $('#result-dialog').scrollTop=0;
     $('#screen-reader-status').textContent = `${game.won ? 'Vitória' : 'Fim de voo'}. ${game.score} pontos, ${game.fruits} frutos, ${game.correct} respostas corretas. ${game.reason}`;
     const begin = performance.now(), target = game.score;
     function count(now) {
@@ -322,17 +322,22 @@ requestAnimationFrame(frame);
 function showCollection() {
     const unlocked = DB.unlocked();
     const discovered = DB.discoveredEntries();
-    renderCollection($('#nature-items'), discovered);
-    $('#collection-progress').textContent = `${discovered.length}/${ENTRIES.length} temas descobertos · ${unlocked.length}/${FRUITS.length} itens coletados`;
-    $('#collection-items').replaceChildren(...FRUITS.map(f => {
-        const card = document.createElement('article');
-        const title = document.createElement('h3'); title.textContent = f.name;
-        const img = new Image(); img.src = `images/fruit-${f.id}.webp`; img.alt = f.name; img.width = 64; img.height = 64; img.style.objectFit = 'contain';
-        const text = document.createElement('p'); text.textContent = unlocked.includes(f.id) ? f.description : 'Recolha este alimento para desbloquear a descoberta.';
-        card.append(img,title,text); return card;
-    }));
+    renderCollection($('#nature-items'),discovered,{foods:unlocked,foodContainer:$('#collection-items'),detailContainer:$('#journal-detail')});
+    $('#collection-progress').textContent=`${discovered.length} de ${ENTRIES.length} temas descobertos · ${unlocked.length} de ${FRUITS.length} alimentos registrados`;
+    setJournalTab('nature');
     openDialog('#collection-dialog');
 }
+function setJournalTab(tab){
+    const nature=tab==='nature';
+    $('#collection-dialog .journal-shell').classList.remove('is-reading');
+    $('#nature-items').hidden=!nature;$('#collection-items').hidden=nature;$('#journal-detail').hidden=true;
+    $('#journal-nature-tab').setAttribute('aria-selected',String(nature));$('#journal-food-tab').setAttribute('aria-selected',String(!nature));
+}
+$('#journal-nature-tab').addEventListener('click',()=>setJournalTab('nature'));
+$('#journal-food-tab').addEventListener('click',()=>setJournalTab('foods'));
+for(const id of ['journal-nature-tab','journal-food-tab'])$('#'+id).addEventListener('keydown',event=>{
+    if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const nature=event.key==='Home'||(event.key!=='End'&&id==='journal-food-tab');setJournalTab(nature?'nature':'foods');$(nature?'#journal-nature-tab':'#journal-food-tab').focus();}
+});
 $('#open-collection').addEventListener('click', showCollection);
 
 renderer.ready.then(() => {

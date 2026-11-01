@@ -85,10 +85,10 @@ test('shield repels animals and never destroys them', () => {
     assert.equal(animal.retreat, true); assert.equal(animal.harmless, true); assert.equal(animal.broken, undefined); assert.equal(game.state, 'playing');
 });
 
-test('hollow cavities are passable; their wooden rims remain solid', () => {
+test('legacy hollow variants are solid living wood, without a rectangular window', () => {
     const game = flight(), obstacle = wood(game,{top:260,variant:'hollow'});
     const cavity = { x:game.x-18, y:170, w:36, h:36 };
-    assert.equal(game.woodRects(obstacle).some(r=>overlaps(cavity,r)), false);
+    assert.equal(game.woodRects(obstacle).some(r=>overlaps(cavity,r)), true);
     assert.equal(game.woodRects(obstacle).some(r=>overlaps({...cavity,y:240},r)), true);
 });
 
