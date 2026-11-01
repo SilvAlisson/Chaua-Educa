@@ -4,3 +4,7 @@ playwright-report/
 dist/
 art/
 chaua-educa-modernizado/
+
+# Original generated PNGs are retained as lossless WebP sources.
+Chaua-Educa-main/assets/v7-source/*.png
+Chaua-Educa-main/assets/v7-source/manifest.json

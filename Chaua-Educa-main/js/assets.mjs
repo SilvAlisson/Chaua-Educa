@@ -2,7 +2,9 @@ import { SNAKE_ART } from './geometry.mjs';
 import { FRUITS } from './fruits.mjs';
 // One cache for gameplay, menus and results. All files are local.
 export const ASSET_PATHS = Object.fromEntries([
- ...['chaua','hawk','snake'].map(k=>[`${k}-atlas`,`../assets/v6/${k}-atlas.webp`]),
+ ...['chaua','hawk'].map(k=>[`${k}-atlas`,`../assets/v6/${k}-atlas.webp`]),
+ ['snake-atlas','../assets/v7/snake-atlas.webp'],
+ ...['lower','upper'].map(k=>[`trees-${k}`,`../assets/v7/trees-${k}.webp`]),
  ...FRUITS.map(f=>[`fruit-${f.id}`,`../assets/v3/fruit-${f.id}.webp`]),
  ...['forest'].map(k=>[k,`../assets/v3/${k}.webp`]),
  ...['feather','shield'].map(k=>[k,`../assets/v4/${k}.webp`]),

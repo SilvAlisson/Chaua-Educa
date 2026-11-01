@@ -83,3 +83,13 @@ Os testes funcionais anteriores não validavam a coerência visual do conjunto. 
 - Incluídas as três correções pendentes do relatório: botões de fechar independentes dos CTAs, rolagem do menu baixo em paisagem e resultado aberto no topo sem rolagem causada pelo foco.
 
 149 testes de lógica/geometria aprovados; regressão nativa da Chauapédia em 320, 390 e 1440 px, leitura/retorno, alimentos, teclado, fontes locais e ausência de recursos faltando. Testes visuais e de interface preservados. Percursos completos em Desafio e Amigável passaram pelas quatro etapas e três perguntas; o teste verifica que o título do resultado permanece visível. São ensaios em Chromium com toque emulado, não em aparelhos físicos. Ranking floresta-v6; recordes v5 ficam no Histórico, missões/coleção preservadas.
+
+
+## Integração visual v7 — 01/11/2026
+
+- Substituição efetiva dos troncos procedurais pelos atlas cartoon 3D aprovados como direção visual; quatro variantes inferiores e superiores.
+- Galho do abrigo/tela inicial é parte da própria árvore; ponto de pouso registrado na madeira.
+- Emendas da casca usam recorte de uma linha no ponto de continuidade. Tampas, nós e folhas mantêm a proporção original.
+- Cobra: 16 células registradas pela largura da parte enrolada e base; olho fechado sem confusão de landmark com narina; último quadro idêntico ao primeiro; orientação esquerda e animação de bote/recuo.
+- Maior abertura nos encontros com cobra, validada com decisões a 30 Hz e 120 ms de reação. Histórico mantém pontuações v6 e anteriores.
+- CI ampliado: Chromium, atlas, interface, Chauapédia, contato com a madeira e conclusão da jornada nos dois modos.
