@@ -28,13 +28,22 @@ export function advanceHawk(e, dt, speed, playerX) {
     if(e.phase==='leaving')e.harmless=true;
 }
 
-export function advanceSnake(wood, dt, playerX) {
-    const s=wood.snake;if(!s)return;
-    s.age=(s.age||0)+dt;
-    if(s.retreat){s.phase='retreat';s.retreatTime=(s.retreatTime||0)+dt;return;}
-    // This is an occupied perch, not a tracking attack or an extending hitbox.
-    if(wood.x+85<playerX-18)s.phase='leaving';
-    else if(wood.x<playerX+140)s.phase='occupied';
-    else if(wood.x<=800)s.phase='warning';
-    else s.phase='watching';
+export const SNAKE_TIMING=Object.freeze({noticeDistance:580,triggerDistance:210,warning:.8,windup:.45,strike:.22,recovery:.6});
+export function advanceSnake(wood,dt,playerX){
+ const s=wood.snake;if(!s)return;
+ s.age=(s.age||0)+dt;
+ if(s.retreat){s.phase='retreat';s.retreatTime=(s.retreatTime||0)+dt;return;}
+ const distance=wood.x-playerX;
+ if(distance<=SNAKE_TIMING.noticeDistance)s.warningAge=(s.warningAge||0)+dt;
+ if(!s.attackStarted&&distance<=SNAKE_TIMING.triggerDistance&&(s.warningAge||0)>=SNAKE_TIMING.warning){
+  s.attackStarted=true;s.attackAge=0;s.strikeCount=1;
+ }else if(s.attackStarted)s.attackAge+=dt;
+ if(s.attackStarted){
+  const age=s.attackAge;
+  if(age<SNAKE_TIMING.windup){s.phase='windup';s.phaseAge=age;}
+  else if(age<SNAKE_TIMING.windup+SNAKE_TIMING.strike){s.phase='striking';s.phaseAge=age-SNAKE_TIMING.windup;}
+  else if(age<SNAKE_TIMING.windup+SNAKE_TIMING.strike+SNAKE_TIMING.recovery){s.phase='recovering';s.phaseAge=age-SNAKE_TIMING.windup-SNAKE_TIMING.strike;}
+  else {s.phase='spent';s.phaseAge=age-SNAKE_TIMING.windup-SNAKE_TIMING.strike-SNAKE_TIMING.recovery;}
+ }else s.phase=distance<=SNAKE_TIMING.noticeDistance?'warning':'watching';
+ if(wood.x+110<playerX-18)s.phase='leaving';
 }

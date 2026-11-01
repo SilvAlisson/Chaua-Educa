@@ -262,3 +262,12 @@ Os troncos e a cobra agora usam os atlas `assets/v7`, preparados a partir das re
 A cobra possui base e largura registradas, orientação fixa à esquerda, alerta/bote/recuperação e geometria de cabeça compartilhada com o renderizador, inclusive no movimento reduzido. A abertura dos encontros foi ajustada à altura da nova arte. Os resultados usam `floresta-v7`; registros v6 e anteriores continuam no Histórico, sem alteração de coleção ou missões.
 
 Reprodução dos atlas: `python3 scripts/prepare_forest_v7.py` (Pillow, NumPy e SciPy). Fontes WebP sem perdas em `assets/v7-source`. Metadados em `forest-art-data.mjs`. Validação: 153 testes de lógica, build, registro de 16 quadros no navegador, 48 células com margens transparentes, regressão de papagaio/predador, interface em cinco resoluções, Chauapédia e jornadas completas nos dois modos. O CI também executa as verificações no Chromium real.
+
+
+### Cobra com presença e bote único — 2.4.0
+
+A escala da cobra passa de 0,37 para 0,52 (aproximadamente 40% maior), com uma camada de corpo que envolve a frente do tronco. Cabeça, pescoço, parte enrolada e volta do corpo têm contato; as regiões do pescoço e torso são medidas dentro da parte opaca da arte, preservando o ar entre as curvas. O escudo desativa todas as regiões da cobra durante o recuo.
+
+O encontro sinaliza por pelo menos 0,8 s, prepara por 0,45 s, dá um bote de 0,22 s e recupera em 0,6 s. O ciclo ocorre uma única vez por cobra, sem perseguir o jogador. Pausa congela os relógios; a apresentação interpola os tempos de animação. Os avisos ficam acima da cobra, sem cobrir seu corpo. A abertura adicional acompanha seu novo alcance. Regras `floresta-v8`; v7 e anteriores permanecem no Histórico.
+
+Validação: 157 testes unitários; `npm run test:snake` confere os pixels das máscaras, alerta, bote único e recuperação em desktop, celular e paisagem; as demais suítes verificam 48 células dos atlas, papagaio/predador, interfaces e partidas completas nos dois modos. A primeira triagem por distância evita testar máscaras detalhadas de cobras fora do alcance. O CI inclui a nova suíte no Chromium.

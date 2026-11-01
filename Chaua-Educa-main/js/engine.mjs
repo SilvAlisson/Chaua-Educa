@@ -1,5 +1,6 @@
 import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect,roundedShape} from './collision.mjs';
 import { snakeHeadRect } from './geometry.mjs';
+import {spriteBodyRects} from './animation.mjs';
 import {livingWoodRects} from './forest-geometry.mjs';
 import { createTutorial, advanceTutorial } from './tutorial.mjs';
 import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
@@ -54,7 +55,7 @@ export class Game {
         this.previous = { arrivalOffset:this.arrival?.offset||0, refugeX:this.refuge?.x, y: this.y, angle: this.angle,
             distance:this.distance, elapsed:this.elapsed, sceneTime:this.sceneTime, stage:this.stage, stageAge:this.stageAge,
             wing:this.wing, flapImpulse:this.flapImpulse,
-            entities:new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y, tumbleAngle:e.tumbleAngle, retreatTime:e.snake?.retreatTime,snakeAge:e.snake?.age,hawkRetreatTime:e.retreatTime}])) };
+            entities:new Map(this.entities.map(e => [e.id, {x:e.x, y:e.y, tumbleAngle:e.tumbleAngle, retreatTime:e.snake?.retreatTime,snakeAge:e.snake?.age,snakePhase:e.snake?.phase,snakePhaseAge:e.snake?.phaseAge,snakeWarningAge:e.snake?.warningAge,hawkRetreatTime:e.retreatTime}])) };
     }
 
     visual(alpha) {
@@ -80,7 +81,7 @@ export class Game {
             const entity = {...e, x:lerp(old.x,e.x), y:lerp(old.y,e.y)};
             if(Number.isFinite(e.tumbleAngle))entity.tumbleAngle=lerp(old.tumbleAngle??0,e.tumbleAngle);
             if(Number.isFinite(e.retreatTime))entity.retreatTime=lerp(old.hawkRetreatTime??0,e.retreatTime);
-            if(e.snake)entity.snake={...e.snake,age:lerp(old.snakeAge??0,e.snake.age??0),retreatTime:lerp(old.retreatTime??0,e.snake.retreatTime??0)};
+            if(e.snake)entity.snake={...e.snake,phaseAge:old.snakePhase===e.snake.phase?lerp(old.snakePhaseAge??0,e.snake.phaseAge??0):e.snake.phaseAge,warningAge:lerp(old.snakeWarningAge??0,e.snake.warningAge??0),age:lerp(old.snakeAge??0,e.snake.age??0),retreatTime:lerp(old.retreatTime??0,e.snake.retreatTime??0)};
             return entity;
         });
         return view;
@@ -234,7 +235,7 @@ export class Game {
             this.onEvent({ type: 'shield-break', animal, boundary });
         } else {
             const reason = boundary ? (boundary === 'top' ? 'Você voou acima da copa. Solte para descer.' : 'Você chegou ao chão da floresta. Uma batida de asas ajuda!')
-                : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : `Você encostou na cobra do ${entity.branch?'galho':'tronco'}.`) : 'Você esbarrou na madeira.';
+                : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra.') : 'Você esbarrou na madeira.';
             this.endCause=boundary || (animal ? (entity.kind==='hawk'?'hawk':'snake') : 'wood');
             if(!animal&&!boundary){
                 const solids=this.woodRects(host);
@@ -387,7 +388,7 @@ export class Game {
 
     snakeRects(entity) {
         if (!entity.snake || entity.snake.retreat) return [];
-        return [snakeHeadRect(entity,this.reducedMotion)];
+        return [snakeHeadRect(entity,this.reducedMotion),...spriteBodyRects(entity,this.reducedMotion)];
     }
 
     spawn() {
@@ -428,7 +429,7 @@ export class Game {
             const variants = ['plain', 'branch', 'plain'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'branch':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
             const hasSnake=this.elapsed>profile.snakeAt&&(n%2===0||variant==='branch');
-            const encounterGap=gap+(hasSnake?110:0);
+            const encounterGap=gap+(hasSnake?180:0);
             this.encounterHistory.at(-1).gap=encounterGap;
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - encounterGap / 2, bottom: center + encounterGap / 2, variant, scored: false, route:n, encounter:plan.id };
             if (hasSnake) wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
@@ -529,8 +530,8 @@ export class Game {
             e.x -= this.speed * dt;
             if (e.kind === 'wood') {
                 advanceSnake(e,dt,this.x);
-                if (e.snake && !e.snake.retreat) {
-                    if (this.snakeRects(e).some(rect => shapesIntersect(playerBody,[roundedShape(rect)]))) this.collide(e.snake, true, e);
+                if (e.snake && !e.snake.retreat && Math.abs(e.x-this.x)<230) {
+                    if (this.snakeRects(e).some(rect => rect.x<this.x+35&&rect.x+rect.w>this.x-35&&rect.y<this.y+35&&rect.y+rect.h>this.y-35&&shapesIntersect(playerBody,[roundedShape(rect)]))) this.collide(e.snake, true, e);
                 }
                 const woodHit = this.woodRects(e).find(rect => shapesHitRect(playerBody,rect));
                 if (woodHit) { e.hitRect=woodHit; e.hitPart = woodHit.part; e.hitSide = woodHit.y >= e.bottom ? 'bottom' : 'top'; this.collide(e); }
