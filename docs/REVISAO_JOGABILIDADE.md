@@ -103,3 +103,13 @@ Os testes funcionais anteriores não validavam a coerência visual do conjunto. 
 - Geometria acompanha o quadro dominante do corpo e a interpolação da cabeça. Movimento reduzido usa pose e contato estáticos correspondentes.
 - Verificação detalhada só dentro do alcance; rejeição por limites antes das elipses evita custo de colisão distante.
 - Nova abertura nos encontros, 157 testes e jornadas completas nos dois modos. Histórico preserva v7 e anteriores.
+
+
+## Continuidade da cobra e Aventura — 2.5.0
+
+- Pose única deformada continuamente, sem alternância de corpo inteiro ou troca abrupta das máscaras do pescoço.
+- Cabeça com transformação rígida, base ancorada e boca alinhada em camada local; tempo e colisões compartilham a mesma função de movimento.
+- Recuperação termina mesmo após a árvore passar pelo jogador. Escudo captura a pose exibida antes do recuo, evitando salto de postura.
+- Aventura mais rápida, estreita, frequente e com mudanças verticais maiores; predadores entram mais cedo e a folga extra da cobra diminui.
+- Amigável preserva parâmetros, fingerprint de 50 planos e recordes atuais. Dados v8 permanecem intactos; nova Aventura passa para v9.
+- 162 testes, trajetórias determinísticas sem poderes, reação de 120 ms, medições de pixels em 400 quadros e demonstração em vídeo.

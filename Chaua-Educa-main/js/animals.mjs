@@ -45,5 +45,5 @@ export function advanceSnake(wood,dt,playerX){
   else if(age<SNAKE_TIMING.windup+SNAKE_TIMING.strike+SNAKE_TIMING.recovery){s.phase='recovering';s.phaseAge=age-SNAKE_TIMING.windup-SNAKE_TIMING.strike;}
   else {s.phase='spent';s.phaseAge=age-SNAKE_TIMING.windup-SNAKE_TIMING.strike-SNAKE_TIMING.recovery;}
  }else s.phase=distance<=SNAKE_TIMING.noticeDistance?'warning':'watching';
- if(wood.x+110<playerX-18)s.phase='leaving';
+ if(wood.x+110<playerX-18&&(!s.attackStarted||s.attackAge>=SNAKE_TIMING.windup+SNAKE_TIMING.strike+SNAKE_TIMING.recovery))s.phase='leaving';
 }

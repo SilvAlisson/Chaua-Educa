@@ -271,3 +271,14 @@ A escala da cobra passa de 0,37 para 0,52 (aproximadamente 40% maior), com uma c
 O encontro sinaliza por pelo menos 0,8 s, prepara por 0,45 s, dá um bote de 0,22 s e recupera em 0,6 s. O ciclo ocorre uma única vez por cobra, sem perseguir o jogador. Pausa congela os relógios; a apresentação interpola os tempos de animação. Os avisos ficam acima da cobra, sem cobrir seu corpo. A abertura adicional acompanha seu novo alcance. Regras `floresta-v8`; v7 e anteriores permanecem no Histórico.
 
 Validação: 157 testes unitários; `npm run test:snake` confere os pixels das máscaras, alerta, bote único e recuperação em desktop, celular e paisagem; as demais suítes verificam 48 células dos atlas, papagaio/predador, interfaces e partidas completas nos dois modos. A primeira triagem por distância evita testar máscaras detalhadas de cobras fora do alcance. O CI inclui a nova suíte no Chromium.
+
+
+### Cobra contínua e Aventura mais exigente — 2.5.0
+
+A cobra deixou de alternar desenhos completos durante o jogo. `snake-motion.mjs` define movimento contínuo; `snake-render.mjs` deforma uma única pose registrada, com cabeça rígida, pescoço interpolado e parte enrolada ancorada. Apenas a boca recebe uma camada local alinhada. A colisão segue a mesma deformação; pausa, saída da tela e recuo com escudo preservam a continuidade. As 16 poses originais permanecem disponíveis para inspeção dos assets.
+
+Aventura: velocidade 275–340 (antes 245–300), passagens 160 até 122 (antes 180 até 142), cadência 1,48 até 1,16 s (antes 1,70 até 1,35 s), cobra a partir de 16 s, gavião 30 s e mergulho 42 s. Abertura extra da cobra passa de 180 para 144; planejamento vertical usa a velocidade real e produz mais variação de altura. Rotas opcionais de alimentos mantêm margem de 34 unidades.
+
+Os parâmetros e a sequência determinística de encontros do Amigável permanecem iguais aos da v8. Seus recordes atuais são preservados no ranking. A nova Aventura usa regras v9; pontuações anteriores continuam no Histórico sem reescrever os dados v8, coleções ou missões.
+
+Validação: 162 testes de lógica; 80 jornadas sem poderes e 24 rotas com 120 ms de reação/decisões a 30 Hz; testes reais de interface e partidas nos dois modos. `npm run test:snake-continuity` mede o olho desenhado por 400 quadros, confirma cabeça sem saltos e verifica que a parte enrolada fica idêntica entre fases. A suíte faz parte do CI. `CAPTURE_DEMO=/caminho/demo.webm npm run test:snake-continuity` grava a demonstração com os assets e o renderizador reais.

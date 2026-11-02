@@ -99,19 +99,19 @@ test('generation introduces snakes and hawks gradually and preserves open routes
             game.elapsed = i * 3.6; game.entities = []; game.spawn();
             const obstacle = game.entities.find(e=>e.kind==='wood');
             const hawks = game.entities.filter(e=>e.kind==='hawk');
-            if (game.elapsed < 22 && obstacle) assert.ok(!obstacle.snake);
-            if (game.elapsed < 42) assert.equal(hawks.length, 0);
+            if (game.elapsed < FLIGHT.aventura.snakeAt && obstacle) assert.ok(!obstacle.snake);
+            if (game.elapsed < FLIGHT.aventura.hawkAt) assert.equal(hawks.length, 0);
             if (obstacle) {
                 assert.ok(obstacle.bottom-obstacle.top>=FLIGHT.aventura.minGap);
                 const center = (obstacle.top+obstacle.bottom)/2;
                 assert.ok(Math.abs(center-lastCenter)<=55.01); lastCenter=center;
                 for (const hawk of hawks) {
-                    assert.ok(hawk.warning>=1.7);
+                    assert.ok(hawk.warning>=FLIGHT.aventura.warning);
                     assert.ok(Math.max(hawk.startY,hawk.targetY)+20<obstacle.top || Math.min(hawk.startY,hawk.targetY)-20>obstacle.bottom);
                 }
-                for (const item of game.entities.filter(e=>['fruit','feather','shield'].includes(e.kind))) assert.ok(item.y>obstacle.top+40 && item.y<obstacle.bottom-40);
+                for (const item of game.entities.filter(e=>['fruit','feather','shield'].includes(e.kind))) assert.ok(item.y>obstacle.top+32 && item.y<obstacle.bottom-32);
             }
-            for (const hawk of hawks) assert.ok(hawk.warning>=1.7);
+            for (const hawk of hawks) assert.ok(hawk.warning>=FLIGHT.aventura.warning);
         }
     }
 });

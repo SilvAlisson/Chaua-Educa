@@ -19,6 +19,7 @@ jobs:
           python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
           chaua_server_pid=$!
           trap 'kill "$chaua_server_pid" 2>/dev/null' EXIT
+          npm run test:snake-continuity
           npm run test:snake
           npm run test:reference-art
           npm run test:visual
