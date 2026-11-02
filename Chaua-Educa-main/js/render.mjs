@@ -1,8 +1,9 @@
+import {drawContinuousSnake} from './snake-render.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
-import {birdAnimation,hawkAnimation,snakeAnimation,snakePlacement,placeWarnings} from './animation.mjs';
+import {birdAnimation,hawkAnimation,snakePlacement,placeWarnings} from './animation.mjs';
 import {hawkAngle} from './collision.mjs';
 import { canvasResolution } from './quality.mjs';
 import { flightViewport, warningPosition } from './viewport.mjs';
@@ -703,12 +704,12 @@ export class Renderer {
         drawLivingTrunk(this.c,{x,y,upper:flip,width:TREE_WIDTH,length:1000,variant,time});
     }
     snake(wood,reduced){
-        const s=wood.snake,place=snakePlacement(wood),clip=snakeAnimation(s,reduced),c=this.c;
+        const s=wood.snake,place=snakePlacement(wood),c=this.c;
         c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
         if(s.retreat)c.globalAlpha=Math.max(0,1-smoothstep(((s.retreatTime||0)-.95)/.35));
         const wrap=images.get('snake-wrap');
         if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
-        atlasAnimation(c,'snake',clip,place.factor);c.restore();
+        drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced);c.restore();
     }
     flightBorders(view){
         const c=this.c;

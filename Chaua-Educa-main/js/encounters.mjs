@@ -22,15 +22,15 @@ export function planEncounter({sequence,elapsed,lastCenter,lastPattern,profile,s
     const eligible=ENCOUNTERS.filter(p=>p.unlock<=elapsed && p.id!==lastPattern).flatMap(p=>JOURNEY[stage].patterns.includes(p.id)?[p,p]:[p]);
     const pattern=sequence===0?ENCOUNTERS[0]:eligible[Math.min(eligible.length-1,Math.floor(random()*eligible.length))];
     const interval=Math.max(profile.minInterval,profile.interval-elapsed*profile.ramp)+pattern.interval;
-    // Conservative travel budget after clearing 220 units of wood/branches,
-    // allowing 0.45s to release, reverse or wait for a wingbeat.
-    const available=Math.max(0,(interval*speed-220)/300-.45);
-    const maxShift=Math.min(55,available*100);
+    // Amigável keeps its original travel budget. Aventura uses its actual
+    // speed and a tighter reversal budget to produce meaningful height changes.
+    const available=Math.max(0,(interval*speed-(profile.clearance??220))/(profile.actualSpeed?speed:300)-(profile.turnaround??.45));
+    const maxShift=Math.min(profile.shiftLimit??55,available*(profile.shiftRate??100));
     const shift=Math.max(-maxShift,Math.min(maxShift,pattern.shift+(random()-.5)*16));
     const center=Math.max(200,Math.min(440,lastCenter+shift));
     const progression = Math.min(1, sequence / 25);
     const gap = Math.max(profile.minGap, Math.round(profile.gap - progression * (profile.gap - profile.minGap))) + pattern.extraGap * (1 - progression * 0.4);
-    const amplitude=Math.max(0,gap/2-48), sign=random()<.5?-1:1;
+    const amplitude=Math.max(0,gap/2-(profile.fruitMargin??48)), sign=random()<.5?-1:1;
     return {id:pattern.id, center,gap,interval,maxShift,optional:!!pattern.optional,variant:pattern.variant,
         fruits:pattern.fruitOffsets.map(([x,factor])=>({x,y:center+factor*amplitude*(pattern.optional?sign:1)}))};
 }

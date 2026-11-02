@@ -1,6 +1,6 @@
 import { normalizeProgress, advanceProgress } from './missions.mjs';
 import { ENTRIES, INITIAL_ENTRIES } from './collection.mjs';
-export const RULES_VERSION = 'floresta-v8';
+export const RULES_VERSION = 'floresta-v9';
 export default class DB {
     static dbName = `db-chaua-${RULES_VERSION}`;
     static storageAvailable = true;
@@ -8,14 +8,21 @@ export default class DB {
 
     static get(legacy = false) {
         const key = legacy ? 'db-chaua' : this.dbName;
-        if (!this.storageAvailable && this.memory.has(key)) return this.memory.get(key);
-        try {
-            const data = JSON.parse(localStorage.getItem(key) ?? '[]');
-            return Array.isArray(data) ? data.filter(p => p && typeof p.playerName === 'string' && Number.isFinite(p.score_val)) : [];
-        } catch {
-            this.storageAvailable = false;
-            return this.memory.get(key) ?? [];
+        let rows;
+        try {rows=!this.storageAvailable&&this.memory.has(key)?this.memory.get(key):JSON.parse(localStorage.getItem(key)??'[]');}
+        catch {this.storageAvailable=false;rows=this.memory.get(key)??[];}
+        const valid=(Array.isArray(rows)?rows:[]).filter(p=>p&&typeof p.playerName==='string'&&Number.isFinite(p.score_val));
+        if(legacy)return valid;
+        // Only Aventura changed its rules. Keep the unchanged Amigável records
+        // in the current board, without mutating any v8 record or save.
+        const old=this.readObject('db-chaua-floresta-v8',[]);
+        const merged=new Map(valid.map(p=>[JSON.stringify([p.playerName,p.mode]),{...p}]));
+        for(const row of Array.isArray(old)?old:[]){
+            if(!row||row.mode!=='tranquilo'||typeof row.playerName!=='string'||!Number.isFinite(row.score_val))continue;
+            const id=JSON.stringify([row.playerName,row.mode]),current=merged.get(id);
+            if(!current||row.score_val>current.score_val)merged.set(id,{...row});
         }
+        return [...merged.values()];
     }
 
     static readObject(key, fallback) {
@@ -26,7 +33,7 @@ export default class DB {
 
     static previousScores() {
         const data = this.readObject('chaua-educa-v2', {});
-        const archived=['floresta-v2','floresta-v3','floresta-v4','floresta-v5','floresta-v6','floresta-v7'].flatMap(ruleset=>{
+        const archived=['floresta-v2','floresta-v3','floresta-v4','floresta-v5','floresta-v6','floresta-v7','floresta-v8'].flatMap(ruleset=>{
             const forest=this.readObject(`db-chaua-${ruleset}`,[]);
             return (Array.isArray(forest)?forest:[]).filter(s=>s && typeof s.playerName==='string' && Number.isFinite(s.score_val) && s.score_val>=0).map(s=>({...s,ruleset}));
         });

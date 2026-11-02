@@ -137,7 +137,7 @@ async function begin(page, name = 'Guardião da mata') {
         // Local record survives reload and the old record is untouched.
         await page.reload({waitUntil:'networkidle'});
         assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua'))[0].score_val),777);
-        assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua-floresta-v8'))[0].score_val),200);
+        assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua-floresta-v9'))[0].score_val),200);
         console.log('PASS desktop: keyboard, pause, shield, quiz, multiplier, defeat, victory, immediate restart, isolated ranking, persistence');
 
         const mobile = await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});

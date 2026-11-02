@@ -12,7 +12,7 @@ test('plans have reachable transitions, clear reward routes and no immediate pat
    const p=planEncounter({sequence:n,elapsed:n*3,lastCenter:center,lastPattern,profile:FLIGHT[mode],speed:FLIGHT[mode].speed+55,random});
    assert.notEqual(p.id,lastPattern);assert.ok(Math.abs(p.center-center)<=p.maxShift+1e-8);assert.ok(p.gap>=FLIGHT[mode].minGap);
    assert.ok(p.center-p.gap/2>20&&p.center+p.gap/2<615);
-   for(const f of p.fruits)assert.ok(Math.abs(f.y-p.center)<=p.gap/2-48+1e-8);
+   for(const f of p.fruits)assert.ok(Math.abs(f.y-p.center)<=p.gap/2-(FLIGHT[mode].fruitMargin??48)+1e-8);
    if(p.optional)assert.ok(p.fruits.every(f=>Math.abs(f.y-p.center)>25));
    seen.add(p.id);center=p.center;lastPattern=p.id;
   }

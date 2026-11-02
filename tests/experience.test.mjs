@@ -38,7 +38,7 @@ test('snake head collider follows the actual source crop on trunks and branches'
     assert.ok(branch.x<wood.x&&branch.y<wood.bottom+30);
 });
 test('branch encounter really spawns branch art, a branch collider and its snake',()=>{
-    const g=new Game();g.elapsed=40;g.sequence=2;
+    const g=new Game({seed:104});g.elapsed=40;g.sequence=2;
     let found=false;
     for(let i=0;i<70;i++){
         g.entities=[];g.spawn();const wood=g.entities.find(e=>e.kind==='wood'&&e.variant==='branch');
