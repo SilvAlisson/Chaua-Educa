@@ -393,7 +393,7 @@ export function homePerchLayout(width, height) {
 }
 
 export class Renderer {
-    constructor(canvas) { this.quality = 'high'; this.resolution = 'high'; this.decoration = 'high'; this.canvas = canvas; this.c = canvas.getContext('2d'); this.fruitImages = []; this.ready = loadAssets().then(()=>{this.fruitImages=FRUITS.map(f=>images.get(`fruit-${f.id}`));}); this.resize(); }
+    constructor(canvas) { this.quality = 'high'; this.resolution = 'high'; this.decoration = 'high'; this.canvas = canvas; this.c = canvas.getContext('2d'); this.fruitImages = []; this.ready = loadAssets().then(()=>{this.fruitImages=FRUITS.map(f=>images.get(`fruit-${f.id}`));}); this.forestSurface=null; this.resize(); }
     setQuality(level) {
         const next=level==='low'?'low':'high';
         this.quality=next;
@@ -421,6 +421,11 @@ export class Renderer {
         if(this.canvas.height!==size.height)this.canvas.height=size.height;
         if(this.skyCache&&(this.skyCache.width!==size.width||this.skyCache.height!==size.height||this.skyCache.dpr!==this.dpr)){
             this.skyCache.surface.width=0;this.skyCache=null;
+        }
+        if(this.forestSurface&&(this.forestSurface.width!==size.width||this.forestSurface.height!==size.height||this.forestSurface.dpr!==this.dpr)){
+            this.forestSurface.surface.width=0;
+            this.forestSurface.surface.height=0;
+            this.forestSurface=null;
         }
     }
     base() { this.c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); this.c.clearRect(0, 0, this.w, this.h); }
@@ -454,6 +459,45 @@ export class Renderer {
         this.c.save();this.c.setTransform(1,0,0,1,0,0);this.c.drawImage(cache.surface,0,0);this.c.restore();
     }
 
+    prepareForestSurface(forest,fw,fh) {
+        // Cache the fully scaled WebP pixels once. The cache includes a small
+        // horizontal overscan so wind drift remains fluid on every frame.
+        // All fog, parallax, lighting and actor passes still run independently.
+        const driftMargin=Math.min(24,(fw-this.w)/2);
+        const marginPixels=Math.ceil(driftMargin*this.dpr)+2;
+        const width=this.canvas.width+marginPixels*2;
+        const height=this.canvas.height;
+        let cache=this.forestSurface;
+        if(cache&&(cache.image!==forest||cache.width!==this.canvas.width||cache.height!==height||cache.dpr!==this.dpr||cache.fw!==fw||cache.fh!==fh)){
+            cache.surface.width=0;cache.surface.height=0;this.forestSurface=null;cache=null;
+        }
+        if(cache)return cache;
+        // Avoid allocating a second enormous surface on unusual screen sizes.
+        if(width*height>4_500_000)return null;
+        const surface=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(width,height):
+            typeof document!=='undefined'?document.createElement('canvas'):null;
+        if(!surface)return null;
+        if(surface.width!==width)surface.width=width;
+        if(surface.height!==height)surface.height=height;
+        const layer=surface.getContext('2d');
+        if(!layer)return null;
+        layer.setTransform(this.dpr,0,0,this.dpr,marginPixels,0);
+        layer.drawImage(forest,(this.w-fw)/2,(this.h-fh)/2,fw,fh);
+        return this.forestSurface={surface,image:forest,width:this.canvas.width,height,dpr:this.dpr,fw,fh,marginPixels};
+    }
+    drawForestLayer(forest,fw,fh,drift) {
+        const cached=this.prepareForestSurface(forest,fw,fh);
+        if(!cached){
+            this.c.drawImage(forest,(this.w-fw)/2+drift,(this.h-fh)/2,fw,fh);
+            return;
+        }
+        // No resizing of the cached texture on the hot path: source and
+        // destination backing pixels match. Wind displacement is not quantized.
+        this.c.save();
+        this.c.setTransform(1,0,0,1,0,0);
+        this.c.drawImage(cached.surface,drift*this.dpr-cached.marginPixels,0);
+        this.c.restore();
+    }
     background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
@@ -479,7 +523,7 @@ export class Renderer {
             const fw=forest.naturalWidth*scale, fh=forest.naturalHeight*scale;
             const drift=reduced?0:Math.sin(time*.035)*Math.min(24,(fw-w)/2);
             c.save();c.globalAlpha=stage===2?1-.4*stageMix:stage===3?.6+.4*stageMix:1;
-            c.drawImage(forest,(w-fw)/2+drift,(h-fh)/2,fw,fh);c.restore();
+            this.drawForestLayer(forest,fw,fh,drift);c.restore();
 
         }
         if(this.decoration!=='low') {
