@@ -1,0 +1,30 @@
+name: Forest scaled texture cache A/B
+on:
+  push:
+    branches: [perf/cache-forest-visible-layer]
+  workflow_dispatch:
+jobs:
+  cache-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Compare same-frame appearance and paired render performance
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node scripts/benchmark-forest-scaled-cache.cjs
+      - name: Keep metrics for review
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: forest-scaled-cache-metrics
+          path: test-results/forest-cache
+          if-no-files-found: ignore
