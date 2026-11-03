@@ -1,0 +1,24 @@
+name: Canvas opacity pixel parity and raster A/B
+on:
+  push:
+    branches:
+      - perf/opaque-canvas-forest
+  workflow_dispatch:
+jobs:
+  opaque-ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Compare 64 background+character frames per viewport and paired rendering times
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node tests/browser-opaque-canvas.cjs
