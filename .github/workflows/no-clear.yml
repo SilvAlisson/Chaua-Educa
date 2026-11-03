@@ -1,0 +1,25 @@
+name: Frame clear elimination A/B and RGBA parity
+on:
+  push:
+    branches:
+      - perf/avoid-redundant-frame-clear
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Pixel parity, transition repaint and within-run performance
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node tests/browser-game-opaque-repaint.cjs
+          node scripts/benchmark-no-clear.cjs
