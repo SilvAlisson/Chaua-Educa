@@ -545,7 +545,11 @@ export class Renderer {
     }
 
     game(game, reduced, visualTime = 0) {
-        this.base();
+        // The sky fills every backing pixel with opaque color before any actors
+        // are drawn (including the stage-2 cached sky). A full-screen clear
+        // writes the entire 4 MP surface only to overwrite it immediately.
+        // Keep base() intact for external callers and non-game rendering.
+        this.c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         // Prepare before active flight, rather than allocate on entering the fog.
         if(game.state==='countdown')this.prepareSky(BACKGROUND_PALETTE[2]);
         const c = this.c;
