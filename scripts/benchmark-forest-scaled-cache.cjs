@@ -79,5 +79,5 @@ fs.mkdirSync('test-results/forest-cache',{recursive:true});
  }
  fs.writeFileSync('test-results/forest-cache/forest-cache-results.json',JSON.stringify(reports,null,2));
  console.log('FOREST_CACHE_SUMMARY '+JSON.stringify(reports.map(x=>({viewport:x.viewport,baseline:x.regular.meanMs,cached:x.cached.meanMs,speedup:x.regular.meanMs/x.cached.meanMs,maximum:x.maximum,worstFraction:x.worstFraction,worstMAE:x.worstMAE}))));
- })}finally{await browser.close();}
+ }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
