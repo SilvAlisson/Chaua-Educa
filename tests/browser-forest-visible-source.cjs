@@ -14,14 +14,14 @@ const {chromium}=require('playwright');
    const report=await page.evaluate(async()=>{
     const {Renderer}=await import('/js/render.mjs');
     const {images}=await import('/js/assets.mjs');
-    const forest=images.get('forest');
-    if(!forest)throw Error('Forest is unavailable');
     const make=async()=>{
      const canvas=document.createElement('canvas');canvas.style.cssText='position:fixed;inset:0;width:100vw;height:100vh';
      document.body.append(canvas);
      const r=new Renderer(canvas);await r.ready;return r;
     };
     const before=await make(),candidate=await make();
+    const forest=images.get('forest');
+    if(!forest)throw Error('Forest is unavailable after assets loaded');
     const original=candidate.c.drawImage.bind(candidate.c);
     let sourcePixelsFraction=1;
     candidate.c.drawImage=function(image,...args){
