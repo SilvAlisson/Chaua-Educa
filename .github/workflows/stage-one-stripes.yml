@@ -1,0 +1,33 @@
+name: Stage one transition stripe count A/B
+on:
+  push:
+    branches:
+      - perf/stage-one-transition-tiles
+  workflow_dispatch:
+jobs:
+  stripes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Compare stage 1 performance, fidelity and existing background tests
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node scripts/benchmark-stage-one-tiles.cjs
+          node scripts/benchmark-transition-temporal.cjs
+          node tests/browser-background.cjs
+      - name: Preserve A/B measurements
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: stage-one-tile-ab
+          path: test-results/stage-one-tiles/
+          if-no-files-found: ignore
