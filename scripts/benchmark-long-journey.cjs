@@ -9,6 +9,7 @@ const out=process.env.LONG_OUTPUT||'test-results/long-flight';
 const requestedMode=['auto','high','low'].includes(process.env.LONG_MODE)?process.env.LONG_MODE:'auto';
 const requestedDpr=Number(process.env.LONG_DPR)||null;
 const disableStaging=process.env.LONG_DISABLE_STAGING==='1';
+const stageOneStripes=[8,12,16].includes(Number(process.env.LONG_STAGE_ONE_STRIPES))?Number(process.env.LONG_STAGE_ONE_STRIPES):null;
 fs.mkdirSync(out,{recursive:true});
 const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);return ys[Math.floor((ys.length-1)*p)];};
 (async()=>{
@@ -36,7 +37,7 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
   await page.locator('#btnStart:not([disabled])').click();
   await page.bringToFront();
   const seconds=Math.max(30,Math.min(140,Number(process.env.LONG_SECONDS)||90));
-  await page.evaluate(async ({seconds,requestedMode,disableStaging})=>{
+  await page.evaluate(async ({seconds,requestedMode,disableStaging,stageOneStripes})=>{
    const {game:g}=await import('/js/script.js');
    const {flightViewport}=await import('/js/viewport.mjs');
    const {Renderer}=await import('/js/render.mjs');
@@ -56,7 +57,7 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
     };
    }
    const draw=Renderer.prototype.game;
-   Renderer.prototype.game=function(...args){window.__longRenderer=this;return draw.apply(this,args);};
+   Renderer.prototype.game=function(...args){window.__longRenderer=this;if(stageOneStripes)this.stageOneStripeCount=stageOneStripes;return draw.apply(this,args);};
    g.start('aventura',[],104);window.__longGame=g;
    window.longCapture=true;
    window.longStart=performance.now();
@@ -67,7 +68,7 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
     clearInterval(pilot);clearTimeout(deadline);
     const elapsed=(performance.now()-window.longStart)/1000;
     window.longResult={
-     requestedMode,disableStaging,elapsedWallSeconds:elapsed,gameSeconds:g.elapsed,state:g.state,reason:g.reason,
+     requestedMode,disableStaging,stageOneStripes,elapsedWallSeconds:elapsed,gameSeconds:g.elapsed,state:g.state,reason:g.reason,
      won:g.won,stages:[...stages],encounters:[...encounters],pickups:[...pickups],
      questions,failures,decisions,qualityChanges,
      canvasWidth:document.querySelector('#forest').width,
@@ -118,7 +119,7 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
    },16);
    const deadline=setTimeout(finish,seconds*1000);
    window.longDone=false;
-  },{seconds,requestedMode,disableStaging});
+  },{seconds,requestedMode,disableStaging,stageOneStripes});
   await page.waitForFunction(()=>window.longDone,null,{timeout:(seconds+20)*1000,polling:250});
   const captured=await page.evaluate(()=>window.longResult);
   const {frameIntervals:frames,stageFrames,...details}=captured;
