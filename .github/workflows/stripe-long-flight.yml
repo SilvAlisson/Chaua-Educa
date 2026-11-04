@@ -1,0 +1,32 @@
+name: Stripe sync full-journey A/B
+on:
+  push:
+    branches: [perf/transition-stripe-flush-20261104]
+  workflow_dispatch:
+jobs:
+  longflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Two complete native-flight stress runs, same runner
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-stripe-long.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          LONG_MODE=high LONG_SECONDS=140 LONG_NO_STRIPE_SYNC=1 LONG_OUTPUT=test-results/stripe-long/no-sync npm run benchmark:long-flight
+          LONG_MODE=high LONG_SECONDS=140 LONG_OUTPUT=test-results/stripe-long/synced npm run benchmark:long-flight
+          node scripts/compare-stripe-long.cjs
+      - name: Save paired full-journey metrics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: stripe-long-native-ab
+          path: test-results/stripe-long
+          if-no-files-found: ignore
