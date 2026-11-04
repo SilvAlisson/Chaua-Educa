@@ -62,7 +62,7 @@ const summarize=a=>{
        }
        // Complete both possible eight-stripe snapshots before checking exact-frame colors.
        // Transition input progression is checked separately below.
-       for(let j=0;j<16;j++){
+       for(let j=0;j<(stage===1?32:16);j++){
         candidate.base();candidate.background(42.15+mix,13000+mix*100,stage,false,false,mix);
        }
        const left=old.c.getImageData(0,0,old.canvas.width,old.canvas.height).data;
@@ -150,7 +150,7 @@ const summarize=a=>{
     if(innerWidth>=1200){
      for(const stage of [1,2,3]){
       candidate.base();candidate.background(47,16000,stage,false,false,.75);
-      for(let i=0;i<17;i++){
+      for(let i=0;i<(stage===1?32:17);i++){
        candidate.base();candidate.background(47,16000,stage,false,false,1);
       }
       stableCacheStates.push({stage,stagedActive:!!candidate.transitionBackdrop?.active});
