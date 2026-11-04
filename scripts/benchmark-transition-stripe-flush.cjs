@@ -32,16 +32,20 @@ fs.mkdirSync(out,{recursive:true});
      return renderer;
     };
     const before=await newRenderer(),after=await newRenderer(),flushDurations=[];
-    const original=after.prepareStagedBackdrop;
-    after.prepareStagedBackdrop=function(...args){
-     const pending=this.ensureTransitionBackdrop(),ctx=pending?.c,rows=pending?.rowsDone??0;
-     const result=original.apply(this,args);
-     if(pending&&ctx&&pending.rowsDone!==rows){
-      const t=performance.now();
-      ctx.getImageData(0,Math.floor(pending.height*rows/8),1,1);
-      flushDurations.push(performance.now()-t);
+    before.transitionSyncEnabled=false; // Exact pre-change production baseline.
+    const original=after.ensureTransitionBackdrop,wrapped=new WeakSet();
+    after.ensureTransitionBackdrop=function(...args){
+     const pending=original.apply(this,args),ctx=pending?.c;
+     if(ctx&&!wrapped.has(ctx)){
+      const originalRead=ctx.getImageData.bind(ctx);
+      ctx.getImageData=(...params)=>{
+       const start=performance.now(),pixels=originalRead(...params);
+       flushDurations.push(performance.now()-start);
+       return pixels;
+      };
+      wrapped.add(ctx);
      }
-     return result;
+     return pending;
     };
     const g=new Game({seed:104});g.state='playing';g.y=320;g.wing=.55;g.elapsed=35;g.sceneTime=35;
     const wood={id:1,kind:'wood',x:490,top:150,bottom:470,variant:'branch',snake:{age:3}};
