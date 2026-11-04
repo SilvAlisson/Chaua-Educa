@@ -21,6 +21,7 @@ jobs:
           pid=$!
           trap 'kill "$pid" 2>/dev/null' EXIT
           node scripts/benchmark-opaque-forest.cjs
+          node scripts/benchmark-transition-temporal.cjs
       - name: Keep measured samples
         if: always()
         uses: actions/upload-artifact@v6
