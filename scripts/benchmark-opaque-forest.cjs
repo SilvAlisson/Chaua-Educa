@@ -34,7 +34,7 @@ fs.mkdirSync(out,{recursive:true});
    }
    const alpha={size:[source.width,source.height],opaque,translucent,transparent,minAlpha,maxAlpha};
    if(translucent||transparent)return {alpha,ab:null,reason:'Forest has transparency: sky cannot be removed safely'};
-   before.opaqueForestSkyEnabled=false; // Original full sky + opaque forest reference.
+   before.opaqueForestLightKeyEnabled=false; // Both skip hidden sky; baseline still invalidates cache for invisible palette changes.
    const g=new Game({seed:104});
    g.state='playing';g.y=320;g.wing=.5;g.stage=1;g.distance=7250;
    const samples={before:[],after:[]},visual=[];
