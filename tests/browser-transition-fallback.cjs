@@ -11,14 +11,14 @@ const {chromium}=require('playwright');
   const results=await page.evaluate(async()=>{
    const {Renderer}=await import('/js/render.mjs');
    const {images}=await import('/js/assets.mjs');
-   const forest=images.get('forest');
    const records=[];
-   if(!forest)throw Error('Missing forest');
    for(const fault of ['healthy','throw','stall']){
     const canvas=document.createElement('canvas');
     canvas.style.cssText='position:fixed;inset:0;width:100vw;height:100vh';
     document.body.append(canvas);
     const r=new Renderer(canvas);await r.ready;
+    const forest=images.get('forest');
+    if(!forest)throw Error('Missing forest after renderer.ready');
     const normal=r.prepareFragmentedBackdrop(forest,'#dbe7b5',0,1);
     const originalSurface=normal.surface;
     const pending=r.ensureTransitionBackdrop();
