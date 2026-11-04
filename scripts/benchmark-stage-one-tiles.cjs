@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {chromium}=require('playwright');
 const dir='test-results/stage-one-tiles';
+const stress=process.env.STAGE_ONE_STRESS==='1';
 fs.mkdirSync(dir,{recursive:true});
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
@@ -15,7 +16,7 @@ fs.mkdirSync(dir,{recursive:true});
    page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
-   const report=await page.evaluate(async()=>{
+   const report=await page.evaluate(async(stress)=>{
     const {Renderer}=await import('/js/render.mjs');
     const {Game}=await import('/js/engine.mjs');
     const {advanceSnake}=await import('/js/animals.mjs');
@@ -40,6 +41,18 @@ fs.mkdirSync(dir,{recursive:true});
     const fruit={id:9003,kind:'fruit',x:750,y:320,variety:0,collected:false};
     g.state='playing';g.stage=1;g.stageAge=0;g.elapsed=39;g.sceneTime=39;
     g.distance=9200;g.y=320;g.wing=.5;g.entities=[wood,hawk,fruit];
+    if(stress){
+     // Future progressive-difficulty load: extra actors and hazards, but
+     // never modify the actual game's spawn rules or visual effects.
+     const extraWood={...wood,id:9011,x:960,top:125,bottom:465,snake:{age:2}};
+     advanceSnake(extraWood,.4,100);
+     const extraHawk={...hawk,id:9012,x:1000,y:350,startX:1000,startY:350,targetX:330,targetY:360};
+     g.entities.push(extraWood,extraHawk,
+      {id:9013,kind:'fruit',x:830,y:390,variety:1,collected:false},
+      {id:9014,kind:'fruit',x:990,y:280,variety:2,collected:false},
+      {id:9015,kind:'feather',x:900,y:315,collected:false},
+      {id:9016,kind:'pepper',x:1070,y:340,collected:false});
+    }
     const samples={eight:[],twelve:[]},visual=[];
     let previousEight=null,previousTwelve=null;
     const scratch=a=>{
@@ -81,7 +94,7 @@ fs.mkdirSync(dir,{recursive:true});
       worstDelta:Math.max(...visual.map(x=>x.maxDelta)),
       worstOver5Fraction:Math.max(...visual.map(x=>x.over5Fraction)),
       worstFrames:[...visual].sort((a,b)=>b.mae-a.mae).slice(0,3)}};
-   });
+   },stress);
    assert.deepEqual(errors,[],'unexpected browser errors');
    // 12 stripes can increase age of the cached background; enforce similar
    // visual continuity to the 8-stripe already approved artwork.
@@ -92,10 +105,10 @@ fs.mkdirSync(dir,{recursive:true});
     assert.ok(report.candidate.above33<=report.baseline.above33,
      'More than 8 stripes increased slow raster frames: '+JSON.stringify(report));
    }
-   reports.push({viewport,...report});
-   console.log('STAGE_ONE_TILE_AB '+JSON.stringify({viewport,...report}));
+   reports.push({viewport,stress,...report});
+   console.log('STAGE_ONE_TILE_AB '+JSON.stringify({viewport,stress,...report}));
    await page.close();
   }
-  fs.writeFileSync(dir+'/stage-one-tiles.json',JSON.stringify(reports,null,2));
+  fs.writeFileSync(dir+(stress?'/stage-one-tiles-stress.json':'/stage-one-tiles.json'),JSON.stringify(reports,null,2));
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
