@@ -460,6 +460,8 @@ export class Renderer {
         this.transitionBackdrop = null;
         this.transitionRasterDisabled = false;
         this.transitionSlowReadbacks = 0;
+        // Diagnostic-only opt-out for paired A/B; production keeps bounded readbacks.
+        this.transitionSyncEnabled = true;
         this.cachedView = null;
         this.ready = loadAssets().then(() => {
             this.fruitImages = FRUITS.map(f => images.get(`fruit-${f.id}`));
@@ -635,6 +637,34 @@ export class Renderer {
         c.globalAlpha=pending.target.forestAlpha;
         c.drawImage(forest,(this.w-fw)/2+pending.target.sourceDrift/this.dpr,(this.h-fh)/2,fw,fh);
         c.restore();
+
+        // Canvas 2D can defer the eight clipped raster passes until the
+        // completed buffer is presented. Flushing one pixel after each pass
+        // distributes that work across frames without altering output pixels.
+        // On GPUs where readback itself is costly or unsupported, abandon
+        // incremental staging rather than making repeated slow frames.
+        if(this.transitionSyncEnabled){
+            let readMs;
+            try {
+                const start=performance.now();
+                c.getImageData(0,y0,1,1);
+                readMs=performance.now()-start;
+            } catch {
+                this.transitionRasterDisabled=true;
+            }
+            if(readMs!==undefined){
+                this.transitionSlowReadbacks=readMs>18?
+                    this.transitionSlowReadbacks+1:0;
+                if(this.transitionSlowReadbacks>=2)
+                    this.transitionRasterDisabled=true;
+            }
+            if(this.transitionRasterDisabled){
+                pending.surface.width=0;
+                pending.surface.height=0;
+                this.transitionBackdrop=null;
+                return this.prepareFragmentedBackdrop(forest,light,drift,forestAlpha);
+            }
+        }
 
         if(pending.rowsDone===8){
             const previousSurface=normal.surface,previousContext=normal.c;
