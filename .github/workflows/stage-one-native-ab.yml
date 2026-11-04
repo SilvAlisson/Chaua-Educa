@@ -1,0 +1,36 @@
+name: Stage-one native flight stripe A/B
+on:
+  push:
+    branches:
+      - perf/stage-one-transition-tiles
+  workflow_dispatch:
+jobs:
+  native-stripes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Compare High-quality flights with 8 and 12 stripes on same runner
+        env:
+          LONG_MODE: high
+          LONG_SECONDS: "130"
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          LONG_STAGE_ONE_STRIPES=8 LONG_OUTPUT=test-results/stage-one-tiles/native/8-stripes npm run benchmark:long-flight
+          LONG_STAGE_ONE_STRIPES=12 LONG_OUTPUT=test-results/stage-one-tiles/native/12-stripes npm run benchmark:long-flight
+          node scripts/compare-stage-one-native.cjs
+      - name: Preserve phase-by-phase native frame intervals
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: stage-one-native-8-vs-12
+          path: test-results/stage-one-tiles/native/
+          if-no-files-found: ignore
