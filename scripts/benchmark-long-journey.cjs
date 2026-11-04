@@ -10,6 +10,7 @@ const requestedMode=['auto','high','low'].includes(process.env.LONG_MODE)?proces
 const requestedDpr=Number(process.env.LONG_DPR)||null;
 const disableStaging=process.env.LONG_DISABLE_STAGING==='1';
 const disableStripeSync=process.env.LONG_NO_STRIPE_SYNC==='1';
+const keepOpaqueSky=process.env.LONG_KEEP_OPAQUE_SKY==='1';
 const drawAllEntities=process.env.LONG_DRAW_ALL_ENTITIES==='1';
 fs.mkdirSync(out,{recursive:true});
 const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);return ys[Math.floor((ys.length-1)*p)];};
@@ -38,7 +39,7 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
   await page.locator('#btnStart:not([disabled])').click();
   await page.bringToFront();
   const seconds=Math.max(30,Math.min(140,Number(process.env.LONG_SECONDS)||90));
-  await page.evaluate(async ({seconds,requestedMode,disableStaging,disableStripeSync,drawAllEntities})=>{
+  await page.evaluate(async ({seconds,requestedMode,disableStaging,disableStripeSync,keepOpaqueSky,drawAllEntities})=>{
    const {game:g}=await import('/js/script.js');
    const {flightViewport}=await import('/js/viewport.mjs');
    const {Renderer}=await import('/js/render.mjs');
@@ -49,6 +50,10 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
    if(disableStripeSync){
     const original=Renderer.prototype.prepareStagedBackdrop;
     Renderer.prototype.prepareStagedBackdrop=function(...args){this.transitionSyncEnabled=false;return original.apply(this,args);};
+   }
+   if(keepOpaqueSky){
+    const original=Renderer.prototype.game;
+    Renderer.prototype.game=function(...args){this.opaqueForestSkyEnabled=false;return original.apply(this,args);};
    }
    const qualityChanges=[];
    for(const method of ['setQuality','setAutomaticQuality']){
@@ -73,7 +78,7 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
     clearInterval(pilot);clearTimeout(deadline);
     const elapsed=(performance.now()-window.longStart)/1000;
     window.longResult={
-     requestedMode,disableStaging,disableStripeSync,drawAllEntities,elapsedWallSeconds:elapsed,gameSeconds:g.elapsed,state:g.state,reason:g.reason,
+     requestedMode,disableStaging,disableStripeSync,keepOpaqueSky,drawAllEntities,elapsedWallSeconds:elapsed,gameSeconds:g.elapsed,state:g.state,reason:g.reason,
      won:g.won,stages:[...stages],encounters:[...encounters],pickups:[...pickups],
      questions,failures,decisions,qualityChanges,
      canvasWidth:document.querySelector('#forest').width,
@@ -124,7 +129,7 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
    },16);
    const deadline=setTimeout(finish,seconds*1000);
    window.longDone=false;
-  },{seconds,requestedMode,disableStaging,disableStripeSync,drawAllEntities});
+  },{seconds,requestedMode,disableStaging,disableStripeSync,keepOpaqueSky,drawAllEntities});
   await page.waitForFunction(()=>window.longDone,null,{timeout:(seconds+20)*1000,polling:250});
   const captured=await page.evaluate(()=>window.longResult);
   const {frameIntervals:frames,stageFrames,...details}=captured;
