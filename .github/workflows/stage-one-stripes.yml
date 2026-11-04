@@ -22,6 +22,7 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null' EXIT
           node scripts/benchmark-stage-one-tiles.cjs
+          STAGE_ONE_STRESS=1 node scripts/benchmark-stage-one-tiles.cjs
           node scripts/benchmark-transition-temporal.cjs
           node tests/browser-background.cjs
       - name: Preserve A/B measurements
