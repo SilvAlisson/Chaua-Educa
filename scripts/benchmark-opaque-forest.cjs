@@ -34,7 +34,7 @@ fs.mkdirSync(out,{recursive:true});
    }
    const alpha={size:[source.width,source.height],opaque,translucent,transparent,minAlpha,maxAlpha};
    if(translucent||transparent)return {alpha,ab:null,reason:'Forest has transparency: sky cannot be removed safely'};
-   after.paintSky=function(){};
+   before.opaqueForestSkyEnabled=false; // Original full sky + opaque forest reference.
    const g=new Game({seed:104});
    g.state='playing';g.y=320;g.wing=.5;g.stage=1;g.distance=7250;
    const samples={before:[],after:[]},visual=[];
