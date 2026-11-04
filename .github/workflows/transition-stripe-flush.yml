@@ -1,0 +1,30 @@
+name: Transition stripe flush A/B
+on:
+  push:
+    branches: [perf/transition-stripe-flush-20261104]
+  workflow_dispatch:
+jobs:
+  performance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Compare frame intervals and pixel parity
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/forest-flush.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          node scripts/benchmark-transition-stripe-flush.cjs
+      - name: Save measurements
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: stripe-flush-ab
+          path: test-results/transition-stripe-flush
+          if-no-files-found: ignore
