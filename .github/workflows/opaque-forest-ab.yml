@@ -1,0 +1,30 @@
+name: Check opaque forest fast path
+on:
+  push:
+    branches: [perf/opaque-forest-sky-ab-20261104]
+  workflow_dispatch:
+jobs:
+  fastpath:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify forest opacity and benchmark exact rendering parity
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/forest-opacity.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          node scripts/benchmark-opaque-forest.cjs
+      - name: Keep measured samples
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: opaque-forest-ab
+          path: test-results/opaque-forest
+          if-no-files-found: ignore
