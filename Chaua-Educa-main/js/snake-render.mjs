@@ -1,7 +1,7 @@
 import {SPRITES} from './sprite-data.mjs';
 import {snakeMotion,deformSnakePoint} from './snake-motion.mjs';
 
-function triangle(c,image,src,dst){
+function triangle(c,image,src,dst,sourceTop,sourceBottom){
  const [a,b,d]=src,[p,q,r]=dst,den=(b.x-a.x)*(d.y-a.y)-(d.x-a.x)*(b.y-a.y);
  const A=((q.x-p.x)*(d.y-a.y)-(r.x-p.x)*(b.y-a.y))/den,B=((q.y-p.y)*(d.y-a.y)-(r.y-p.y)*(b.y-a.y))/den;
  const C=((r.x-p.x)*(b.x-a.x)-(q.x-p.x)*(d.x-a.x))/den,D=((r.y-p.y)*(b.x-a.x)-(q.y-p.y)*(d.x-a.x))/den;
@@ -9,7 +9,14 @@ function triangle(c,image,src,dst){
  // Subpixel overlap prevents antialiasing cracks between adjacent triangles.
  const edge=dst.map(v=>{const dx=v.x-center.x,dy=v.y-center.y,len=Math.hypot(dx,dy);return {x:v.x+dx/len*.35,y:v.y+dy/len*.35};});
  c.save();c.beginPath();c.moveTo(edge[0].x,edge[0].y);c.lineTo(edge[1].x,edge[1].y);c.lineTo(edge[2].x,edge[2].y);c.closePath();c.clip();
- c.transform(A,B,C,D,p.x-A*a.x-C*a.y,p.y-B*a.x-D*a.y);c.drawImage(image,0,0,384,384,0,0,384,384);c.restore();
+ // Preserve the exact affine mapping and triangle clip. Only shorten the
+ // texture region submitted to Canvas by excluding rows the triangle can
+ // never sample. Two source pixels of overlap protect bilinear filtering
+ // and the existing subpixel-overlapped mesh edges.
+ const cropTop=Math.max(0,sourceTop-2),cropBottom=Math.min(384,sourceBottom+2);
+ c.transform(A,B,C,D,p.x-A*a.x-C*a.y,p.y-B*a.x-D*a.y);
+ c.drawImage(image,0,cropTop,384,cropBottom-cropTop,0,cropTop,384,cropBottom-cropTop);
+ c.restore();
 }
 function drawMesh(c,image,s,factor){
  const data=SPRITES.snake,pose=snakeMotion(s,false);
@@ -17,7 +24,7 @@ function drawMesh(c,image,s,factor){
  const rows=[0,180,190,200,210,220,230,240,250,260,270,280,384];
  for(let i=0;i<rows.length-1;i++){
   const top=rows[i],bottom=rows[i+1],v=[{x:0,y:top},{x:384,y:top},{x:384,y:bottom},{x:0,y:bottom}];
-  for(const indices of [[0,1,2],[0,2,3]]){const src=indices.map(j=>v[j]);triangle(c,image,src,src.map(project));}
+  for(const indices of [[0,1,2],[0,2,3]]){const src=indices.map(j=>v[j]);triangle(c,image,src,src.map(project),top,bottom);}
  }
  if(pose.mouth>0){
   const h=data.frames[0].head,open=data.frames[10],o=open.head,scale=h[2]/o[2];
