@@ -518,7 +518,7 @@ export class Renderer {
         if(!c)return null;
         return this.transitionBackdrop={surface,c,width,height,dpr:this.dpr,target:null,rowsDone:0,active:false};
     }
-    prepareStagedBackdrop(forest,light,drift,forestAlpha,settled=false) {
+    prepareStagedBackdrop(forest,light,drift,forestAlpha,settled=false,stripeCount=8) {
         const normal=this.fragmentedBackdrop;
         if(!normal||normal.width!==this.canvas.width||normal.height!==this.canvas.height||
             normal.dpr!==this.dpr||normal.forest!==forest){
@@ -542,12 +542,15 @@ export class Renderer {
             }
             // Freeze one destination snapshot until all eight stripes are
             // painted. The fully rendered previous surface is always visible.
-            pending.target={light,forestAlpha,sourceDrift};
+            // Keep each in-progress image internally consistent even if
+            // the stage changes before all stripes have been painted.
+            pending.target={light,forestAlpha,sourceDrift,stripes:stripeCount};
             pending.rowsDone=0;
         }
         const stripe=pending.rowsDone++;
-        const y0=Math.floor(pending.height*stripe/8);
-        const y1=stripe===7?pending.height:Math.floor(pending.height*(stripe+1)/8);
+        const stripes=pending.target.stripes;
+        const y0=Math.floor(pending.height*stripe/stripes);
+        const y1=stripe===stripes-1?pending.height:Math.floor(pending.height*(stripe+1)/stripes);
         const c=pending.c;
         c.save();
         c.setTransform(1,0,0,1,0,0);
@@ -579,7 +582,7 @@ export class Renderer {
             this.transitionBackdrop=null;
             return this.prepareFragmentedBackdrop(forest,light,drift,forestAlpha);
         }
-        if(pending.rowsDone===8){
+        if(pending.rowsDone===pending.target.stripes){
             // Publish only a complete RGBA frame: never show a partially
             // repainted stripe, even during a camera shake or phase change.
             const previousSurface=normal.surface,previousContext=normal.c;
@@ -615,7 +618,7 @@ export class Renderer {
             (stage>0&&(stageMix<1||this.transitionBackdrop?.active)?
                 this.prepareStagedBackdrop(forest,backdropLight,Math.sin(time*.035)*Math.min(24,
                     (forest.naturalWidth*Math.max(w/forest.naturalWidth,h/forest.naturalHeight)*1.08-w)/2),
-                    backdropAlpha,stageMix===1):
+                    backdropAlpha,stageMix===1,stage===1?(this.stageOneStripeCount??12):8):
                 this.prepareFragmentedBackdrop(forest,backdropLight,Math.sin(time*.035)*Math.min(24,
                     (forest.naturalWidth*Math.max(w/forest.naturalWidth,h/forest.naturalHeight)*1.08-w)/2),
                     backdropAlpha)):null;
