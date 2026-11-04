@@ -1,0 +1,30 @@
+name: Forest layer architecture A/B
+on:
+  push:
+    branches: [perf/forest-layer-feasibility-20261104]
+  workflow_dispatch:
+jobs:
+  feasibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Benchmark native Canvas versus layered forest and compare pixels
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-layer-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node scripts/benchmark-layered-forest-prototype.cjs
+      - name: Save full A/B metrics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: forest-layer-feasibility
+          path: test-results/forest-layer-feasibility
+          if-no-files-found: ignore
