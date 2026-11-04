@@ -1,0 +1,33 @@
+name: Snake mesh source strip parity and A/B
+on:
+  push:
+    branches:
+      - perf/snake-triangle-source-strips
+  workflow_dispatch:
+jobs:
+  snake-strips:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify exact 56-frame snake pixel parity and movement
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          node tests/browser-snake-raster-parity.cjs
+          node tests/browser-snake-continuity.cjs
+          node scripts/benchmark-snake-source-strips.cjs
+      - name: Preserve snake performance profiles
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: snake-source-crop-benchmark
+          path: test-results/snake-source-strips/
+          if-no-files-found: ignore
