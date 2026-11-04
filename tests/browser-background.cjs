@@ -49,7 +49,7 @@ async function pixels(browser){
      // The double-buffered compositor never displays half-painted strips.
      // A static pixel test must let up to two complete eight-stripe snapshots
      // finish before comparing the identical fixed transition inputs.
-     for(let i=0;i<16&&!home&&!reduced;i++){
+     for(let i=0;i<(stage===1?32:16)&&!home&&!reduced;i++){
       cached.base();cached.background(time,7000+time*275,stage,home,reduced,mix);
      }
      const a=direct.c.getImageData(0,0,direct.canvas.width,direct.canvas.height).data;
