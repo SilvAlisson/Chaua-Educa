@@ -465,6 +465,7 @@ export class Renderer {
         // The forest WebP is fully opaque; the sky behind an alpha=1 forest is invisible.
         // Keep an A/B override to verify exact parity against the original composition.
         this.opaqueForestSkyEnabled = true;
+        this.opaqueForestLightKeyEnabled = true;
         this.cachedView = null;
         this.ready = loadAssets().then(() => {
             this.fruitImages = FRUITS.map(f => images.get(`fruit-${f.id}`));
@@ -575,9 +576,15 @@ export class Renderer {
             if(!c)return null;
             cache=this.fragmentedBackdrop={surface,c,width,height,dpr:this.dpr,light,forest,forestAlpha,sourceDrift:null};
         }
-        if(cache.light!==light||cache.forestAlpha!==forestAlpha){
-            cache.light=light;cache.forestAlpha=forestAlpha;cache.sourceDrift=null;
+        // The opaque source hides the sky palette entirely. A change to a
+        // hidden sky must not invalidate millions of cached pixels. Still
+        // invalidate for the visible opacity and for forest drift.
+        const skyHidden=forestAlpha===1&&this.opaqueForestSkyEnabled!==false&&
+            this.opaqueForestLightKeyEnabled!==false;
+        if((!skyHidden&&cache.light!==light)||cache.forestAlpha!==forestAlpha){
+            cache.forestAlpha=forestAlpha;cache.sourceDrift=null;
         }
+        cache.light=light;
         if(cache.sourceDrift!==sourceDrift){
             const c=cache.c;
             c.setTransform(this.dpr,0,0,this.dpr,0,0);
@@ -622,7 +629,10 @@ export class Renderer {
         const driftSteps=forestAlpha===1?4:2;
         const sourceDrift=Math.round(drift*this.dpr*driftSteps)/driftSteps;
         if(!pending.target){
-            if(normal.light===light&&normal.forestAlpha===forestAlpha&&normal.sourceDrift===sourceDrift){
+            const skyHidden=forestAlpha===1&&this.opaqueForestSkyEnabled!==false&&
+                this.opaqueForestLightKeyEnabled!==false;
+            if((skyHidden||normal.light===light)&&normal.forestAlpha===forestAlpha&&normal.sourceDrift===sourceDrift){
+                normal.light=light;
                 if(settled&&forestAlpha===1)pending.active=false;
                 return normal;
             }
