@@ -1,7 +1,7 @@
 import {SPRITES} from './sprite-data.mjs';
 import {snakeMotion,deformSnakePoint} from './snake-motion.mjs';
 
-function triangle(c,image,src,dst,sourceTop,sourceBottom){
+function triangle(c,image,src,dst){
  const [a,b,d]=src,[p,q,r]=dst,den=(b.x-a.x)*(d.y-a.y)-(d.x-a.x)*(b.y-a.y);
  const A=((q.x-p.x)*(d.y-a.y)-(r.x-p.x)*(b.y-a.y))/den,B=((q.y-p.y)*(d.y-a.y)-(r.y-p.y)*(b.y-a.y))/den;
  const C=((r.x-p.x)*(b.x-a.x)-(q.x-p.x)*(d.x-a.x))/den,D=((r.y-p.y)*(b.x-a.x)-(q.y-p.y)*(d.x-a.x))/den;
@@ -9,22 +9,26 @@ function triangle(c,image,src,dst,sourceTop,sourceBottom){
  // Subpixel overlap prevents antialiasing cracks between adjacent triangles.
  const edge=dst.map(v=>{const dx=v.x-center.x,dy=v.y-center.y,len=Math.hypot(dx,dy);return {x:v.x+dx/len*.35,y:v.y+dy/len*.35};});
  c.save();c.beginPath();c.moveTo(edge[0].x,edge[0].y);c.lineTo(edge[1].x,edge[1].y);c.lineTo(edge[2].x,edge[2].y);c.closePath();c.clip();
- // Preserve the exact affine mapping and triangle clip. Only shorten the
- // texture region submitted to Canvas by excluding rows the triangle can
- // never sample. Two source pixels of overlap protect bilinear filtering
- // and the existing subpixel-overlapped mesh edges.
- const cropTop=Math.max(0,sourceTop-2),cropBottom=Math.min(384,sourceBottom+2);
- c.transform(A,B,C,D,p.x-A*a.x-C*a.y,p.y-B*a.x-D*a.y);
- c.drawImage(image,0,cropTop,384,cropBottom-cropTop,0,cropTop,384,cropBottom-cropTop);
- c.restore();
+ c.transform(A,B,C,D,p.x-A*a.x-C*a.y,p.y-B*a.x-D*a.y);c.drawImage(image,0,0,384,384,0,0,384,384);c.restore();
+}
+// Adjacent mesh cells share the same source vertices. Project each landmark
+// once per pose instead of repeating its trigonometry for every triangle.
+// All triangle coordinates, draw calls and antialiasing remain unchanged.
+const SNAKE_ROWS=[0,180,190,200,210,220,230,240,250,260,270,280,384];
+const SOURCE_ROW_POINTS=SNAKE_ROWS.map(y=>[{x:0,y},{x:384,y}]);
+const SOURCE_TRIANGLES=[];
+for(let i=0;i<SNAKE_ROWS.length-1;i++){
+ const top=SOURCE_ROW_POINTS[i],bottom=SOURCE_ROW_POINTS[i+1];
+ SOURCE_TRIANGLES.push([top[0],top[1],bottom[1]],[top[0],bottom[1],bottom[0]]);
 }
 function drawMesh(c,image,s,factor){
  const data=SPRITES.snake,pose=snakeMotion(s,false);
  const project=({x,y})=>{const p=deformSnakePoint(x,y,pose);return {x:(p.x-192)*factor,y:(p.y-328)*factor};};
- const rows=[0,180,190,200,210,220,230,240,250,260,270,280,384];
- for(let i=0;i<rows.length-1;i++){
-  const top=rows[i],bottom=rows[i+1],v=[{x:0,y:top},{x:384,y:top},{x:384,y:bottom},{x:0,y:bottom}];
-  for(const indices of [[0,1,2],[0,2,3]]){const src=indices.map(j=>v[j]);triangle(c,image,src,src.map(project),top,bottom);}
+ const projected=SOURCE_ROW_POINTS.map(([left,right])=>[project(left),project(right)]);
+ for(let i=0;i<SNAKE_ROWS.length-1;i++){
+  const top=projected[i],bottom=projected[i+1];
+  triangle(c,image,SOURCE_TRIANGLES[2*i],[top[0],top[1],bottom[1]]);
+  triangle(c,image,SOURCE_TRIANGLES[2*i+1],[top[0],bottom[1],bottom[0]]);
  }
  if(pose.mouth>0){
   const h=data.frames[0].head,open=data.frames[10],o=open.head,scale=h[2]/o[2];
