@@ -1,0 +1,32 @@
+name: Opaque forest full-flight A/B
+on:
+  push:
+    branches: [perf/opaque-forest-sky-ab-20261104]
+  workflow_dispatch:
+jobs:
+  longflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Compare two complete native flights with and without redundant sky paint
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-opaque-long.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          LONG_MODE=high LONG_SECONDS=140 LONG_KEEP_OPAQUE_SKY=1 LONG_OUTPUT=test-results/opaque-long/sky npm run benchmark:long-flight
+          LONG_MODE=high LONG_SECONDS=140 LONG_OUTPUT=test-results/opaque-long/fast npm run benchmark:long-flight
+          node scripts/compare-opaque-long.cjs
+      - name: Save paired complete-flight metrics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: opaque-forest-long-ab
+          path: test-results/opaque-long
+          if-no-files-found: ignore
