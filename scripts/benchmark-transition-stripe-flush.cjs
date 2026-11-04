@@ -64,7 +64,7 @@ fs.mkdirSync(out,{recursive:true});
      }
      return {changedChannels:diff,maxDelta:max};
     };
-    for(const stage of [2,3]){
+    for(const stage of [1,2,3]){
      for(const r of [before,after]){
       r.background(35,15500,stage-1,false,false,1);
       const pending=r.ensureTransitionBackdrop();
