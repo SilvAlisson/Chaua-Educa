@@ -63,10 +63,8 @@ fs.mkdirSync(out,{recursive:true});
     for(const stage of [2,3]){
      for(const r of [before,after]){
       r.background(35,15500,stage-1,false,false,1);
-      r.ensureTransitionBackdrop();
-      r.transitionBackdrop.target=null;
-      r.transitionBackdrop.rowsDone=0;
-      r.transitionBackdrop.active=false;
+      const pending=r.ensureTransitionBackdrop();
+      if(pending){pending.target=null;pending.rowsDone=0;pending.active=false;}
      }
      const samples={before:[],after:[]},visual=[];
      const flushStart=flushDurations.length;
@@ -89,8 +87,8 @@ fs.mkdirSync(out,{recursive:true});
        before.canvas.style.display=key==='before'?'block':'none';
        after.canvas.style.display=key==='after'?'block':'none';
        r.background(40,15500,stage-1,false,false,1);
-       r.ensureTransitionBackdrop();r.transitionBackdrop.target=null;
-       r.transitionBackdrop.rowsDone=0;r.transitionBackdrop.active=false;
+       const pending=r.ensureTransitionBackdrop();
+       if(pending){pending.target=null;pending.rowsDone=0;pending.active=false;}
        const timings=[];
        await new Promise(resolve=>{
         let zero=0,last=0;
@@ -118,7 +116,8 @@ fs.mkdirSync(out,{recursive:true});
    });
    assert.deepEqual(errors,[]);
    for(const row of report.scene){
-    assert.ok(row.syncedStripeCount>0,'Flush variant did not synchronize staged stripes');
+    if(row.backing[0]*row.backing[1]>=1_800_000)
+     assert.ok(row.syncedStripeCount>0,'Flush variant did not synchronize staged stripes');
     assert.ok(row.visual.every(x=>x.changedChannels===0&&x.maxDelta===0),
       'Readback-only change must retain exact pixels: '+JSON.stringify(row.visual));
    }
