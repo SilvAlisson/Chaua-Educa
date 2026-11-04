@@ -1,7 +1,7 @@
 name: Check opaque forest fast path
 on:
   push:
-    branches: [perf/opaque-forest-sky-ab-20261104]
+    branches: [perf/opaque-forest-sky-ab-20261104, perf/opaque-forest-lightkey-20261104]
   workflow_dispatch:
 jobs:
   fastpath:
