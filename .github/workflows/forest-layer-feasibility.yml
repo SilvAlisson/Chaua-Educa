@@ -21,6 +21,7 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null' EXIT
           node scripts/benchmark-layered-forest-prototype.cjs
+          node scripts/trace-frame-budget.cjs
       - name: Save full A/B metrics
         if: always()
         uses: actions/upload-artifact@v6
