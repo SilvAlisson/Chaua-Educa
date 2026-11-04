@@ -17,6 +17,10 @@ const summarize=v=>({count:v.length,mean:v.reduce((s,x)=>s+x,0)/Math.max(v.lengt
   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
   const result=await page.evaluate(async()=>{
+   const pct=(v,p)=>v.length?[...v].sort((a,b)=>a-b)[Math.floor((v.length-1)*p)]:null;
+   const summarize=v=>({count:v.length,mean:v.reduce((s,x)=>s+x,0)/Math.max(v.length,1),
+    median:pct(v,.5),p95:pct(v,.95),p99:pct(v,.99),max:v.length?Math.max(...v):null,
+    over33:v.filter(x=>x>33.33).length,over50:v.filter(x=>x>50).length});
    const {Renderer}=await import('/js/render.mjs');
    const {Game}=await import('/js/engine.mjs');
    const {advanceSnake}=await import('/js/animals.mjs');
