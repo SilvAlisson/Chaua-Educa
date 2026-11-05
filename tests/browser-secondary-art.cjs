@@ -36,7 +36,7 @@ const out='test-results/secondary-art';fs.mkdirSync(out,{recursive:true});
     // the image must remain unchanged, pixel for pixel.
     const worldX=x=>370+(-63+x/384*126)*3;
     const worldY=y=>150+(-8+y/302*99.0938)*3;
-    const xRight=worldX(70),yTop=worldY(183),yBottom=worldY(284);
+    const xRight=worldX(70),yTop=worldY(168),yBottom=worldY(298);
     for(let y=0;y<510;y++)for(let x=0;x<750;x++){
       const n=(y*750+x)*4;
       for(let q=0;q<4;q++){
@@ -52,8 +52,8 @@ const out='test-results/secondary-art';fs.mkdirSync(out,{recursive:true});
     canvas.style.cssText='position:fixed;inset:0;width:100vw;height:100vh';
     document.body.replaceChildren(canvas);
     const renderer=new Renderer(canvas);await renderer.ready;
-    const snake={id:2,kind:'wood',x:430,top:160,bottom:440,snake:{age:8,retreat:true,dazed:true,retreatTime:.28,retreatPose:{x:0,y:0,angle:0,mouth:0}}};
-    const hawk={id:3,kind:'hawk',x:660,y:285,warning:0,retreat:true,dazed:true,retreatTime:.28,phase:'retreat'};
+    const snake={id:2,kind:'wood',x:innerWidth<600?155:430,top:160,bottom:440,snake:{age:8,retreat:true,dazed:true,retreatTime:.28,retreatPose:{x:0,y:0,angle:0,mouth:0}}};
+    const hawk={id:3,kind:'hawk',x:innerWidth<600?295:660,y:285,warning:0,retreat:true,dazed:true,retreatTime:.28,phase:'retreat'};
     renderer.base();renderer.snake(snake,false);renderer.hawk(hawk,8,false);
     return {atRest,reducedChanged,motionChanged,outside,
       snakeArtUnchanged:images.get('snake-atlas')?.naturalWidth===1536,

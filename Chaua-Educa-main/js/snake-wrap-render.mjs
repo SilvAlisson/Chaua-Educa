@@ -2,7 +2,7 @@ import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {tailTipSwing} from './secondary-motion.mjs';
 // Exact existing source pixels, locally bent only at the terminal left curl.
 // 17 small precomputed poses: no per-frame mesh raster or synthetic tail art.
-const TIP={x:0,y:190,w:68,h:87,pad:5};
+const TIP={x:0,y:190,w:68,h:87,pad:12};
 const STEPS=8;
 let prepared=null;
 function makeSurface(w,h){
@@ -27,7 +27,12 @@ function build(image){
             const strip=Math.min(4,TIP.w-x);
             const free=1-(x+strip/2)/TIP.w;
             const dy=wave*3.1*free*free;
-            c.drawImage(image,x,TIP.y,strip,TIP.h,x,TIP.pad+dy,strip,TIP.h);
+            // Gentle volume correction, derived from the very same source pixels.
+            // No extra tail art and no seam: thickness returns to 1 at its root.
+            const thickness=1+.16*free*free;
+            const h=TIP.h*thickness;
+            c.drawImage(image,x,TIP.y,strip,TIP.h,
+                x,TIP.pad+(TIP.h-h)/2+dy,strip,h);
         }
         frames.push(frame);
     }
