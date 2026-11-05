@@ -11,7 +11,8 @@ function triangle(c,image,src,dst){
  c.save();c.beginPath();c.moveTo(edge[0].x,edge[0].y);c.lineTo(edge[1].x,edge[1].y);c.lineTo(edge[2].x,edge[2].y);c.closePath();c.clip();
  c.transform(A,B,C,D,p.x-A*a.x-C*a.y,p.y-B*a.x-D*a.y);c.drawImage(image,0,0,384,384,0,0,384,384);c.restore();
 }
-function drawMesh(c,image,s,factor,pose){
+function drawMesh(c,image,s,factor,pose,details=true){
+ meshRenders++;
  // Preserve the original affine triangles and their antialiased overlap exactly.
  // Merging rigid regions into drawImage introduced visible edge-pixel changes.
  const data=SPRITES.snake;
@@ -21,15 +22,12 @@ function drawMesh(c,image,s,factor,pose){
   const top=rows[i],bottom=rows[i+1],v=[{x:0,y:top},{x:384,y:top},{x:384,y:bottom},{x:0,y:bottom}];
   for(const indices of [[0,1,2],[0,2,3]]){const src=indices.map(j=>v[j]);triangle(c,image,src,src.map(project));}
  }
- const flickCycle=((s.age||0)+(s.phaseAge||0))%2.8;
- const idleTongue=flickCycle<.4&&pose.mouth<=.05&&s.phase!=='retreat';
- if(pose.mouth>0||idleTongue){
+ if(pose.mouth>0){
   const h=data.frames[0].head,open=data.frames[10],o=open.head,scale=h[2]/o[2];
   c.save();c.translate((h[0]-192+pose.x)*factor,(h[1]-328+pose.y)*factor);c.rotate(pose.angle);c.scale(factor,factor);
-  if(pose.mouth>0){
-   c.save();
-   c.beginPath();c.ellipse(-16,23,40,23,0,0,Math.PI*2);c.clip();c.globalAlpha*=pose.mouth;
-   c.drawImage(image,...open.rect,-o[0]*scale,-o[1]*scale,384*scale,384*scale);
+  c.save();c.beginPath();c.ellipse(-16,23,40,23,0,0,Math.PI*2);c.clip();c.globalAlpha*=pose.mouth;
+  c.drawImage(image,...open.rect,-o[0]*scale,-o[1]*scale,384*scale,384*scale);
+  if(details){
    // Throat cavity depth shading
    const throat=c.createRadialGradient(2,24,2,-8,24,26);
    throat.addColorStop(0,'rgba(45,5,8,0.92)');
@@ -47,9 +45,18 @@ function drawMesh(c,image,s,factor,pose){
    for(const tx of [-22,-16,-10,-4]){
     c.beginPath();c.moveTo(tx,34);c.lineTo(tx+2,30);c.lineTo(tx+4,34);c.closePath();c.fill();
    }
-   c.restore();
-  }
 
+  }
+  c.restore();c.restore();
+ }
+}
+
+function drawTongue(c,s,factor,pose){
+ const flickCycle=((s.age||0)+(s.phaseAge||0))%2.8;
+ const idleTongue=flickCycle<.4&&pose.mouth<=.05&&s.phase!=='retreat';
+ if(!(pose.mouth>.15||idleTongue))return;
+ const h=SPRITES.snake.frames[0].head;
+ c.save();c.translate((h[0]-192+pose.x)*factor,(h[1]-328+pose.y)*factor);c.rotate(pose.angle);c.scale(factor,factor);
   // Forked tongue flicking outward (lingua bifurcada)
   if(pose.mouth>0.15){
    const flick=Math.sin((s.phaseAge||s.age||0)*32)*5;
@@ -80,45 +87,54 @@ function drawMesh(c,image,s,factor,pose){
    c.restore();
   }
   c.restore();
- }
 }
-
-const fallbackCache = {
- surface: null, surfaceCtx: null, cachedImage: null, cachedFactor: 0,
- cachedX: NaN, cachedY: NaN, cachedAngle: NaN, cachedMouth: NaN
-};
-
-export function drawContinuousSnake(c,image,s,factor,reduced=false){
+let meshRenders=0;
+const MAX_MESH_CACHE=6;
+const stableCaches=new Map();
+const newCache=()=>({surface:null,surfaceCtx:null,cachedImage:null,cachedFactor:0,
+ cachedX:NaN,cachedY:NaN,cachedAngle:NaN,cachedMouth:NaN,cachedDetails:null});
+const fallbackCache=newCache();
+function cacheFor(s,stableId){
+ if(Number.isInteger(stableId)&&stableId>=0){
+  let cache=stableCaches.get(stableId);
+  if(!cache){
+   if(stableCaches.size>=MAX_MESH_CACHE)stableCaches.delete(stableCaches.keys().next().value);
+   cache=newCache();stableCaches.set(stableId,cache);
+  }
+  return cache;
+ }
+ return s&&typeof s==='object'?(s._meshCache||(s._meshCache=newCache())):fallbackCache;
+}
+export function snakeMeshStats(){return {meshRenders,cacheEntries:stableCaches.size};}
+export function drawContinuousSnake(c,image,s,factor,reduced=false,stableId=null,details=true){
  if(!image)return;
  if(reduced){
   c.drawImage(image,...SPRITES.snake.frames[0].rect,-192*factor,-328*factor,384*factor,384*factor);
   return;
  }
  const pose=snakeMotion(s,false);
- const cache = (s && typeof s === 'object') ? (s._meshCache || (s._meshCache = {
-  surface: null, surfaceCtx: null, cachedImage: null, cachedFactor: 0,
-  cachedX: NaN, cachedY: NaN, cachedAngle: NaN, cachedMouth: NaN
- })) : fallbackCache;
-
+ const cache=cacheFor(s,stableId);
  if(!cache.surface&&typeof OffscreenCanvas!=='undefined')cache.surface=new OffscreenCanvas(512,512);
- if(!cache.surface&&typeof document!=='undefined'){cache.surface=document.createElement('canvas');cache.surface.width=cache.surface.height=512;}
- if(!cache.surface){drawMesh(c,image,s,factor,pose);return;}
+ if(!cache.surface&&typeof document!=='undefined'){
+  cache.surface=document.createElement('canvas');cache.surface.width=cache.surface.height=512;
+ }
+ if(!cache.surface){
+  drawMesh(c,image,s,factor,pose,details);
+  if(details)drawTongue(c,s,factor,pose);
+  return;
+ }
  if(!cache.surfaceCtx)cache.surfaceCtx=cache.surface.getContext('2d');
-
- const dirty=cache.cachedImage!==image||cache.cachedFactor!==factor||
+ const dirty=cache.cachedImage!==image||cache.cachedFactor!==factor||cache.cachedDetails!==details||
   Math.abs(pose.x-cache.cachedX)>1e-4||Math.abs(pose.y-cache.cachedY)>1e-4||
   Math.abs(pose.angle-cache.cachedAngle)>1e-4||Math.abs(pose.mouth-cache.cachedMouth)>1e-4;
-
  if(dirty){
-  cache.cachedImage=image;cache.cachedFactor=factor;
+  cache.cachedImage=image;cache.cachedFactor=factor;cache.cachedDetails=details;
   cache.cachedX=pose.x;cache.cachedY=pose.y;cache.cachedAngle=pose.angle;cache.cachedMouth=pose.mouth;
   const layer=cache.surfaceCtx;
-  layer.setTransform(1,0,0,1,0,0);
-  layer.clearRect(0,0,512,512);
-  layer.setTransform(2,0,0,2,256,256);
-  layer.globalAlpha=1;
-  layer.globalCompositeOperation='source-over';
-  drawMesh(layer,image,s,factor,pose);
+  layer.setTransform(1,0,0,1,0,0);layer.clearRect(0,0,512,512);
+  layer.setTransform(2,0,0,2,256,256);layer.globalAlpha=1;layer.globalCompositeOperation='source-over';
+  drawMesh(layer,image,s,factor,pose,details);
  }
  c.drawImage(cache.surface,-128,-128,256,256);
+ if(details)drawTongue(c,s,factor,pose);
 }
