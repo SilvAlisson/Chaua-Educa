@@ -98,8 +98,8 @@ const STEP=1/120;
     const q=window.flightCapture,host=q.game.entities[0],s=host.snake;
     q.game.collide(s,true,host);
     q.advance(6);
-    assert.equal(s.dazed,true,'shield should daze snake via engine');
-    assert.equal(q.game.shield,false,'shield should be consumed');
+    if(s.dazed!==true)throw Error('shield should daze snake via engine');
+    if(q.game.shield!==false)throw Error('shield should be consumed');
     return {shield:q.game.shield,phase:s.phase,dazed:s.dazed,retreatTime:s.retreatTime};
   });
   await capture('07-cobra-atordoada',()=>{
@@ -112,7 +112,7 @@ const STEP=1/120;
   });
   await capture('09-gaviao-impacto-escudo',()=>{
     const q=window.flightCapture,e=q.game.entities[0];q.game.collide(e,true,e);
-    q.advance(7);assert.equal(e.dazed,true);assert.equal(e.harmless,true);
+    q.advance(7);if(e.dazed!==true||e.harmless!==true)throw Error('shielded hawk must be dazed and harmless');
     return {phase:e.phase,dazed:e.dazed,retreatTime:e.retreatTime,harmless:e.harmless};
   });
   await capture('10-gaviao-atordoado',()=>{
