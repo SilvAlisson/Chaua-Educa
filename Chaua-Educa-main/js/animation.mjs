@@ -17,7 +17,7 @@ export const CLIPS=Object.freeze({
  hawk:{flight:[0,1,2,3,4,5,6,7],glide:[8,9],dive:[10,11],recoil:[12,13,14,15]},
  snake:{idle:[0,1,2,3],alert:[4,5,6,7],attack:[7,8,9,10,11,7],withdraw:[11,12,13,14,15],emerge:[15,0]},
 });
-export function birdAnimation({wing=0,time=0,perched=false,landing=null,defeated=false,impactProgress=0,reduced=false}={}){
+export function birdAnimation({wing=0,time=0,perched=false,landing=null,defeated=false,impactProgress=0,reduced=false,shieldHitAge=null}={}){
  const glidePose=reduced?.42:.42+(time>0?Math.sin(time*2.4)*0.025:0);
  const flapProgress=(.42+(1-wing))%1;
  const flight=reduced?{frame:3,next:3,blend:0}:flightFrame(CLIPS.chaua.flight,wing>0?flapProgress:glidePose);
@@ -26,11 +26,32 @@ export function birdAnimation({wing=0,time=0,perched=false,landing=null,defeated
   return sequence(CLIPS.chaua.landing,reduced?1:(landing-.15)/.85);
  }
  if(perched){const blink=time%4;return sequence(CLIPS.chaua.idle,reduced?0:blink>3.55?Math.sin((blink-3.55)/.45*Math.PI):0);}
- if(!defeated)return flight;
+ if(!defeated){
+  // Reuse original recoil poses when the shield absorbs an animal contact.
+  // No extra layer, double wings, or collision change. The normal flight clip
+  // returns unchanged once the brief impact/recovery beat has finished.
+  if(!reduced&&!perched&&landing===null&&Number.isFinite(shieldHitAge)&&shieldHitAge>=0&&shieldHitAge<.165){
+   const frame=shieldHitAge<.0825?CLIPS.chaua.recoil[0]:CLIPS.chaua.recoil[1];
+   return {frame,next:frame,blend:0};
+  }
+  return flight;
+ }
  if(impactProgress<.4)return {frame:flight.frame,next:14,blend:ease(impactProgress/.4)};
  return sequence(CLIPS.chaua.recoil,(impactProgress-.4)/.6);
 }
 export function hawkAnimation(e,time=0,reduced=false){
+ if(e.retreat&&e.dazed&&!reduced){
+  // Four authored reaction poses followed by the same gliding/flapping
+  // frames used in normal flight. All choices are frame-pure: no blending
+  // between distant wing silhouettes.
+  const t=Math.max(0,e.retreatTime||0);
+  if(t<.18)return {frame:12,next:12,blend:0};
+  if(t<.40)return {frame:13,next:13,blend:0};
+  if(t<.62)return {frame:14,next:14,blend:0};
+  if(t<.94)return {frame:15,next:15,blend:0};
+  if(t<1.20)return flightFrame(CLIPS.hawk.glide,(t-.94)*1.9);
+  return flightFrame(CLIPS.hawk.flight,(t-1.20)*1.45);
+ }
  if(e.retreat||e.dazed)return sequence(CLIPS.hawk.recoil,reduced?1:(e.retreatTime||0)/.7);
  if(reduced||e.warning>0)return {frame:8,next:8,blend:0};
  if(e.phase==='leaving')return flightFrame(CLIPS.hawk.glide,time*.7);

@@ -1,4 +1,4 @@
-// Pixel-perfect regression against the original snake triangle renderer.
+// Pixel-perfect regression of the original snake silhouette and mouth: no duplicate teeth/tongue overlays in the candidate renderer.
 // The pinned baseline is routed under /js/ so its relative imports resolve.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -66,6 +66,6 @@ const {chromium}=require('playwright');
    results.push({viewport,...result});
    await page.close();
   }
-  console.log('PASS snake 56-frame exact pixel parity against pinned baseline '+JSON.stringify(results));
+  console.log('PASS snake 56-frame exact parity with original authored snake and open-mouth frames '+JSON.stringify(results));
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
