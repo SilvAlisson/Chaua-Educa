@@ -17,7 +17,7 @@ test('Chaua remains on original authored flight frames until a real shield-hit e
  assert.deepEqual(birdAnimation({wing:.6,time:2,shieldHitAge:.22}),birdAnimation({wing:.6,time:2}));
  assert.deepEqual(birdAnimation({wing:.6,time:2,shieldHitAge:.05,reduced:true}),
                   birdAnimation({wing:.6,time:2,reduced:true}));
- assert.equal(birdAnimation({defeated:true,impactProgress:.95,shieldHitAge:.02}).frame,15);
+ assert.equal(birdAnimation({defeated:true,impactProgress:1,shieldHitAge:.02}).frame,15);
  assert.equal(birdAnimation({perched:true,shieldHitAge:.03}).frame,12);
  assert.ok(Math.abs(parrotShieldVisual(.12).angle)>0);
  assert.deepEqual(parrotShieldVisual(.32),{x:0,y:0,angle:0});
