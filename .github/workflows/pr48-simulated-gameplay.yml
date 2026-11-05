@@ -1,0 +1,30 @@
+name: Gameplay screenshots - optimized PR48
+on:
+  push:
+    branches: [feat/original-art-animations-and-snake-cache-20261105]
+  workflow_dispatch:
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Simulate fixed step gameplay and controlled shield collisions
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main >/tmp/chaua-gameplay-http.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null' EXIT
+          node tests/browser-simulated-gameplay.cjs
+      - name: Export original browser captures and scene log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pr48-simulated-gameplay-screenshots
+          path: test-results/simulated-gameplay-pr48
+          if-no-files-found: ignore
