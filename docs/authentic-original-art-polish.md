@@ -1,18 +1,17 @@
-# Original-art polish on `chaua-educa-otimizado`
+# Original-art animation refinement — simplified snake mouth
 
-The generated sheets from PR #47 **are not approved** because they change character silhouettes and detach the snake from its original wrap. This revision instead keeps the registered 16-frame v6/v7 original atlases unchanged and adds only secondary motions made with their existing pixels.
+**Base:** `chaua-educa-otimizado`. All registered snake, hawk, and parrot sprite atlases are unchanged.
 
-Changes:
-- Original snake mesh: the authored mouth/teeth/throat remain; the moving tongue is drawn **after** the static head mesh cache, so tongue timing does not trigger whole-mesh regeneration.
-- Stable cache keyed by host wood.id, bounded to six 512px offscreen surfaces (nominal 6 MiB maximum for these caches). The visual interpolation clones snake objects, so per-clone cache ownership was not reliable.
-- Snake tail: original `snake-wrap.webp` pixels only, 17 precomputed subtle variations; no new snake or duplicated trunk.
-- Snake and hawk: minor, decaying motions when the shield hits, with original atlas silhouettes.
-- Chauá: original flight atlas intact, small temporary shield recoil.
-- Reduced motion: original static look without procedural oscillations.
-- Physics geometry, tick rate, collision/score/timing have no changes.
+## Requested change
+- Removed **all procedural painted snake teeth, outer fangs, throat shadow and tongue flick**.
+- Kept the mouth open animation by drawing the **authored open-mouth pose (frame 10 of snake-atlas.webp)**. No replacement/generated snake spritesheet is used.
+- Kept the original source-pixel tail swing and the shield reactions, without changing collision shapes, fixed simulation tick, durations, score, audio or movement speeds.
+- The new generated snake sheet from experimental PR #47 already includes mouth and teeth in its drawn frames, but it was **visually rejected** for inconsistent head/body connection. It is **not part of this change**.
 
-Testing:
-- `browser-snake-raster-parity` still compares 56 registered reference poses against the original source. It disables **only the intentional decorative additions** in both renderers and now expects 0 changed channels.
-- `browser-original-art` tests independent tongue movement with unchanged pose and unchanged cached mesh, six-cache bound, and captures actual forest renders in desktop and portrait for manual approval.
-- The deliberately added teeth/shading/tongue are not classified as errors by the reference-test baseline; visual regression tests continue to cover silhouettes, continuity and exact original undecorated art.
-- Do not merge before full workflow QA and review of all scene screenshots. 
+## Cache and QA
+- Reuse snake mesh across interpolated game views via stable wood host ID, at most 6 cached offscreen surfaces.
+- Original 56-pose pixel-parity test now compares the complete original art, including open mouth, without any optional art flag.
+- Browser QA checks unchanged output when age varies without changing the original mesh pose; the procedural tongue no longer introduces temporal pixel changes.
+- Captures should be inspected on desktop/mobile, including snake bite and shield retreat.
+
+**Do not merge into the optimized branch until workflow checks and visual review complete.**

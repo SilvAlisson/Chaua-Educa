@@ -44,13 +44,13 @@ const output='test-results/original-art';fs.mkdirSync(output,{recursive:true});
     const before=snakeMeshStats();
     const pixels=state=>{
       c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,400,400);
-      c.translate(200,200);drawContinuousSnake(c,img,state,.52,false,987654,true);
+      c.translate(200,200);drawContinuousSnake(c,img,state,.52,false,987654);
       return c.getImageData(0,0,400,400).data;
     };
     const first=pixels(poseOne),middle=snakeMeshStats(),second=pixels(poseTwo),after=snakeMeshStats();
     let tongueDelta=0;
     for(let i=0;i<first.length;i++)if(first[i]!==second[i])tongueDelta++;
-    assert.ok(tongueDelta>0,'tongue should move even when mesh pose is unchanged');
+    assert.equal(tongueDelta,0,'no external tongue should render when the original snake pose is unchanged');
     assert.equal(middle.meshRenders-before.meshRenders,1,'first draw should rasterize one mesh');
     assert.equal(after.meshRenders-middle.meshRenders,0,'stable entity id should reuse mesh for moving tongue');
     assert.ok(after.cacheEntries<=6,'bounded offscreen textures');

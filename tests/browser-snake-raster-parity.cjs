@@ -1,4 +1,4 @@
-// Pixel-perfect regression of the original snake silhouette and mouth: enhanced art disabled only for this parity comparison.
+// Pixel-perfect regression of the original snake silhouette and mouth: no duplicate teeth/tongue overlays in the candidate renderer.
 // The pinned baseline is routed under /js/ so its relative imports resolve.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -48,7 +48,7 @@ const {chromium}=require('playwright');
       c.translate(pos.x,pos.y);c.scale(pos.scale,pos.scale);
      }
      baseline(a.c,image,s,.52,reduced);
-     optimized(b.c,image,s,.52,reduced,null,false);
+     optimized(b.c,image,s,.52,reduced);
      const first=a.c.getImageData(0,0,400,400).data;
      const next=b.c.getImageData(0,0,400,400).data;
      let changed=0,max=0;
@@ -66,6 +66,6 @@ const {chromium}=require('playwright');
    results.push({viewport,...result});
    await page.close();
   }
-  console.log('PASS snake 56-frame exact parity with original silhouette (new deliberate teeth and tongue checked separately) '+JSON.stringify(results));
+  console.log('PASS snake 56-frame exact parity with original authored snake and open-mouth frames '+JSON.stringify(results));
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
