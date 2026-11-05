@@ -1,0 +1,26 @@
+name: Export optimized action-sprites preview
+on:
+  push:
+    branches: [feat/action-sprites-on-optimized-20261105]
+  workflow_dispatch:
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - name: Package full optimized game source with state integration
+        uses: actions/upload-artifact@v6
+        with:
+          name: chaua-optimized-game-asset-free-source
+          path: |
+            Chaua-Educa-main
+            package.json
+            package-lock.json
+            README.md
+            CHANGELOG.md
+            scripts
+            tests
+            docs
+          if-no-files-found: error
+          compression-level: 1
