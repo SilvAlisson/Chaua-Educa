@@ -6,6 +6,7 @@ export function tailTipSwing(s = {}, reduced = false) {
     if(s.retreat){
         if(!s.dazed)return 0;
         const t=Math.max(0,Number.isFinite(s.retreatTime)?s.retreatTime:0);
+        if(t>=1)return 0;
         return Math.sin(t*21)*(1-clamp(t/1))*0.75;
     }
     const weight=(s.phase==='windup'||s.phase==='striking')?.4:1;
@@ -14,6 +15,7 @@ export function tailTipSwing(s = {}, reduced = false) {
 export function hawkDazeVisual(time=0,reduced=false) {
     if(reduced)return {x:0,y:0,angle:0,stars:0};
     const t=Math.max(0,Number.isFinite(time)?time:0);
+    if(t>=1.45)return {x:0,y:0,angle:0,stars:0};
     const onset=Math.sin(clamp(t/.12)*Math.PI/2);
     const fade=Math.pow(1-clamp(t/1.45),1.5);
     const e=onset*fade;
@@ -24,6 +26,7 @@ export function hawkDazeVisual(time=0,reduced=false) {
 export function snakeDazeVisual(time=0,reduced=false) {
     if(reduced)return {x:0,y:0,angle:0,stars:0};
     const t=Math.max(0,Number.isFinite(time)?time:0);
+    if(t>=1)return {x:0,y:0,angle:0,stars:0};
     const e=Math.pow(1-clamp(t/1),1.4);
     return {x:Math.sin(t*18)*2.5*e,y:Math.sin(t*12)*1.4*e,
         angle:Math.sin(t*16)*.075*e,stars:1-clamp((t-.05)/1.05)};
