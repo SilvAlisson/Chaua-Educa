@@ -1,0 +1,31 @@
+name: Action sprite states & fallback
+on:
+  push:
+    branches: [feat/action-sprites-on-optimized-20261105]
+  workflow_dispatch:
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Browser state and sprite rendering with six correct-layout fixtures
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main >/tmp/chaua-assets-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          node tests/browser-action-sprites.cjs
+      - name: Save action sprite QA screenshots
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: action-sprites-browser-previews
+          path: test-results/action-sprites
+          if-no-files-found: ignore
