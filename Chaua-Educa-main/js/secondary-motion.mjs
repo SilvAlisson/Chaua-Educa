@@ -45,11 +45,16 @@ export function parrotShieldVisual(age,reduced=false){
  * turn happens during the stunned recoil, then original glide frames exit.
  */
 export function hawkDazedHeading(time=0,reduced=false){
- if(reduced||!Number.isFinite(time)||time<=.68)return 1;
- if(time>=.98)return -1;
- const u=(time-.68)/.30;
- const c=Math.cos(u*Math.PI);
- // A small profile is intentional at the midpoint, but never rasterize a
- // zero-width or mirrored-thin atlas that would visibly disappear.
- return c<0?Math.min(-.18,c):Math.max(.18,c);
+ // Never squash the bird into a paper-thin stripe mid-turn. Keep complete
+ // original art visible while the wings bank, then mirror only on exit.
+ if(reduced||!Number.isFinite(time)||time<.94)return 1;
+ return -1;
+}
+export function hawkDazedBank(time=0,reduced=false){
+ if(reduced||!Number.isFinite(time)||time<=.53||time>=1.2)return 0;
+ const clamp01=n=>Math.max(0,Math.min(1,n));
+ const easing=n=>{const t=clamp01(n);return t*t*(3-2*t);};
+ const before=time<.94;
+ const weight=before?easing((time-.53)/.41):1-easing((time-.94)/.26);
+ return -.22*weight;
 }

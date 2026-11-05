@@ -22,3 +22,6 @@
 - The shielded hawk traverses all four **existing** recoil frames, banks during 0.68–0.98 s, then resumes the **existing** glide/flight atlas frames mirrored to face its retreat. The physical rightward retreat speed, harmless flag and 2-second exit remain unchanged.
 - Normal flight/planing/dive states, reduced motion and fatal collision behavior stay on the original selection logic.
 - `tests/original-shield-animation.test.mjs` verifies timing, original frame sets and no dual-wing blend; browser screenshots cover all four hawk phases and two parrot impact phases in desktop/mobile. No art generator or additional texture allocation introduced.
+
+## Visual QA fix: preserve predator silhouette throughout the turn
+The first browser preview showed an unacceptable paper-thin hawk at t=0.84 s: scaling the original atlas horizontally through 0 made it nearly disappear. That experiment was rejected. The full-width original artwork now banks gently (≤0.22 rad) and flips directly into the original glide at t=0.94 s. Unit tests require absolute scale=1 at all sample times. This corrects the artifact without any generated replacement frames or new textures.

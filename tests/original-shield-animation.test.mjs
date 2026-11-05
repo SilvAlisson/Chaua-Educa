@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {birdAnimation,hawkAnimation,CLIPS} from '../Chaua-Educa-main/js/animation.mjs';
-import {hawkDazedHeading,hawkDazeVisual,parrotShieldVisual} from '../Chaua-Educa-main/js/secondary-motion.mjs';
+import {hawkDazedHeading,hawkDazedBank,hawkDazeVisual,parrotShieldVisual} from '../Chaua-Educa-main/js/secondary-motion.mjs';
 
 test('Chaua remains on original authored flight frames until a real shield-hit event',()=>{
  for(let i=0;i<200;i++){
@@ -47,11 +47,16 @@ test('shielded hawk expresses recoil, disorientation, bank and original flight e
  assert.deepEqual(hawkAnimation({retreat:true,dazed:true,retreatTime:1.1},1.1,true),
                   {frame:15,next:15,blend:0});
  assert.equal(hawkDazedHeading(.2),1);
+ assert.equal(hawkDazedHeading(.84),1,'bird stays full-width during banking');
+ assert.equal(hawkDazedHeading(.94),-1,'turn completes as bird recovers into glide');
  assert.equal(hawkDazedHeading(.4,true),1);
  assert.equal(hawkDazedHeading(1.1),-1);
+ assert.equal(hawkDazedBank(.1),0);
+ assert.ok(hawkDazedBank(.82)<-.15,'visible in-plane banking before exit');
+ assert.equal(hawkDazedBank(1.3),0);
  for(let i=0;i<180;i++){
   const k=hawkDazedHeading(i/100);
-  assert.ok(k>=-1&&k<=1,'safe horizontal mirror scale');
+  assert.equal(Math.abs(k),1,'original silhouette must never collapse to a thin line');
  }
  assert.deepEqual(hawkDazeVisual(2),{x:0,y:0,angle:0,stars:0});
 });

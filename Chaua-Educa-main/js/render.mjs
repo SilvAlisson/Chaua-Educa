@@ -1,6 +1,6 @@
 import {drawContinuousSnake} from './snake-render.mjs';
 import {drawSnakeWrap} from './snake-wrap-render.mjs';
-import {hawkDazeVisual,snakeDazeVisual,parrotShieldVisual,hawkDazedHeading} from './secondary-motion.mjs';
+import {hawkDazeVisual,snakeDazeVisual,parrotShieldVisual,hawkDazedHeading,hawkDazedBank} from './secondary-motion.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
@@ -1153,7 +1153,7 @@ export class Renderer {
         }
         const dazed=retreat&&entity.dazed?hawkDazeVisual(entity.retreatTime||0,reduced):null;
         c.save();c.translate(x+(dazed?.x||0),y+dynamicY+(dazed?.y||0));
-        c.rotate(cAngle+dynamicAngle+(dazed?.angle||0));
+        c.rotate(cAngle+dynamicAngle+(dazed?.angle||0)+(dazed?hawkDazedBank(entity.retreatTime||0,reduced):0));
         // The original hawk faces left. Bank it into a right-facing glide
         // after the shield collision instead of sliding backwards on exit.
         if(dazed)c.scale(hawkDazedHeading(entity.retreatTime||0,reduced),1);
