@@ -10,6 +10,7 @@ import { FRUITS } from './fruits.mjs';
 import DB from './database.js';
 import { Game, FlightClock, HEIGHT, STAGES } from './engine.mjs';
 import { Renderer, drawBird } from './render.mjs';
+import {ACTION_SPRITES_ENABLED,preloadActionSheets} from './action-sheets.mjs';
 
 const $ = selector => document.querySelector(selector);
 const app = $('#app');
@@ -386,6 +387,8 @@ for(const id of ['journal-nature-tab','journal-food-tab'])$('#'+id).addEventList
 $('#open-collection').addEventListener('click', showCollection);
 
 renderer.ready.then(() => {
+    // Optional, isolated art preview: loading cannot block gameplay.
+    if(ACTION_SPRITES_ENABLED)void preloadActionSheets();
     assetsReady=true;
     updateTrainingButton();
     $('#asset-status').hidden=true;
