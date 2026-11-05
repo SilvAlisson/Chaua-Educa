@@ -50,17 +50,21 @@ const output='test-results/original-art';fs.mkdirSync(output,{recursive:true});
     const first=pixels(poseOne),middle=snakeMeshStats(),second=pixels(poseTwo),after=snakeMeshStats();
     let tongueDelta=0;
     for(let i=0;i<first.length;i++)if(first[i]!==second[i])tongueDelta++;
-    assert.equal(tongueDelta,0,'no external tongue should render when the original snake pose is unchanged');
-    assert.equal(middle.meshRenders-before.meshRenders,1,'first draw should rasterize one mesh');
-    assert.equal(after.meshRenders-middle.meshRenders,0,'stable entity id should reuse mesh for moving tongue');
-    assert.ok(after.cacheEntries<=6,'bounded offscreen textures');
-    assert.deepEqual(parrotShieldVisual(.31),{x:0,y:0,angle:0});
-    assert.deepEqual(hawkDazeVisual(2),{x:0,y:0,angle:0,stars:0});
-    assert.deepEqual(snakeDazeVisual(2),{x:0,y:0,angle:0,stars:0});
-    return {tongueDelta,cache:after,sourceSnakeDimensions:[img.naturalWidth,img.naturalHeight],
+    return {tongueDelta,firstMeshRenders:middle.meshRenders-before.meshRenders,
+      secondMeshRenders:after.meshRenders-middle.meshRenders,cache:after,
+      neutralParrot:parrotShieldVisual(.31),
+      neutralHawk:hawkDazeVisual(2),neutralSnake:snakeDazeVisual(2),
+      sourceSnakeDimensions:[img.naturalWidth,img.naturalHeight],
       sourceHawkDimensions:[images.get('hawk-atlas').naturalWidth,images.get('hawk-atlas').naturalHeight],
       sourceParrotDimensions:[images.get('chaua-atlas').naturalWidth,images.get('chaua-atlas').naturalHeight]};
    });
+   assert.equal(result.tongueDelta,0,'no procedural tongue remains when snake pose is unchanged');
+   assert.equal(result.firstMeshRenders,1,'one mesh rasterization for the initial pose');
+   assert.equal(result.secondMeshRenders,0,'stable host-id mesh is reused');
+   assert.ok(result.cache.cacheEntries<=6,'bounded offscreen texture cache');
+   assert.deepEqual(result.neutralParrot,{x:0,y:0,angle:0});
+   assert.deepEqual(result.neutralHawk,{x:0,y:0,angle:0,stars:0});
+   assert.deepEqual(result.neutralSnake,{x:0,y:0,angle:0,stars:0});
    for(const [name] of [['snake-alert'],['snake-strike'],['snake-stunned'],['hawk-stunned'],['shield-impact']]){
     await page.evaluate(name=>{
      const {r,makeState,scenarios}=window.__animationPreview;
