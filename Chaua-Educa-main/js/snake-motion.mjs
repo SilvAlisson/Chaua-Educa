@@ -1,3 +1,4 @@
+import {snakeDazeVisual} from './secondary-motion.mjs';
 import {SPRITES} from './sprite-data.mjs';
 import {SNAKE_TIMING as T} from './animals.mjs';
 const smooth=v=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t);};
@@ -5,7 +6,15 @@ const REST={x:0,y:0,angle:0,mouth:0},ALERT={x:-3,y:-9,angle:-.025,mouth:0},CURL=
 const mix=(a,b,t)=>Object.fromEntries(Object.keys(REST).map(k=>[k,a[k]+(b[k]-a[k])*smooth(t)]));
 export function snakeMotion(s={},reduced=false){
  if(reduced)return {...REST};
- if(s.retreat)return mix(s.retreatPose??REST,{x:10,y:30,angle:.06,mouth:0},(s.retreatTime||0)/.85);
+ if(s.retreat){
+  const p=mix(s.retreatPose??REST,{x:10,y:30,angle:.06,mouth:0},(s.retreatTime||0)/.85);
+  // Head-only post-shield wobble; body and collision state remain unchanged.
+  if(s.dazed){
+   const d=snakeDazeVisual(s.retreatTime||0);
+   p.x+=d.x;p.y+=d.y;p.angle+=d.angle;
+  }
+  return p;
+ }
  let p;
  switch(s.phase){
   case 'warning':p=mix(REST,ALERT,(s.warningAge||0)/T.warning);break;

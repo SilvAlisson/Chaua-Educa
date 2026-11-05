@@ -1,0 +1,30 @@
+name: Original sprite secondary motion QA
+on:
+  push:
+    branches: [feat/original-art-secondary-animations-20261104]
+  workflow_dispatch:
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Pixel exact invariants, animated tip and shield reactions
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main >/tmp/secondary-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          node tests/browser-secondary-art.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: original-secondary-motion-screenshots
+          path: test-results/secondary-art
+          if-no-files-found: ignore

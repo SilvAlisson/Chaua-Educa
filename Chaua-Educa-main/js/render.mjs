@@ -1,4 +1,6 @@
 import {drawContinuousSnake} from './snake-render.mjs';
+import {drawSnakeWrap} from './snake-wrap-render.mjs';
+import {hawkDazeVisual,snakeDazeVisual} from './secondary-motion.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
@@ -1088,8 +1090,18 @@ export class Renderer {
         c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
         if(s.retreat)c.globalAlpha=Math.max(0,1-smoothstep(((s.retreatTime||0)-.95)/.35));
         const wrap=images.get('snake-wrap');
-        if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
-        drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced);c.restore();
+        if(wrap)drawSnakeWrap(c,wrap,s,reduced);
+        drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced);
+        if(s.retreat&&s.dazed&&!reduced){
+            const fx=snakeDazeVisual(s.retreatTime||0);
+            if(fx.stars>.01){
+                c.save();c.globalAlpha*=fx.stars*.7;
+                // Existing star primitive, positioned at the original atlas head.
+                drawOrbitingStars(c,18,-105,42,s.retreatTime||0);
+                c.restore();
+            }
+        }
+        c.restore();
     }
     flightBorders(view){
         const c=this.c;
@@ -1121,9 +1133,18 @@ export class Renderer {
         if(!images.has('hawk-atlas'))return;
         const entity=e??{x,y,warning:warning?1:0,retreat,dive:false};
         const clip=hawkAnimation(entity,time,reduced),cAngle=retreat?0:angle;
-        c.save();c.translate(x,y);c.rotate(cAngle);
+        const dazed=retreat&&entity.dazed?hawkDazeVisual(entity.retreatTime||0,reduced):null;
+        c.save();c.translate(x+(dazed?.x||0),y+(dazed?.y||0));
+        c.rotate(cAngle+(dazed?.angle||0));
         atlasAnimation(c,'hawk',clip,.4);
-        if(retreat&&!reduced)drawOrbitingStars(c,-24,-35,70,time);
+        if(retreat&&!reduced){
+            const stars=dazed?dazed.stars:1;
+            if(stars>.01){
+                c.save();c.globalAlpha*=stars;
+                drawOrbitingStars(c,-24,-35,70,dazed?(entity.retreatTime||0):time);
+                c.restore();
+            }
+        }
         c.restore();
     }
 
