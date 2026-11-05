@@ -52,7 +52,7 @@ const optimizedWithoutNewArt=optimized.slice(0,start)+original.slice(a,b)+optimi
     for(let idx=0;idx<3;idx++){
       const p=panels[idx],c=p.c;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,400,400);
       c.translate(pos.x,pos.y);c.scale(pos.scale,pos.scale);
-      variants[idx](c,img,s,.52,reduced);
+      variants[idx](c,img,{...s},.52,reduced);
     }
     const pix=panels.map(p=>p.c.getImageData(0,0,400,400).data);
     function diff(i,j,bucket){
