@@ -1,4 +1,6 @@
 import {drawContinuousSnake} from './snake-render.mjs';
+import {parrotAction,hawkAction,snakeAction} from './action-states.mjs';
+import {drawActionSheet} from './action-sheets.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
@@ -103,11 +105,17 @@ function animatedBird(c,p){
         c.rotate(angle+heaveAngle);
     }
     if(turbo&&!perched&&!reduced)drawTurboFlames(c,size,time);
-    if(perched&&!surprise&&!defeated&&landing===null)perchedSprite(c,clip,factor);
-    else atlasAnimation(c,'chaua',clip,factor);
+    const action=parrotAction({...p,time,wing:p.wing,reduced,perched,landing,defeated,surprise,impactProgress});
+    const newSprite=!!action&&drawActionSheet(c,action.sheet,action.frame,-77*scale,-77*scale,154*scale,154*scale);
+    if(!newSprite){
+        if(perched&&!surprise&&!defeated&&landing===null)perchedSprite(c,clip,factor);
+        else atlasAnimation(c,'chaua',clip,factor);
+    }
     const a=SPRITES.chaua.frames[clip.frame].eye,b=SPRITES.chaua.frames[clip.next].eye;
     const ex=(a[0]+(b[0]-a[0])*clip.blend-192)*factor,ey=(a[1]+(b[1]-a[1])*clip.blend-192)*factor;
-    if(defeated||surprise){drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);if(!reduced)drawOrbitingStars(c,ex,ey-size*.35,size,time);}
+    if(defeated||surprise){
+        if(!newSprite){drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);if(!reduced)drawOrbitingStars(c,ex,ey-size*.35,size,time);}
+    }
     else if(reaction>0&&!reduced)drawFruitSparkles(c,size*.44,-size*.08,reaction,time);
     else if(stamina<.28&&!reduced&&!perched)drawSweatDrops(c,ex,ey,size,time);
     if(turbo&&!perched&&!reduced)drawTurboWindLines(c,size,time);
@@ -1030,6 +1038,7 @@ export class Renderer {
             angle: game.angle, wing: reduced ? .2 : game.wing, time: game.state==='ended'&&game.won?visualTime:sceneTime,
             landing: game.arrival&&!game.won?Math.min(1,game.arrival.age/1.6):null,
             reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
+            shieldHitAge:game.hit&&game.invincible>0?game.hit.age:null,
             defeated: isDefeated, impactProgress: impactProg, turbo: (game.pepper || 0) > 0,
             stamina: game.stamina !== undefined ? game.stamina : 1, won: game.state === 'ended' && game.won
         });
@@ -1098,7 +1107,12 @@ export class Renderer {
         if(s.retreat)c.globalAlpha=Math.max(0,1-smoothstep(((s.retreatTime||0)-.95)/.35));
         const wrap=images.get('snake-wrap');
         if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
-        drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced);c.restore();
+        const action=snakeAction(s,reduced);
+        // The authored alternate sheet contains ONLY the upper snake;
+        // keep the existing stump, wrap, tail and collision geometry untouched.
+        const newSnake=!!action&&drawActionSheet(c,action.sheet,action.frame,-113,-147,170,240);
+        if(!newSnake)drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced);
+        c.restore();
     }
     flightBorders(view) {}
     hawk(entityOrX, yOrTime = 0, timeOrReduced = 0, warning = false, angle = 0, retreat = false) {
@@ -1134,9 +1148,12 @@ export class Renderer {
                 dynamicAngle=Math.cos(time*2.8+(entity.id||0)*1.5)*.035;
             }
         }
-        c.save();c.translate(x,y+dynamicY);c.rotate(cAngle+dynamicAngle);
-        atlasAnimation(c,'hawk',clip,.4);
-        if(retreat&&!reduced)drawOrbitingStars(c,-24,-35,70,time);
+        const action=hawkAction(entity,time,reduced);
+        c.save();c.translate(x,y+dynamicY+(action?.offsetY||0));
+        c.rotate(cAngle+dynamicAngle+(action?.angle||0));
+        const newHawk=!!action&&drawActionSheet(c,action.sheet,action.frame,-73,-74,146,146);
+        if(!newHawk)atlasAnimation(c,'hawk',clip,.4);
+        if(retreat&&!reduced&&!newHawk)drawOrbitingStars(c,-24,-35,70,time);
         c.restore();
     }
 
