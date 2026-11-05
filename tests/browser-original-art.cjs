@@ -33,7 +33,11 @@ const output='test-results/original-art';fs.mkdirSync(output,{recursive:true});
      ['snake-strike',g=>{g.entities[0].snake.phase='striking';g.entities[0].snake.phaseAge=.14;g.entities[0].snake.age=4.6;}],
      ['snake-stunned',g=>{const s=g.entities[0].snake;s.phase='retreat';s.retreat=true;s.dazed=true;s.retreatTime=.28;s.retreatPose={x:0,y:0,angle:0,mouth:0};}],
      ['hawk-stunned',g=>{const e=g.entities[1];e.phase='retreat';e.retreat=true;e.dazed=true;e.harmless=true;e.retreatTime=.28;}],
-     ['shield-impact',g=>{g.invincible=3;g.hit={id:77,age:.08};}]
+     ['hawk-impact',g=>{const e=g.entities[1];e.phase='retreat';e.retreat=true;e.dazed=true;e.harmless=true;e.retreatTime=.06;}],
+     ['hawk-turn',g=>{const e=g.entities[1];e.phase='retreat';e.retreat=true;e.dazed=true;e.harmless=true;e.retreatTime=.84;}],
+     ['hawk-exit',g=>{const e=g.entities[1];e.phase='retreat';e.retreat=true;e.dazed=true;e.harmless=true;e.retreatTime=1.38;}],
+     ['shield-impact',g=>{g.invincible=3;g.hit={id:77,age:.04};}],
+     ['shield-recovery',g=>{g.invincible=3;g.hit={id:77,age:.22};}]
     ];
     window.__animationPreview={r,makeState,scenarios};
     const img=images.get('snake-atlas');
@@ -65,7 +69,22 @@ const output='test-results/original-art';fs.mkdirSync(output,{recursive:true});
    assert.deepEqual(result.neutralParrot,{x:0,y:0,angle:0});
    assert.deepEqual(result.neutralHawk,{x:0,y:0,angle:0,stars:0});
    assert.deepEqual(result.neutralSnake,{x:0,y:0,angle:0,stars:0});
-   for(const [name] of [['snake-alert'],['snake-strike'],['snake-stunned'],['hawk-stunned'],['shield-impact']]){
+   const graphicCheck=await page.evaluate(async()=>{
+    const {drawBird}=await import('/js/render.mjs');
+    const surface=document.createElement('canvas');surface.width=260;surface.height=260;
+    const c=surface.getContext('2d',{willReadFrequently:true});
+    const pixels=(shieldHitAge,reduced)=>{
+      c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,260,260);
+      drawBird(c,{x:130,y:130,scale:1,wing:.65,time:7,shieldHitAge,reduced});
+      return c.getImageData(0,0,260,260).data;
+    };
+    const diffs=(a,b)=>{let n=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i])n++;return n;};
+    return {shieldPixels:diffs(pixels(null,false),pixels(.06,false)),
+      reducedPixels:diffs(pixels(null,true),pixels(.06,true))};
+   });
+   assert.ok(graphicCheck.shieldPixels>100,'protected impact must select existing parrot recoil art');
+   assert.equal(graphicCheck.reducedPixels,0,'reduced motion must keep existing parrot art stable');
+   for(const [name] of [['snake-alert'],['snake-strike'],['snake-stunned'],['hawk-stunned'],['hawk-impact'],['hawk-turn'],['hawk-exit'],['shield-impact'],['shield-recovery']]){
     await page.evaluate(name=>{
      const {r,makeState,scenarios}=window.__animationPreview;
      const g=makeState();scenarios.find(s=>s[0]===name)[1](g);
@@ -74,7 +93,7 @@ const output='test-results/original-art';fs.mkdirSync(output,{recursive:true});
     await page.screenshot({path:path.join(output,name+'-'+viewport.width+'.png')});
    }
    assert.deepEqual(errors,[]);
-   console.log('ORIGINAL_ART_QA '+JSON.stringify({viewport,...result,scenarios:5}));
+   console.log('ORIGINAL_ART_QA '+JSON.stringify({viewport,...result,graphicCheck,scenarios:9}));
    await page.close();
   }
  }finally{await browser.close();}

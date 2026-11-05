@@ -1,6 +1,6 @@
 import {drawContinuousSnake} from './snake-render.mjs';
 import {drawSnakeWrap} from './snake-wrap-render.mjs';
-import {hawkDazeVisual,snakeDazeVisual,parrotShieldVisual} from './secondary-motion.mjs';
+import {hawkDazeVisual,snakeDazeVisual,parrotShieldVisual,hawkDazedHeading} from './secondary-motion.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
@@ -94,7 +94,7 @@ function birdFoot(scale){
 }
 function animatedBird(c,p){
     const {x,y,scale=1,angle=0,time=0,reduced=false,reaction=0,defeated=false,impactProgress=0,turbo=false,stamina=1,perched=false,surprise=false,won=false,landing=null}=p;
-    const clip=birdAnimation({wing:p.wing,time,perched:perched&&!surprise,landing,defeated:defeated||surprise,impactProgress:surprise?1:impactProgress,reduced});
+    const clip=birdAnimation({wing:p.wing,time,perched:perched&&!surprise,landing,defeated:defeated||surprise,impactProgress:surprise?1:impactProgress,reduced,shieldHitAge:p.shieldHitAge});
     const shieldReaction=parrotShieldVisual(p.shieldHitAge,reduced);
     const factor=27.7027*scale/SPRITES.chaua.landmarkWidth,size=125*scale;
     c.save();c.translate(x,y);
@@ -444,10 +444,11 @@ function getPepperSprite() {
 export function drawBird(c, {
     x, y, scale = 1, angle = 0, wing = 0, perched = false, time = 0, surprise = false,
     reduced = false, reaction = 0, flapImpulse = 0, vy = 0,
-    defeated = false, impactProgress = 0, turbo = false, stamina = 1, won = false, landing = null
+    defeated = false, impactProgress = 0, turbo = false, stamina = 1, won = false, landing = null,
+    shieldHitAge = null
 }) {
     if(!images.has('chaua-atlas'))return;
-    return animatedBird(c,{x,y,scale,angle,wing,perched,time,surprise,reduced,reaction,flapImpulse,vy,defeated,impactProgress,turbo,stamina,won,landing});
+    return animatedBird(c,{x,y,scale,angle,wing,perched,time,surprise,reduced,reaction,flapImpulse,vy,defeated,impactProgress,turbo,stamina,won,landing,shieldHitAge});
 }
 
 // Shared attachment geometry keeps the authored perch positioned harmoniously.
@@ -1153,6 +1154,9 @@ export class Renderer {
         const dazed=retreat&&entity.dazed?hawkDazeVisual(entity.retreatTime||0,reduced):null;
         c.save();c.translate(x+(dazed?.x||0),y+dynamicY+(dazed?.y||0));
         c.rotate(cAngle+dynamicAngle+(dazed?.angle||0));
+        // The original hawk faces left. Bank it into a right-facing glide
+        // after the shield collision instead of sliding backwards on exit.
+        if(dazed)c.scale(hawkDazedHeading(entity.retreatTime||0,reduced),1);
         atlasAnimation(c,'hawk',clip,.4);
         if(retreat&&!reduced){
             const stars=dazed?dazed.stars:1;

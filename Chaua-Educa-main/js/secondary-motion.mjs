@@ -38,3 +38,18 @@ export function parrotShieldVisual(age,reduced=false){
  const onset=Math.sin(Math.min(1,age/.09)*Math.PI/2);
  return {x:-2*onset*fade,y:Math.sin(age*25)*1.5*fade,angle:Math.sin(age*22)*.065*fade};
 }
+
+/**
+ * Bank the original hawk atlas into a retreat-facing direction using its
+ * existing pixels. The first half of the reaction stays left-facing; the
+ * turn happens during the stunned recoil, then original glide frames exit.
+ */
+export function hawkDazedHeading(time=0,reduced=false){
+ if(reduced||!Number.isFinite(time)||time<=.68)return 1;
+ if(time>=.98)return -1;
+ const u=(time-.68)/.30;
+ const c=Math.cos(u*Math.PI);
+ // A small profile is intentional at the midpoint, but never rasterize a
+ // zero-width or mirrored-thin atlas that would visibly disappear.
+ return c<0?Math.min(-.18,c):Math.max(.18,c);
+}

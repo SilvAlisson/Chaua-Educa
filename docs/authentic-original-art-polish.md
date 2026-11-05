@@ -15,3 +15,10 @@
 - Captures should be inspected on desktop/mobile, including snake bite and shield retreat.
 
 **Do not merge into the optimized branch until workflow checks and visual review complete.**
+
+## Original Chauá and hawk reaction polishing
+- Fixed a real forwarding error: renderer.game already supplied `shieldHitAge` but `drawBird()` discarded it, so the intended parrot reaction never happened.
+- Reused the **existing** Chauá atlas frames 14–15 for a brief shield contact (0–165 ms), then returned to the standard flight poses; no new character art or crossfade of distant wing shapes.
+- The shielded hawk traverses all four **existing** recoil frames, banks during 0.68–0.98 s, then resumes the **existing** glide/flight atlas frames mirrored to face its retreat. The physical rightward retreat speed, harmless flag and 2-second exit remain unchanged.
+- Normal flight/planing/dive states, reduced motion and fatal collision behavior stay on the original selection logic.
+- `tests/original-shield-animation.test.mjs` verifies timing, original frame sets and no dual-wing blend; browser screenshots cover all four hawk phases and two parrot impact phases in desktop/mobile. No art generator or additional texture allocation introduced.
