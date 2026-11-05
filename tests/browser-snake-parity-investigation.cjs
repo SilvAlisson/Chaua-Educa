@@ -47,7 +47,7 @@ const optimizedWithoutNewArt=optimized.slice(0,start)+original.slice(a,b)+optimi
      cache_vs_art:{changedChannels:0,changedPixels:0,maxChannelDelta:0,byPhase:[]},
      original_vs_current:{changedChannels:0,changedPixels:0,maxChannelDelta:0,byPhase:[]}
    };
-   const images={};
+   const screenshots={};
    for(const reduced of [false,true])for(const pos of positions)for(const s of phases){
     for(let idx=0;idx<3;idx++){
       const p=panels[idx],c=p.c;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,400,400);
@@ -72,17 +72,17 @@ const optimizedWithoutNewArt=optimized.slice(0,start)+original.slice(a,b)+optimi
     if(!reduced&&pos.scale===1&&
        ((s.phase==='watching'&&s.age===0)||(s.phase==='striking'&&s.phaseAge===.14))){
        const key=s.phase;
-       for(let i=0;i<3;i++)images[key+'_'+['baseline','noart','current'][i]]=panels[i].cv.toDataURL('image/png').split(',')[1];
+       for(let i=0;i<3;i++)screenshots[key+'_'+['baseline','noart','current'][i]]=panels[i].cv.toDataURL('image/png').split(',')[1];
        const ds=make();const c=ds.c;const a=pix[0],b=pix[2],dst=c.createImageData(400,400);
        for(let n=0;n<a.length;n+=4){
           const changed=Array.from({length:4},(_,i)=>Math.abs(a[n+i]-b[n+i])).reduce((x,y)=>Math.max(x,y),0);
           dst.data[n]=Math.min(255,changed*4);dst.data[n+1]=0;dst.data[n+2]=Math.min(255,changed*3);dst.data[n+3]=changed>0?255:0;
        }
        c.putImageData(dst,0,0);
-       images[key+'_difference']=ds.cv.toDataURL('image/png').split(',')[1];
+       screenshots[key+'_difference']=ds.cv.toDataURL('image/png').split(',')[1];
     }
    }
-   return {buckets,images,checked:phases.length*positions.length*2};
+   return {buckets,images:screenshots,checked:phases.length*positions.length*2};
   });
   assert.deepEqual(errors,[]);
   for(const [name,b64] of Object.entries(result.images))
