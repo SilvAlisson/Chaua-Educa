@@ -15,7 +15,7 @@ const assert=require('node:assert/strict');
     const {Game,STEP}=await import('/js/engine.mjs');
     const {spriteBodyRects,spriteHeadRect,snakePlacement}=await import('/js/animation.mjs');
     const {playerShapes,roundedShape,shapesIntersect}=await import('/js/collision.mjs');
-    const {isSnakeA2Ready,drawSnakeA2,snakeA2HitsPlayer,snakeA2FruitHasClearance}=await import('/js/snake-a2.mjs');
+    const {isSnakeA2Ready,drawSnakeA2,snakeA2HitsPlayer,snakeA2FruitHasClearance,placeA2Fruit}=await import('/js/snake-a2.mjs');
     const scratch=document.createElement('canvas');scratch.width=scratch.height=100;
     await new Renderer(scratch).ready;
     if(!isSnakeA2Ready())return {error:'A2 artwork or alpha masks unavailable'};
@@ -63,6 +63,47 @@ const assert=require('node:assert/strict');
       }
      }
     }
+    // Seed the ordinary spawn path with a snake from a preceding encounter.
+    // Align a real opaque head pixel with the new fruit's unadjusted center.
+    const spawn=(previous=[])=>{
+     const game=new Game({seed:104});game.reset('aventura');game.elapsed=24;game.sequence=3;
+     game.entities.push(...previous);
+     game.spawn();return {fruits:game.entities.filter(e=>e.kind==='fruit'),route:game.routes.get(3)};
+    };
+    const ordinary=spawn(),original=ordinary.fruits[0];
+    const head={...wood,snake:{phase:'warning',warningAge:.5}};
+    const p=snakePlacement(head);
+    ctx.clearRect(0,0,650,640);
+    ctx.save();ctx.translate(p.x,p.y);drawSnakeA2(ctx,head.snake,p.factor);ctx.restore();
+    const headPixels=ctx.getImageData(0,0,650,640).data;
+    let opaqueHead;
+    for(let y=0;y<head.bottom-75&&!opaqueHead;y++)for(let x=0;x<650;x++){
+     if(headPixels[(y*650+x)*4+3]>=224){opaqueHead={x,y};break;}
+    }
+    if(!opaqueHead)throw Error('No opaque raised A2 head pixel found');
+    const dy=original.y-opaqueHead.y;
+    const previous={...head,x:head.x+original.x-opaqueHead.x,top:head.top+dy,bottom:head.bottom+dy};
+    const relocated=spawn([previous]);
+    const blocked=spawn(Array.from({length:21},(_,i)=>({...previous,x:previous.x+(i-10)*40})));
+    // Sample the rendered head directly as well as the gameplay mask. The
+    // radius covers the pickup art, glow and vertical bobbing.
+    const overlapsRenderedHead=fruit=>{
+     const x=fruit.x-previous.x+head.x,y=fruit.y-dy,radius=38;
+     for(let row=Math.max(0,Math.ceil(y-radius));row<=Math.min(639,Math.floor(y+radius));row++){
+      for(let col=Math.max(0,Math.ceil(x-radius));col<=Math.min(649,Math.floor(x+radius));col++){
+       if((row-y)**2+(col-x)**2<=radius**2&&headPixels[(row*650+col)*4+3]>=112)return true;
+      }
+     }
+     return false;
+    };
+    const forced={
+     overlaps:!snakeA2FruitHasClearance(previous,original.x,original.y),
+     renderedOverlap:overlapsRenderedHead(original),
+     count:relocated.fruits.length,expectedCount:ordinary.fruits.length,
+     safe:relocated.fruits.every(f=>snakeA2FruitHasClearance(previous,f.x,f.y)&&!overlapsRenderedHead(f)),
+     blockedCount:blocked.fruits.length,blockedRoute:!!blocked.route,
+     rejected:placeA2Fruit([previous],original.x,original.y,original.y+1,original.y)===null
+    };
     // Explicit engine-level contact: an opaque part of the new snake reaches
     // the parrot, even where the original sprite's hitboxes did not.
     const g=new Game({seed:1});g.state='playing';g.nextSpawn=1e9;
@@ -73,7 +114,7 @@ const assert=require('node:assert/strict');
      if(snakeA2HitsPlayer(target,playerShapes(g.x,y)))collisionProbe.push(y);
     const probeY=collisionProbe[Math.floor(collisionProbe.length/2)];
     if(probeY!==undefined){g.y=probeY;g.vy=0;g.tick(STEP);}
-    return {samples,missed,legacyGap,checked,moved,unsafeCount:unsafe.length,unsafe:unsafe.slice(0,5),
+    return {samples,missed,legacyGap,checked,moved,forced,unsafeCount:unsafe.length,unsafe:unsafe.slice(0,5),
       simulation:{probeY,state:g.state,cause:g.endCause}};
    });
    assert.equal(result.error,undefined,JSON.stringify(result));
@@ -81,6 +122,13 @@ const assert=require('node:assert/strict');
    assert.equal(result.missed,0,'Visible A2 pixels not covered by bird collision');
    assert.ok(result.legacyGap>0,'Legacy geometry mismatch was not reproduced');
    assert.equal(result.unsafeCount,0,'Fruit overlaps snake: '+JSON.stringify(result.unsafe));
+   assert.equal(result.forced.overlaps,true,'Fixture must overlap a real A2 silhouette');
+   assert.equal(result.forced.renderedOverlap,true,'Fixture must overlap visible WebP pixels');
+   assert.equal(result.forced.safe,true,'A previous encounter left a fruit inside the A2 silhouette');
+   assert.equal(result.forced.count,result.forced.expectedCount,'A safe route must retain its fruit count');
+   assert.equal(result.forced.blockedCount,0,'A blocked route must not spawn an unsafe fruit');
+   assert.equal(result.forced.blockedRoute,false,'A blocked route must not leave an unreachable bonus');
+   assert.equal(result.forced.rejected,true,'An empty corridor must reject the unsafe position');
    assert.ok(result.simulation.probeY!==undefined,'Could not find a live hitbox point');
    assert.equal(result.simulation.cause,'snake','Engine collision not using A2: '+JSON.stringify(result.simulation));
    assert.deepEqual(errors,[],'Browser page errors');

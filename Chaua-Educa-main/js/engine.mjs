@@ -2,7 +2,7 @@ import {snakeMotion} from './snake-motion.mjs';
 import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect,roundedShape} from './collision.mjs';
 import { snakeHeadRect } from './geometry.mjs';
 import {spriteBodyRects} from './animation.mjs';
-import {isSnakeA2Ready,snakeA2HitsPlayer,placeA2Fruit} from './snake-a2.mjs';
+import {isSnakeA2Ready,snakeA2HitsPlayer,snakeA2FruitHasClearance,placeA2Fruit} from './snake-a2.mjs';
 import {livingWoodRects} from './forest-geometry.mjs';
 import { createTutorial, advanceTutorial } from './tutorial.mjs';
 import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
@@ -442,7 +442,7 @@ export class Game {
         this.encounterHistory.push({sequence:n,pattern:soloHawk?'hawk':plan.id,center,gap,elapsed:this.elapsed});
         if(this.encounterHistory.length>12)this.encounterHistory.shift();
         const hawkAlone = soloHawk;
-        let hasSnake = false, encounterGap = gap, snakeWood = null;
+        let hasSnake = false, encounterGap = gap;
         if (hawkAlone) {
             const dive = this.elapsed > profile.diveAt && n % 2 === 0;
             const lane=Math.max(160,Math.min(480,this.y+(this.encounterRandom()-.5)*70));
@@ -456,36 +456,35 @@ export class Game {
             encounterGap=gap+(hasSnake?(profile.snakeClearance??180):0);
             this.encounterHistory.at(-1).gap=encounterGap;
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - encounterGap / 2, bottom: center + encounterGap / 2, variant, scored: false, route:n, encounter:plan.id };
-            if (hasSnake) { wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false}; snakeWood=wood; }
+            if (hasSnake) wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
             this.entities.push(wood);
         }
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
-        if(fruits.length>1)this.routes.set(n,{total:fruits.length,collected:0,awarded:false,failed:false});
-        let firstFruitY = center, firstFruitX = x + fruits[0].x;
+        const nearbySnakes = isSnakeA2Ready() ? this.entities.filter(entity => entity.kind === 'wood' && entity.snake) : [];
         const placedFruits=[];
+        const corridorTop = center - encounterGap / 2 + 55;
+        const corridorBottom = center + encounterGap / 2 - (hasSnake ? 200 : 55);
         for(const [index,point] of fruits.entries()) {
             let fy = point.y, fx=x+point.x;
             if (hasSnake) {
                 // Center the entire fruit route directly in the clear flight corridor above the snake
-                const corridorTop = center - encounterGap / 2 + 55;
-                // Keep a valid fruit lane at the minimum encounter gap.
-                // The former -240 clearance inverted this range at high difficulty.
-                const corridorBottom = center + encounterGap / 2 - 200;
                 const corridorCenter = (corridorTop + corridorBottom) / 2;
                 fy = corridorCenter + (point.y - center) * 0.35;
                 fy = Math.max(corridorTop, Math.min(fy, corridorBottom));
-                if(snakeWood&&isSnakeA2Ready()){
-                    const placed=placeA2Fruit(snakeWood,fx,fy,corridorTop,corridorBottom,placedFruits);
-                    fx=placed.x;fy=placed.y;
-                }
             }
-            if (index === 0) { firstFruitY = fy; firstFruitX=fx; }
+            if (nearbySnakes.some(wood => !snakeA2FruitHasClearance(wood,fx,fy))) {
+                const placed = placeA2Fruit(nearbySnakes,fx,fy,corridorTop,corridorBottom,placedFruits);
+                if (!placed) continue;
+                fx=placed.x;fy=placed.y;
+            }
             placedFruits.push({x:fx,y:fy});
             this.entities.push({ id: this.nextId++, kind:'fruit', x:fx, y:fy,
                 variety:(n+index)%FRUITS.length, route:n, optional:!hawkAlone&&plan.optional });
         }
-        const kind=hawkAlone?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,pepper:this.pepper,entities:this.entities,schedule:this.powerSchedule,opportunity:fruits.length>1,random:this.powerRandom});
-        if(kind)this.entities.push({id:this.nextId++,kind,x:firstFruitX-125,y:firstFruitY});
+        if(placedFruits.length>1)this.routes.set(n,{total:placedFruits.length,collected:0,awarded:false,failed:false});
+        const firstFruit = placedFruits[0];
+        const kind=hawkAlone||!firstFruit?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,pepper:this.pepper,entities:this.entities,schedule:this.powerSchedule,opportunity:placedFruits.length>1,random:this.powerRandom});
+        if(kind)this.entities.push({id:this.nextId++,kind,x:firstFruit.x-125,y:firstFruit.y});
         this.nextSpawn = plan.interval;
     }
 

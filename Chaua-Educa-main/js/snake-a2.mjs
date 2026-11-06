@@ -16,7 +16,7 @@ const images=new Map();
 // reading the canvas during 120 Hz gameplay. All hitboxes share the same WebP.
 const MASK_CELL=12, MASK_SIDE=SNAKE_A2_GRID.cell/MASK_CELL, ALPHA_THRESHOLD=112;
 const collisionMasks=new Map();
-let allDangerFramesMask=null;
+let allVisibleFramesMask=null;
 function imageCollisionMasks(image){
  const canvas=typeof OffscreenCanvas!=='undefined'
   ?new OffscreenCanvas(image.naturalWidth,image.naturalHeight)
@@ -45,9 +45,9 @@ function imageCollisionMasks(image){
  }
  return frames;
 }
-function buildDangerFootprint(){
+function buildVisibleFootprint(){
  const union=new Uint8Array(MASK_SIDE*MASK_SIDE);
- for(const key of ['idle','attack'])for(let frame=0;frame<8;frame++){
+ for(const key of ['idle','attack','stunned'])for(let frame=0;frame<8;frame++){
   const cells=collisionMasks.get(key)[frame],flip=snakeA2NeedsMirror({key,frame});
   for(let row=0;row<MASK_SIDE;row++)for(let col=0;col<MASK_SIDE;col++)
    if(cells[row*MASK_SIDE+col])union[row*MASK_SIDE+(flip?MASK_SIDE-1-col:col)]=1;
@@ -84,17 +84,17 @@ export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
  return false;
 }
 
-// The fruit must be clear of every idle and attack silhouette, not just the
-// pose visible at spawn time. 56 logical pixels includes the fruit halo and
+// The fruit must be clear of every visible pose, including shield stun.
+// 56 logical pixels includes the fruit halo, its bobbing motion and
 // a visible air gap around the snake.
 export function snakeA2FruitHasClearance(wood,x,y,radius=56){
- if(!isSnakeA2Ready()||!allDangerFramesMask)return true;
+ if(!isSnakeA2Ready())return true;
  const place=snakePlacement(wood);
  const [colStart,colEnd]=candidateRange(x,radius,place.x,SNAKE_A2_GRID.anchorX,place.factor);
  const [rowStart,rowEnd]=candidateRange(y,radius,place.y,SNAKE_A2_GRID.anchorY,place.factor);
  const r2=radius*radius;
  for(let row=rowStart;row<=rowEnd;row++)for(let col=colStart;col<=colEnd;col++){
-  if(!allDangerFramesMask[row*MASK_SIDE+col])continue;
+  if(!allVisibleFramesMask[row*MASK_SIDE+col])continue;
   const box=spriteCellRect(place,col,row);
   const dx=Math.max(box.x-x,0,x-(box.x+box.w)),dy=Math.max(box.y-y,0,y-(box.y+box.h));
   if(dx*dx+dy*dy<r2)return false;
@@ -102,16 +102,17 @@ export function snakeA2FruitHasClearance(wood,x,y,radius=56){
  return true;
 }
 
-export function placeA2Fruit(wood,x,y,minimumY,maximumY,previous=[]){
- if(!isSnakeA2Ready())return {x,y};
- const fits=(cx,cy)=>snakeA2FruitHasClearance(wood,cx,cy)&&
+export function placeA2Fruit(snakes,x,y,minimumY,maximumY,previous=[]){
+ if(minimumY>maximumY)return null;
+ const fits=(cx,cy)=>cy>=minimumY&&cy<=maximumY&&
+  snakes.every(wood=>snakeA2FruitHasClearance(wood,cx,cy))&&
   !previous.some(p=>Math.abs(p.x-cx)<56&&Math.abs(p.y-cy)<50);
  if(fits(x,y))return {x,y};
  let best=null,score=Infinity;
  // Prefer a tiny vertical shift within the existing corridor. A horizontal
  // adjustment is a fallback, so the difficulty and fruit routes are retained.
  for(const deltaX of [0,-16,16,-32,32,-48,48,-64,64,-80,80,-96,96,-112,112,-128,128,-144,144]){
-  for(let yy=minimumY;yy<=maximumY+1e-6;yy+=4){
+  for(let yy=minimumY;yy<maximumY+4;yy+=4){
    const cy=Math.min(yy,maximumY),cx=x+deltaX;
    const cost=Math.abs(deltaX)*1.4+Math.abs(cy-y);
    if(cost>=score||!fits(cx,cy))continue;
@@ -122,7 +123,7 @@ export function placeA2Fruit(wood,x,y,minimumY,maximumY,previous=[]){
   const cx=x+dx,cy=Math.max(minimumY,Math.min(y,maximumY));
   if(fits(cx,cy)){best={x:cx,y:cy};break;}
  }
- return best||{x,y};
+ return best;
 }
 let loading;
 const clamp=(value,lo=0,hi=1)=>Math.max(lo,Math.min(hi,Number.isFinite(value)?value:lo));
@@ -171,12 +172,12 @@ export function preloadSnakeA2(){
   image.src=new URL(path,import.meta.url).href;
  }))).then(results=>{
   if(results.some(ok=>!ok)||images.size!==3||collisionMasks.size!==3){images.clear();collisionMasks.clear();return false;}
-  allDangerFramesMask=buildDangerFootprint();
+  allVisibleFramesMask=buildVisibleFootprint();
   return true;
  });
  return loading;
 }
-export function isSnakeA2Ready(){return SNAKE_A2_ENABLED&&images.size===3&&collisionMasks.size===3&&!!allDangerFramesMask;}
+export function isSnakeA2Ready(){return SNAKE_A2_ENABLED&&images.size===3&&collisionMasks.size===3&&!!allVisibleFramesMask;}
 export function snakeA2NeedsMirror(pose){
  return pose?.key==='attack'&&(pose.frame===4||pose.frame===5)
   ||pose?.key==='stunned'&&pose.frame===3;
