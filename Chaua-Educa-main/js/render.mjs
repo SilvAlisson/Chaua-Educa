@@ -12,6 +12,7 @@ import { canvasResolution } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
+import { journeyRain, drawJourneyRain } from './weather.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 
@@ -767,7 +768,7 @@ export class Renderer {
         }
         return normal;
     }
-    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1) {
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const palette=BACKGROUND_PALETTE;
@@ -832,7 +833,8 @@ export class Renderer {
         c.save();c.globalAlpha=.10;c.fillStyle=transition===1?TINT_PALETTE[stage]:mixColor(TINT_PALETTE[Math.max(0,stage-1)],TINT_PALETTE[stage],transition);c.fillRect(0,0,w,h);c.restore();
         // Sunlight and shade breathe slowly with the same wind as leaves and vines.
         c.fillStyle = '#ffffcb10';
-        c.save();c.translate(reduced?0:Math.sin(time*.22)*18,0);
+        c.save();c.globalAlpha = 1 - rain * .9;
+        c.translate(reduced?0:Math.sin(time*.22)*18,0);
         c.beginPath();
         for (let i = 0; i < 3; i++) {
             c.moveTo(w * .65 + i * 95, 0);
@@ -842,6 +844,8 @@ export class Renderer {
         }
         c.fill();
         c.restore();
+        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low');
+        c.save();c.globalAlpha = 1 - rain;
         c.fillStyle = '#ffedb275';
         c.beginPath();
         const dustCount = this.decoration==='low'?8:23;
@@ -852,6 +856,7 @@ export class Renderer {
             c.arc(x, y, 1.6, 0, TAU);
         }
         c.fill();
+        c.restore();
         if (home) {
             const wash = c.createLinearGradient(0, 0, w * .7, 0);
             wash.addColorStop(0, '#f1f2da'); wash.addColorStop(.66, '#f0f1d9ef'); wash.addColorStop(1, '#e7edcb00');
@@ -893,7 +898,8 @@ export class Renderer {
         }
         const c = this.c;
         const sceneTime = game.sceneTime ?? game.elapsed;
-        this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4));
+        this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
+            journeyRain(game.distance, game.tutorial));
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.

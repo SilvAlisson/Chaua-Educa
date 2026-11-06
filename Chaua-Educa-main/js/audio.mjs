@@ -66,7 +66,7 @@ export class ForestAudio {
             notes[type].forEach((f,i)=>this.tone(f,now+i*.075,.18,['feather-end','pepper-end'].includes(type) ? .08 : .18,type==='shield-break'?'triangle':'sine'));
         } catch { /* Audio failure never blocks the game. */ }
     }
-    update(state,visible,time,stage) {
+    update(state,visible,time,stage,rain=0) {
         if(!this.context || this.context.state==='closed')return;
         try {
         if(this.visible!==visible){
@@ -81,7 +81,8 @@ export class ForestAudio {
         if(!active||c.state!=='running')return;
         if(c.currentTime>=this.nextFilter){
             this.nextFilter=c.currentTime+.1;
-            this.filter.frequency.setTargetAtTime(750+Math.sin(time*.6)*180+stage*90,c.currentTime,.5);
+            const windFrequency = 750 + Math.sin(time * .6) * 180 + stage * 90;
+            this.filter.frequency.setTargetAtTime(windFrequency + rain * 1450,c.currentTime,.5);
         }
         if(c.currentTime>=this.nextChirp) {
             this.nextChirp=c.currentTime+5+(Math.sin(time)*.5+.5)*5;
