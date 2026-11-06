@@ -9,11 +9,12 @@ fs.mkdirSync(OUT,{recursive:true});
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
  try{
-  const screens=[[1920,1080],[1366,768],[1280,720],[1024,600],[390,844],[844,390]];
+  const screens=[[1920,1080],[1366,768],[1280,720],[1024,600],[768,1024],[320,568],[390,844],[844,390]];
   for(const [width,height] of screens){
    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'domcontentloaded'});
+   await page.screenshot({path:path.join(OUT,width+'x'+height+'-menu.png')});
    await page.fill('#inputPlayer','Tela responsiva');
    await page.waitForFunction(()=>!document.querySelector('#btnStart').disabled,{timeout:30000});
    await page.locator('#btnStart').click();
@@ -26,7 +27,8 @@ fs.mkdirSync(OUT,{recursive:true});
     // same-size render surface for deterministic camera bounds.
     const cv=document.createElement('canvas');
     cv.style.cssText='position:fixed;inset:0;width:100vw;height:100dvh;visibility:hidden;pointer-events:none';
-    document.body.append(cv);
+    cv.style.zIndex='-1';
+    document.querySelector('#app').append(cv);
     const r=new Renderer(cv);await r.ready;
     game.state='playing';game.entities=[];game.popups=[];game.particles=[];
     const positions=[];
@@ -36,6 +38,15 @@ fs.mkdirSync(OUT,{recursive:true});
      const actualY=v.y+(game.y-r.cameraTop)*v.scale;
      positions.push({y,cameraTop:r.cameraTop,actualY});
     }
+    // A fixed, populated scene makes sprite sizing reviewable; the preceding
+    // checks still exercise the actual game and its HUD.
+    game.y=320;game.sceneTime+=1;
+    game.entities=[{kind:'wood',id:901,x:650,y:0,top:130,bottom:520,variant:'plain',
+      snake:{phase:'watching',age:0}},
+      {kind:'fruit',id:902,x:530,y:285,variety:0},
+      {kind:'hawk',id:903,x:900,y:260,warning:0,phase:'flight',age:1}];
+    r.game(game,false);
+    cv.style.visibility='visible';
     const body=document.body;
     const main=document.querySelector('#app');
     return {scale:v.scale,worldHeight:v.worldHeight,worldWidth:v.worldWidth,

@@ -43,3 +43,12 @@ test('A2 faces the incoming Chauá throughout alert, windup and strike',()=>{
  }
  assert.equal(snakeA2NeedsMirror({key:'stunned',frame:3}),true);
 });
+
+test('dazed loop continues from the impact pose without skipping poses',()=>{
+ let previous=snakeA2Pose({retreat:true,dazed:true,retreatTime:.849}).frame;
+ for(let i=0;i<240;i++){
+  const current=snakeA2Pose({retreat:true,dazed:true,retreatTime:.85+i/120}).frame;
+  assert.ok(Math.abs(current-previous)<=1);
+  previous=current;
+ }
+});

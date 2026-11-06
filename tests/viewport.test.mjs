@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {flightViewport,flightCameraTop,warningPosition,snakeWarningPosition} from '../Chaua-Educa-main/js/viewport.mjs';
+import {flightViewport,flightCameraTop,advanceFlightCamera,warningPosition,snakeWarningPosition} from '../Chaua-Educa-main/js/viewport.mjs';
 import {Game} from '../Chaua-Educa-main/js/engine.mjs';
 import {placeWarnings} from '../Chaua-Educa-main/js/animation.mjs';
 
@@ -68,4 +68,26 @@ test('A2 notices follow the camera without moving legacy relative placement',()=
   assert.equal(a2.x,original.x);
   assert.ok(Math.abs((original.y-a2.y)-90*view.scale)<1e-9);
  }
+});
+
+test('tablet portrait keeps phone sightline with larger sprites',()=>{
+ const view=flightViewport(768,1024);
+ assert.equal(view.portrait,true);
+ assert.ok(view.scale>=1);
+ assert.ok((view.worldLeft+view.worldWidth-270)/350>=1.65);
+});
+test('camera preserves framing on resize and avoids chasing in reduced motion',()=>{
+ const view=flightViewport(1280,720);
+ assert.equal(advanceFlightCamera(view,320,40,0),40);
+ assert.equal(advanceFlightCamera(view,320,40,1/60,true),40);
+ for(const y of [35,120,320,500,605]){
+  const top=advanceFlightCamera(view,y,40,1/60,true);
+  assert.ok(top>=0&&top<=640-view.worldHeight);
+  assert.ok(y>=top&&y<=top+view.worldHeight);
+ }
+});
+test('camera easing has equal results at different refresh rates',()=>{
+ const view=flightViewport(1280,720);
+ const run=hz=>{let top=0;for(let i=0;i<hz;i++)top=advanceFlightCamera(view,320,top,1/hz);return top;};
+ assert.ok(Math.abs(run(60)-run(144))<1e-8);
 });

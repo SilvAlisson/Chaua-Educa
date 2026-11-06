@@ -140,7 +140,7 @@ export function snakeA2Pose(s={},reduced=false){
     f=frame(t/.85,8);
   } else {
     // Loop the dazed wobble expression (frames 4, 5, 6, 7) so the stunned snake stays visibly dazed
-    const loop=[4,5,6,7,6,5];
+    const loop=[7,6,5,4,5,6];
     f=loop[Math.floor((t-0.85)*5)%loop.length];
   }
   return {key:'stunned',frame:reduced?3:f,state:'shield-stunned'};
