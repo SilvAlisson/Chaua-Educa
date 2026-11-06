@@ -7,15 +7,19 @@ const assert=require('node:assert/strict');
 const path='test-results/transition-composite';
 fs.mkdirSync(path,{recursive:true});
 (async()=>{
- const browser=await chromium.launch({args:['--no-sandbox']});
+ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox']});
  try{
   const reports=[];
-  for(const viewport of [{width:1440,height:960},{width:390,height:844}]){
+  for(const {viewport,automaticLow} of [
+   {viewport:{width:1440,height:960}},
+   {viewport:{width:390,height:844}},
+   {viewport:{width:1440,height:960},automaticLow:true}
+  ]){
    const page=await browser.newPage({viewport,deviceScaleFactor:2});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
-   const measurements=await page.evaluate(async()=>{
+   const measurements=await page.evaluate(async automaticLow=>{
     const {Renderer}=await import('/js/render.mjs');
     const {images}=await import('/js/assets.mjs');
     const create=async()=>{
@@ -23,6 +27,7 @@ fs.mkdirSync(path,{recursive:true});
      canvas.style.cssText='position:fixed;inset:0;width:100vw;height:100vh';
      document.body.append(canvas);
      const renderer=new Renderer(canvas);await renderer.ready;renderer.setQuality('high');
+     if(automaticLow)renderer.setAutomaticQuality('low');
      const sample=document.createElement('canvas');sample.width=96;sample.height=64;
      return {renderer,sample:sample.getContext('2d',{willReadFrequently:true})};
     };
@@ -33,7 +38,7 @@ fs.mkdirSync(path,{recursive:true});
     if(!forest||!forest.complete||!forest.naturalWidth)throw Error('forest asset not ready after Renderer.ready');
     original.renderer.prepareStagedBackdrop=()=>null;
     const records=[];
-    for(const stage of [1,2,3]){
+    for(const stage of automaticLow?[3]:[1,2,3]){
      // Prime the exact displayed last frame of the PREVIOUS stage, including
      // its real-time wind displacement. A drift=0 prewarm would falsely mark
      // the first 8 frames as a visual jump, even though gameplay never starts
@@ -90,7 +95,7 @@ fs.mkdirSync(path,{recursive:true});
      const p=q=>sorted[Math.floor((sorted.length-1)*q)];
      const extraMotion=timeseries.slice(1).map(x=>x.extraMotionMAE);
      const sortedExtra=[...extraMotion].sort((a,b)=>a-b);
-     records.push({stage,frames:timeseries.length,meanMAE:timeseries.reduce((s,x)=>s+x.mae,0)/timeseries.length,
+     records.push({stage,stripes:optimized.renderer.transitionBackdrop?.stripeCount??0,frames:timeseries.length,meanMAE:timeseries.reduce((s,x)=>s+x.mae,0)/timeseries.length,
       p95MAE:p(.95),maxMAE:sorted[sorted.length-1],maxChannelDelta:Math.max(...timeseries.map(x=>x.maxDelta)),
       maxOver5Fraction:Math.max(...timeseries.map(x=>x.over5Fraction)),
       p95ExtraMotionMAE:sortedExtra[Math.floor((sortedExtra.length-1)*.95)],
@@ -99,8 +104,9 @@ fs.mkdirSync(path,{recursive:true});
       worstFrames:[...timeseries].sort((a,b)=>b.mae-a.mae).slice(0,6)});
     }
     return records;
-   });
+   },!!automaticLow);
    assert.deepEqual(errors,[]);
+   if(automaticLow)assert.equal(measurements[0].stripes,4,'Reduced automatic Refúgio must exercise the four-stripe path');
    for(const result of measurements){
     // An error of 1 is one 8-bit color channel level out of 255.
     // Static and temporal criteria both gate the staged-paint approach.
@@ -111,9 +117,9 @@ fs.mkdirSync(path,{recursive:true});
     assert.ok(result.maxOver5Fraction<.05&&result.maxChannelDelta<=50,
      'Localized pixel mismatch is excessive: '+JSON.stringify({viewport,...result}));
    }
-   reports.push({viewport,measurements});
-   console.log('TRANSITION_TEMPORAL_ROW '+JSON.stringify({viewport,measurements}));
-   console.log('PASS temporal continuity: three stage changes, no frame-step violations '+JSON.stringify(viewport));
+   reports.push({viewport,automaticLow:!!automaticLow,measurements});
+   console.log('TRANSITION_TEMPORAL_ROW '+JSON.stringify({viewport,automaticLow:!!automaticLow,measurements}));
+   console.log('PASS temporal continuity '+JSON.stringify({viewport,automaticLow:!!automaticLow}));
    await page.close();
   }
   fs.writeFileSync(path+'/temporal-visual.json',JSON.stringify(reports,null,2));

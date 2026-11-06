@@ -672,9 +672,10 @@ export class Renderer {
         }
         return cache;
     }
-    ensureTransitionBackdrop() {
+    ensureTransitionBackdrop(refuge=false) {
         const width=this.canvas.width,height=this.canvas.height;
-        if(this.transitionRasterDisabled||width*height<1_800_000||width*height>4_500_000)return null;
+        const pixels=width*height;
+        if(this.transitionRasterDisabled||pixels<(refuge?1_300_000:1_800_000)||pixels>4_500_000)return null;
         let state=this.transitionBackdrop;
         if(state&&state.width===width&&state.height===height&&state.dpr===this.dpr)return state;
         if(state){state.surface.width=0;state.surface.height=0;}
@@ -684,15 +685,18 @@ export class Renderer {
         surface.width=width;surface.height=height;
         const c=surface.getContext('2d',{alpha:false});
         if(!c)return null;
-        return this.transitionBackdrop={surface,c,width,height,dpr:this.dpr,target:null,rowsDone:0,active:false};
+        // A smaller backing canvas can publish the Refúgio blend in four
+        // passes, keeping the alpha ramp closer to the current frame.
+        const stripeCount=pixels<1_800_000?4:8;
+        return this.transitionBackdrop={surface,c,width,height,dpr:this.dpr,stripeCount,target:null,rowsDone:0,active:false};
     }
-    prepareStagedBackdrop(forest,light,drift,forestAlpha,settled=false) {
+    prepareStagedBackdrop(forest,light,drift,forestAlpha,settled=false,refuge=false) {
         const normal=this.fragmentedBackdrop;
         if(!normal||normal.width!==this.canvas.width||normal.height!==this.canvas.height||
             normal.dpr!==this.dpr||normal.forest!==forest){
             return this.prepareFragmentedBackdrop(forest,light,drift,forestAlpha);
         }
-        const pending=this.ensureTransitionBackdrop();
+        const pending=this.ensureTransitionBackdrop(refuge);
         if(!pending)return this.prepareFragmentedBackdrop(forest,light,drift,forestAlpha);
         pending.active=true;
         const driftSteps=forestAlpha===1?4:2;
@@ -709,8 +713,8 @@ export class Renderer {
             pending.rowsDone=0;
         }
         const stripe=pending.rowsDone++;
-        const y0=Math.floor(pending.height*stripe/8);
-        const y1=stripe===7?pending.height:Math.floor(pending.height*(stripe+1)/8);
+        const y0=Math.floor(pending.height*stripe/pending.stripeCount);
+        const y1=Math.floor(pending.height*(stripe+1)/pending.stripeCount);
         const c=pending.c;
         c.save();
         c.setTransform(1,0,0,1,0,0);
@@ -722,7 +726,7 @@ export class Renderer {
         c.globalAlpha=pending.target.forestAlpha;
         this.drawForestSource(c,forest,pending.target.sourceDrift);
         c.restore();
-        // Canvas 2D can defer the eight clipped raster passes until the
+        // Canvas 2D can defer clipped raster passes until the
         // completed buffer is presented. Flushing one pixel after each pass
         // distributes that work across frames without altering output pixels.
         // On GPUs where readback itself is costly or unsupported, abandon
@@ -750,7 +754,7 @@ export class Renderer {
             }
         }
 
-        if(pending.rowsDone===8){
+        if(pending.rowsDone===pending.stripeCount){
             const previousSurface=normal.surface,previousContext=normal.c;
             normal.surface=pending.surface;normal.c=pending.c;
             normal.light=pending.target.light;
@@ -776,7 +780,7 @@ export class Renderer {
             (stage>0&&(stageMix<1||this.transitionBackdrop?.active)?
                 this.prepareStagedBackdrop(forest,backdropLight,Math.sin(time*.035)*Math.min(24,
                     (forest.naturalWidth*Math.max(w/forest.naturalWidth,h/forest.naturalHeight)*1.08-w)/2),
-                    backdropAlpha,stageMix===1):
+                    backdropAlpha,stageMix===1,stage===3):
                 this.prepareFragmentedBackdrop(forest,backdropLight,Math.sin(time*.035)*Math.min(24,
                     (forest.naturalWidth*Math.max(w/forest.naturalWidth,h/forest.naturalHeight)*1.08-w)/2),
                     backdropAlpha)):null;
