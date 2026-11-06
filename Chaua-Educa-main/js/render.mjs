@@ -12,7 +12,7 @@ import { canvasResolution } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
-import { journeyRain, drawJourneyRain } from './weather.mjs';
+import { journeyRain, journeyStorm, journeyFog, drawJourneyRain, drawJourneyFog } from './weather.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 
@@ -768,7 +768,7 @@ export class Renderer {
         }
         return normal;
     }
-    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0) {
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const palette=BACKGROUND_PALETTE;
@@ -844,7 +844,8 @@ export class Renderer {
         }
         c.fill();
         c.restore();
-        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low');
+        drawJourneyFog(c, w, h, fog);
+        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm);
         c.save();c.globalAlpha = 1 - rain;
         c.fillStyle = '#ffedb275';
         c.beginPath();
@@ -899,7 +900,8 @@ export class Renderer {
         const c = this.c;
         const sceneTime = game.sceneTime ?? game.elapsed;
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
-            journeyRain(game.distance, game.tutorial));
+            journeyRain(game.distance, game.tutorial), journeyStorm(game.distance, game.mode, game.tutorial),
+            journeyFog(game.distance, game.tutorial));
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.
