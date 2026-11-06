@@ -3,7 +3,7 @@ import {drawSnakeA2,preloadSnakeA2,isSnakeA2Ready} from './snake-a2.mjs';
 import {parrotAction,hawkAction} from './action-states.mjs';
 import {drawActionSheet,preloadActionSheets,ACTION_SPRITES_ENABLED} from './action-sheets.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
-import {drawLivingTrunk,drawFragileTrunk,drawRefugeTree} from './tree-art.mjs';
+import {drawLivingTrunk,drawTreeVariant,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
 import {birdAnimation,hawkAnimation,snakePlacement,placeWarnings} from './animation.mjs';
@@ -1139,7 +1139,7 @@ export class Renderer {
             const broken = e.broken && e.brokenSide === side;
             if (broken && (reduced || !e.breakFx)) continue;
             if (e.fragileSide === side) {
-                drawFragileTrunk(c, x, y, upper, e.fragileKind, broken ? e.breakFx.age : undefined);
+                drawTreeVariant(c, x, y, upper, e.fragileKind, broken ? e.breakFx.age : undefined);
                 continue;
             }
             if (broken) continue;
@@ -1152,7 +1152,8 @@ export class Renderer {
                 c.save();
                 c.transform(1, 0, lean, 1, -lean * y, 0);
             }
-            this.trunk(`trunk-${variant}`, null, x, y, upper, time,
+            if (e.decorSide === side) drawTreeVariant(c, x, y, upper, e.decorKind);
+            else this.trunk(`trunk-${variant}`, null, x, y, upper, time,
                 !upper && e.variant === 'branch' ? 3 : variant);
             if (!upper && e.snake) this.snake(e, reduced);
             if (lean) c.restore();

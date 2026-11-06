@@ -473,6 +473,10 @@ export class Game {
                 wood.fragileSide = Math.floor(n / 2) % 2 ? 'top' : 'bottom';
                 wood.fragileKind = Math.floor(n / 4) % 2 ? 'hollow' : 'rot';
             }
+            if (!hasSnake && variant === 'plain' && n % 3 !== 0) {
+                wood.decorSide = wood.fragileSide === 'bottom' ? 'top' : 'bottom';
+                wood.decorKind = Math.floor(n / 3) % 2 ? 'moss' : 'vine';
+            }
             if (hasSnake) wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
             this.entities.push(wood);
         }

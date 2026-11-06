@@ -24,27 +24,61 @@ export function drawLivingTrunk(c,{x,y,upper=false,width=TREE_WIDTH,length=900,v
  }
 }
 
-const FRAGILE_CELL_WIDTH = 128;
-const FRAGILE_CELL_HEIGHT = 160;
+// Four transparent 256 px cells. The cap and bark core use the same
+// center and scale across variants, regardless of moss or leaf overhang.
+const TREE_CELL = 256;
+const TREE_CAP_Y = 8;
+const TREE_CORE_WIDTH = 128;
+const TREE_VARIANTS = ['rot', 'hollow', 'moss', 'vine'];
+const TREE_SPLICES = [181, 180, 180, 182];
 
-export function drawFragileTrunk(c, x, y, upper, kind, breakAge) {
- const image = images.get('fragile-trees');
- if (!image) return;
- const row = kind === 'hollow' ? FRAGILE_CELL_HEIGHT : 0;
- const frame = breakAge === undefined ? 0 : breakAge < .055 ? 1 : 2;
- const column = frame * FRAGILE_CELL_WIDTH;
+export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
+ const image = images.get('tree-variants');
+ const index = TREE_VARIANTS.indexOf(kind);
+ if (!image || index < 0) return;
+ const sx = (index % 2) * TREE_CELL;
+ const sy = Math.floor(index / 2) * TREE_CELL;
+ const scale = TREE_WIDTH / TREE_CORE_WIDTH;
+ const splice = TREE_SPLICES[index];
+ const join = (splice - TREE_CAP_Y) * scale;
+ const left = -TREE_CELL * scale / 2;
+
  c.save();
  c.translate(x, y);
  if (upper) c.scale(1, -1);
- if (frame < 2) {
-  c.drawImage(image, 9, row + 159, TREE_WIDTH, 1,
-   -TREE_WIDTH / 2, 159, TREE_WIDTH, 841);
+ if (breakAge === undefined || breakAge < .055) {
+  c.drawImage(image, sx + (TREE_CELL - TREE_CORE_WIDTH) / 2, sy + splice, TREE_CORE_WIDTH, 1,
+   -TREE_WIDTH / 2, join - .5, TREE_WIDTH, 1000 - join + .5);
+  c.drawImage(image, sx, sy + TREE_CAP_Y, TREE_CELL, splice - TREE_CAP_Y,
+   left, 0, TREE_CELL * scale, join);
+  if (breakAge !== undefined) {
+   c.beginPath();
+   c.moveTo(-9, 6);
+   c.lineTo(2, 23);
+   c.lineTo(-5, 39);
+   c.lineTo(11, 57);
+   c.lineTo(2, 83);
+   c.strokeStyle = '#352218';
+   c.lineWidth = 3;
+   c.stroke();
+  }
  } else {
-  c.globalAlpha *= Math.max(0, 1 - (breakAge - .055) / .185);
-  c.translate(0, breakAge * 140);
+  const elapsed = breakAge - .055;
+  c.globalAlpha *= Math.max(0, 1 - elapsed / .185);
+  // Break the painted cap into strips with diverging motion. The physics
+  // already removed this side when the collision occurred.
+  const stripWidth = 38;
+  for (let i = 0; i < 3; i++) {
+   const direction = i - 1;
+   const offset = (TREE_CELL - 3 * stripWidth) / 2 + i * stripWidth;
+   c.save();
+   c.translate(direction * elapsed * 115, elapsed * (100 + i * 85));
+   c.rotate(direction * elapsed * 2);
+   c.drawImage(image, sx + offset, sy + TREE_CAP_Y, stripWidth, 96,
+    left + offset * scale, i * 9, stripWidth * scale, 96 * scale);
+   c.restore();
+  }
  }
- c.drawImage(image, column, row, FRAGILE_CELL_WIDTH, FRAGILE_CELL_HEIGHT,
-  -FRAGILE_CELL_WIDTH / 2, 0, FRAGILE_CELL_WIDTH, FRAGILE_CELL_HEIGHT);
  c.restore();
 }
 

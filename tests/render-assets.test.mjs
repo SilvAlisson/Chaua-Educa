@@ -5,13 +5,9 @@ import {ASSET_PATHS, images, flightPose} from '../Chaua-Educa-main/js/assets.mjs
 import {Renderer} from '../Chaua-Educa-main/js/render.mjs';
 import {Game} from '../Chaua-Educa-main/js/engine.mjs';
 
-test('every art URL resolves to a supported image in the served directory',()=>{
+test('every art URL resolves to a real WebP in the served directory',()=>{
  for(const path of Object.values(ASSET_PATHS)) {
   const bytes=readFileSync(new URL('../Chaua-Educa-main/js/'+path,import.meta.url));
-  if(path.endsWith('.svg')) {
-   assert.match(bytes.toString('utf8'), /^<svg\s[^>]*viewBox="0 0 384 320"/);
-   continue;
-  }
   assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP');
  }
 });
@@ -48,7 +44,7 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  r.setQuality('low');r.game(g,false);assert.equal(r.dpr,1);
  for(const name of ['forest','chaua-atlas','snake-atlas','hawk-atlas','shield','feather'])
   assert.ok(calls.some(url=>url.endsWith(`/${name}.webp`)),`${name} must be rendered`);
- assert.ok(calls.some(url=>url.endsWith('/fragile-trees.svg')));
+ assert.ok(calls.some(url=>url.endsWith('/tree-variants.webp')));
  assert.equal(images.size,Object.keys(ASSET_PATHS).length);
 });
 test('snake collision follows lower trunk and clears after shield retreat',()=>{
