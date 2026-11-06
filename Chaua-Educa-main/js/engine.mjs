@@ -441,6 +441,7 @@ export class Game {
         this.encounterHistory.push({sequence:n,pattern:soloHawk?'hawk':plan.id,center,gap,elapsed:this.elapsed});
         if(this.encounterHistory.length>12)this.encounterHistory.shift();
         const hawkAlone = soloHawk;
+        let hasSnake = false, encounterGap = gap;
         if (hawkAlone) {
             const dive = this.elapsed > profile.diveAt && n % 2 === 0;
             const lane=Math.max(160,Math.min(480,this.y+(this.encounterRandom()-.5)*70));
@@ -450,8 +451,8 @@ export class Game {
         } else {
             const variants = ['plain', 'branch', 'plain'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'branch':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
-            const hasSnake=this.elapsed>profile.snakeAt&&(n%2===0||variant==='branch');
-            const encounterGap=gap+(hasSnake?(profile.snakeClearance??180):0);
+            hasSnake=this.elapsed>profile.snakeAt&&(n%2===0||variant==='branch');
+            encounterGap=gap+(hasSnake?(profile.snakeClearance??180):0);
             this.encounterHistory.at(-1).gap=encounterGap;
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - encounterGap / 2, bottom: center + encounterGap / 2, variant, scored: false, route:n, encounter:plan.id };
             if (hasSnake) wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
@@ -459,10 +460,23 @@ export class Game {
         }
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
         if(fruits.length>1)this.routes.set(n,{total:fruits.length,collected:0,awarded:false,failed:false});
-        for(const [index,point] of fruits.entries()) this.entities.push({ id: this.nextId++, kind:'fruit', x:x+point.x, y:point.y,
-            variety:(n+index)%FRUITS.length, route:n, optional:!hawkAlone&&plan.optional });
+        let firstFruitY = center;
+        for(const [index,point] of fruits.entries()) {
+            let fy = point.y;
+            if (hasSnake) {
+                // Center the entire fruit route directly in the clear flight corridor above the snake
+                const corridorTop = center - encounterGap / 2 + 55;
+                const corridorBottom = center + encounterGap / 2 - 240;
+                const corridorCenter = (corridorTop + corridorBottom) / 2;
+                fy = corridorCenter + (point.y - center) * 0.35;
+                fy = Math.max(corridorTop, Math.min(fy, corridorBottom));
+            }
+            if (index === 0) firstFruitY = fy;
+            this.entities.push({ id: this.nextId++, kind:'fruit', x:x+point.x, y:fy,
+                variety:(n+index)%FRUITS.length, route:n, optional:!hawkAlone&&plan.optional });
+        }
         const kind=hawkAlone?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,pepper:this.pepper,entities:this.entities,schedule:this.powerSchedule,opportunity:fruits.length>1,random:this.powerRandom});
-        if(kind)this.entities.push({id:this.nextId++,kind,x:x+fruits[0].x-125,y:fruits[0].y});
+        if(kind)this.entities.push({id:this.nextId++,kind,x:x+fruits[0].x-125,y:firstFruitY});
         this.nextSpawn = plan.interval;
     }
 

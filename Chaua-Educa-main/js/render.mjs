@@ -1,4 +1,7 @@
 import {drawContinuousSnake} from './snake-render.mjs';
+import {drawSnakeA2,preloadSnakeA2} from './snake-a2.mjs';
+import {parrotAction,hawkAction,snakeAction} from './action-states.mjs';
+import {drawActionSheet,preloadActionSheets,ACTION_SPRITES_ENABLED} from './action-sheets.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
@@ -103,11 +106,17 @@ function animatedBird(c,p){
         c.rotate(angle+heaveAngle);
     }
     if(turbo&&!perched&&!reduced)drawTurboFlames(c,size,time);
-    if(perched&&!surprise&&!defeated&&landing===null)perchedSprite(c,clip,factor);
-    else atlasAnimation(c,'chaua',clip,factor);
+    const action=parrotAction({...p,time,wing:p.wing,reduced,perched,landing,defeated,surprise,impactProgress});
+    const newSprite=!!action&&drawActionSheet(c,action.sheet,action.frame,-77*scale,-77*scale,154*scale,154*scale);
+    if(!newSprite){
+        if(perched&&!surprise&&!defeated&&landing===null)perchedSprite(c,clip,factor);
+        else atlasAnimation(c,'chaua',clip,factor);
+    }
     const a=SPRITES.chaua.frames[clip.frame].eye,b=SPRITES.chaua.frames[clip.next].eye;
     const ex=(a[0]+(b[0]-a[0])*clip.blend-192)*factor,ey=(a[1]+(b[1]-a[1])*clip.blend-192)*factor;
-    if(defeated||surprise){drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);if(!reduced)drawOrbitingStars(c,ex,ey-size*.35,size,time);}
+    if(defeated||surprise){
+        if(!newSprite){drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);if(!reduced)drawOrbitingStars(c,ex,ey-size*.35,size,time);}
+    }
     else if(reaction>0&&!reduced)drawFruitSparkles(c,size*.44,-size*.08,reaction,time);
     else if(stamina<.28&&!reduced&&!perched)drawSweatDrops(c,ex,ey,size,time);
     if(turbo&&!perched&&!reduced)drawTurboWindLines(c,size,time);
@@ -477,7 +486,7 @@ export class Renderer {
         // so wind drift and 8-stripe transitions blit 1:1 without bilinear rescaling.
         this.scaledForestCacheEnabled = true;
         this.cachedView = null;
-        this.ready = loadAssets().then(() => {
+        this.ready = Promise.all([loadAssets(),preloadSnakeA2(),preloadActionSheets()]).then(() => {
             this.fruitImages = FRUITS.map(f => images.get(`fruit-${f.id}`));
             // Warm up pickup radial caches during asset load so first spawn never stalls.
             getPickupCache('fruit-glow', 28, [[4, 0, '#ffffffaa'], [4, 0.5, '#f4d87c44'], [4, 1, '#ffffff00']]);
@@ -1019,17 +1028,18 @@ export class Renderer {
         }
 
         if(game.refuge) {
-            const support=320+birdFoot(.88);
+            const support=320+birdFoot(1.04);
             drawRefugeTree(c,game.refuge,support,reduced?0:sceneTime);
         }
         const isDefeated = (game.state === 'ended' && !game.won) || game.state === 'impact';
         const impactProg = game.state === 'impact' ? Math.max(0, 1 - (game.impactRemaining || 0) / 0.42) : (game.state === 'ended' && !game.won ? 1 : 0);
         const contact=woodContactPosition(game,impactProg,reduced);
         drawBird(c, {
-            x: contact.x, y: contact.y, scale: .88, perched: game.state === 'ended' && game.won,
+            x: contact.x, y: contact.y, scale: 1.04, perched: game.state === 'ended' && game.won,
             angle: game.angle, wing: reduced ? .2 : game.wing, time: game.state==='ended'&&game.won?visualTime:sceneTime,
             landing: game.arrival&&!game.won?Math.min(1,game.arrival.age/1.6):null,
             reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
+            shieldHitAge:game.hit&&game.invincible>0?game.hit.age:null,
             defeated: isDefeated, impactProgress: impactProg, turbo: (game.pepper || 0) > 0,
             stamina: game.stamina !== undefined ? game.stamina : 1, won: game.state === 'ended' && game.won
         });
@@ -1095,10 +1105,21 @@ export class Renderer {
     snake(wood,reduced){
         const s=wood.snake,place=snakePlacement(wood),c=this.c;
         c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
-        if(s.retreat)c.globalAlpha=Math.max(0,1-smoothstep(((s.retreatTime||0)-.95)/.35));
-        const wrap=images.get('snake-wrap');
-        if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
-        drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced);c.restore();
+        if(!drawSnakeA2(c,s,place.factor,reduced)){
+            const wrap=images.get('snake-wrap');
+            if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
+            const action=snakeAction(s,reduced);
+            let newSnake=false;
+            if(action){
+                c.save();
+                c.scale(-1,1);
+                newSnake=drawActionSheet(c,action.sheet,action.frame,-113,-147,170,240);
+                c.restore();
+            }
+            if(!newSnake)drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced);
+        }
+        if(s.retreat&&s.dazed&&!reduced)drawOrbitingStars(c,0,-165,65,wood.time||0);
+        c.restore();
     }
     flightBorders(view) {}
     hawk(entityOrX, yOrTime = 0, timeOrReduced = 0, warning = false, angle = 0, retreat = false) {
@@ -1134,9 +1155,12 @@ export class Renderer {
                 dynamicAngle=Math.cos(time*2.8+(entity.id||0)*1.5)*.035;
             }
         }
-        c.save();c.translate(x,y+dynamicY);c.rotate(cAngle+dynamicAngle);
-        atlasAnimation(c,'hawk',clip,.4);
-        if(retreat&&!reduced)drawOrbitingStars(c,-24,-35,70,time);
+        const action=hawkAction(entity,time,reduced);
+        c.save();c.translate(x,y+dynamicY+(action?.offsetY||0));
+        c.rotate(cAngle+dynamicAngle+(action?.angle||0));
+        const newHawk=!!action&&drawActionSheet(c,action.sheet,action.frame,-86,-87,172,172);
+        if(!newHawk)atlasAnimation(c,'hawk',clip,.47);
+        if(retreat&&!reduced)drawOrbitingStars(c,-24,-40,80,time);
         c.restore();
     }
 

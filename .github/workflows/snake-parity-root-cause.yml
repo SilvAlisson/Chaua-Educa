@@ -1,0 +1,29 @@
+name: Diagnose snake pixel parity separately
+on:
+  push:
+    branches: [feat/action-sprites-on-optimized-20261105]
+  workflow_dispatch:
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Separate cached-raster changes from intentionally revised snake art
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main >/tmp/chaua-parity-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null' EXIT
+          node tests/browser-snake-parity-investigation.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: snake-parity-root-cause-with-image-diffs
+          path: test-results/snake-diff
+          if-no-files-found: ignore
