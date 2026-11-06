@@ -17,6 +17,14 @@ export function journeyStorm(distance, mode, tutorial = false) {
     return smoothstep(Math.min(distance - start, end - distance) / 700);
 }
 
+export function journeyWind(distance, mode, tutorial = false) {
+    if (tutorial) return 0;
+    const start = JOURNEY[2].start + 600;
+    const end = JOURNEY[2].start + 3700;
+    const gust = smoothstep(Math.min(distance - start, end - distance) / 900);
+    return Math.max(gust, journeyStorm(distance, mode));
+}
+
 export function journeyFog(distance, tutorial = false) {
     return tutorial ? 0 : 1 - smoothstep(distance / 2900);
 }

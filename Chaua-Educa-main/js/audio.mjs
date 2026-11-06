@@ -73,7 +73,7 @@ export class ForestAudio {
             notes[type].forEach((f,i)=>this.tone(f,now+i*.075,.18,['feather-end','pepper-end'].includes(type) ? .08 : .18,type==='shield-break'?'triangle':'sine'));
         } catch { /* Audio failure never blocks the game. */ }
     }
-    update(state,visible,time,stage,rain=0,storm=0) {
+    update(state,visible,time,stage,rain=0,storm=0,wind=0) {
         if(!this.context || this.context.state==='closed')return;
         try {
         if(this.visible!==visible){
@@ -88,7 +88,7 @@ export class ForestAudio {
         if(!active||c.state!=='running')return;
         if(c.currentTime>=this.nextFilter){
             this.nextFilter=c.currentTime+.1;
-            const windFrequency = 750 + Math.sin(time * .6) * 180 + stage * 90;
+            const windFrequency = 750 + Math.sin(time * .6) * 180 + stage * 90 + wind * 350;
             this.filter.frequency.setTargetAtTime(windFrequency + rain * 1450 + storm * 450,c.currentTime,.5);
             const rumble = Math.pow(.5 + .5 * Math.sin(time * 1.55), 4);
             this.thunder.gain.setTargetAtTime(storm * rumble * .8, c.currentTime, .25);

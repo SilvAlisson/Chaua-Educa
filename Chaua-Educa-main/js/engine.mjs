@@ -10,6 +10,7 @@ import { offerPower, POWER_BALANCE } from './powers.mjs';
 import { advanceHawk, advanceSnake } from './animals.mjs';
 import { planEncounter, seededRandom } from './encounters.mjs';
 import { FRUITS } from './fruits.mjs';
+import { journeyWind } from './weather.mjs';
 import { QUESTIONS } from './questions.mjs';
 
 export const WIDTH = 960;
@@ -124,7 +125,8 @@ export class Game {
     get speed() {
         const p = FLIGHT[this.mode];
         const gain = this.mode === 'aventura' ? Math.min(185, this.elapsed * 0.45 + Math.max(0, this.elapsed - 40) * 0.35) : Math.min(p.speedGain, this.elapsed * 0.45);
-        return (p.speed + gain) * (this.pepper > 0 ? 1.35 : 1);
+        const wind = journeyWind(this.distance, this.mode, this.tutorial);
+        return (p.speed + gain) * (this.pepper > 0 ? 1.35 : 1) * (1 + wind * .06);
     }
     start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
 
@@ -218,6 +220,15 @@ export class Game {
         if(this.invincible>0)return;
         const boundary = entity.kind === 'boundary' ? entity.side : null;
         this.hit = boundary ? null : {id:host.id, age:0};
+        if (!animal && !boundary && host.kind === 'wood') {
+            this.hit.side = host.hitSide;
+            if (host.fragileSide === host.hitSide && host.fragileSide) {
+                host.broken = true;
+                host.brokenSide = host.hitSide;
+                host.breakFx = { age: 0 };
+                if (!this.reducedMotion) this.woodBurst(this.x, this.y);
+            }
+        }
         if (this.shield) {
             this.shield = false;
             this.invincible = CONTACT.grace;
@@ -240,12 +251,11 @@ export class Game {
                     this.leafBurst(this.x, host.bottom || this.y, 10);
                 }
             } else if (!boundary) {
-                // Only the dry protruding branch breaks; living trunks remain intact.
                 if (entity.hitPart === 'dry-branch') {
                     entity.dryBranchBroken = true;
                     this.woodBurst(this.x, this.y);
                     this.leafBurst(this.x, host.bottom || this.y, 8);
-                } else {
+                } else if (!host.broken) {
                     this.burst(this.x, this.y, '#9aba67', 8);
                     this.leafBurst(this.x, entity.hitSide === 'top' ? host.top : host.bottom, 10);
                 }
@@ -258,8 +268,11 @@ export class Game {
                 : animal ? (entity.kind === 'hawk' ? 'Um gavião cruzou seu caminho.' : 'Você encostou na cobra.') : 'Você esbarrou na madeira.';
             this.endCause=boundary || (animal ? (entity.kind==='hawk'?'hawk':'snake') : 'wood');
             if(!animal&&!boundary){
-                const solids=this.woodRects(host);
-                this.impactContact={...(host.hitRect??solids.reduce((a,b)=>Math.abs(b.y-this.y)<Math.abs(a.y-this.y)?b:a,solids[0]))};
+                if (!host.broken || host.brokenSide !== host.hitSide) {
+                    const solids = this.woodRects(host);
+                    this.impactContact = host.hitRect ?? solids.reduce((a, b) =>
+                        Math.abs(b.y - this.y) < Math.abs(a.y - this.y) ? b : a, solids[0]);
+                }
             }
             this.triggerShake(14, 0.35);
             this.end(false, reason, true);
@@ -456,6 +469,10 @@ export class Game {
             encounterGap=gap+(hasSnake?(profile.snakeClearance??180):0);
             this.encounterHistory.at(-1).gap=encounterGap;
             const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - encounterGap / 2, bottom: center + encounterGap / 2, variant, scored: false, route:n, encounter:plan.id };
+            if (this.stage >= 1 && !hasSnake && variant === 'plain') {
+                wood.fragileSide = Math.floor(n / 2) % 2 ? 'top' : 'bottom';
+                wood.fragileKind = Math.floor(n / 4) % 2 ? 'hollow' : 'rot';
+            }
             if (hasSnake) wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
             this.entities.push(wood);
         }
@@ -526,7 +543,8 @@ export class Game {
         }
         if (this.state !== 'playing') return;
         this.elapsed += dt;
-        if(!this.tutorial)this.distance = Math.min(JOURNEY_LENGTH,this.distance+this.speed*dt);
+        const speed = this.speed;
+        if(!this.tutorial)this.distance = Math.min(JOURNEY_LENGTH,this.distance+speed*dt);
         const nextStage=journeyStage(this.distance);
         if(nextStage!==this.stage){this.stage=nextStage;this.stageAge=0;this.onEvent({type:'stage',stage:this.stage,message:JOURNEY[this.stage].message});}
         this.stageAge+=dt;
@@ -580,11 +598,11 @@ export class Game {
             if (this.state !== 'playing') break;
             const px = this.x;
             if (e.kind === 'hawk') {
-                advanceHawk(e,dt,this.speed,px);
+                advanceHawk(e,dt,speed,px);
                 if (e.phase !== 'warning' && !e.harmless && Math.abs(e.x - px) < 80 && Math.abs(e.y - this.y) < 60 && shapesIntersect(getPlayerBody(),hawkShapes(e))) this.collide(e, true);
                 continue;
             }
-            e.x -= this.speed * dt;
+            e.x -= speed * dt;
             if (e.kind === 'wood') {
                 advanceSnake(e,dt,px);
                 if (e.snake && !e.snake.retreat && Math.abs(e.x-px)<230) {

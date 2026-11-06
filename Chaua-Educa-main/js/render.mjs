@@ -3,7 +3,7 @@ import {drawSnakeA2,preloadSnakeA2,isSnakeA2Ready} from './snake-a2.mjs';
 import {parrotAction,hawkAction} from './action-states.mjs';
 import {drawActionSheet,preloadActionSheets,ACTION_SPRITES_ENABLED} from './action-sheets.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
-import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
+import {drawLivingTrunk,drawFragileTrunk,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
 import {birdAnimation,hawkAnimation,snakePlacement,placeWarnings} from './animation.mjs';
@@ -12,7 +12,7 @@ import { canvasResolution } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
-import { journeyRain, journeyStorm, journeyFog, drawJourneyRain, drawJourneyFog } from './weather.mjs';
+import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawJourneyFog } from './weather.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 
@@ -768,7 +768,7 @@ export class Renderer {
         }
         return normal;
     }
-    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0) {
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const palette=BACKGROUND_PALETTE;
@@ -846,6 +846,21 @@ export class Renderer {
         c.restore();
         drawJourneyFog(c, w, h, fog);
         drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm);
+        if (wind > 0 && !reduced) {
+            c.save();
+            c.globalAlpha = wind * .24;
+            c.strokeStyle = '#e2edcb';
+            c.beginPath();
+            const streaks = this.decoration === 'low' ? 8 : 18;
+            for (let i = 0; i < streaks; i++) {
+                const x = w + 32 - ((i * 137.7 + time * 250) % (w + 64));
+                const y = (i * 93.4) % h;
+                c.moveTo(x, y);
+                c.quadraticCurveTo(x - 12, y - 4, x - 26, y + 1);
+            }
+            c.stroke();
+            c.restore();
+        }
         c.save();c.globalAlpha = 1 - rain;
         c.fillStyle = '#ffedb275';
         c.beginPath();
@@ -901,7 +916,7 @@ export class Renderer {
         const sceneTime = game.sceneTime ?? game.elapsed;
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
             journeyRain(game.distance, game.tutorial), journeyStorm(game.distance, game.mode, game.tutorial),
-            journeyFog(game.distance, game.tutorial));
+            journeyFog(game.distance, game.tutorial), journeyWind(game.distance, game.mode, game.tutorial));
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.
@@ -1112,11 +1127,35 @@ export class Renderer {
     }
 
     obstacle(e, game, reduced=false) {
-        const c=this.c,time=reduced?0:(game.sceneTime??game.elapsed),variant=(e.id??0)%3,cx=e.x+29;
-        if(!e.broken||e.brokenSide!=='top')this.trunk(`trunk-${variant}`,null,cx,e.top,true,time,variant);
-        if(!e.broken||e.brokenSide!=='bottom'){
-            this.trunk(`trunk-${variant}`,null,cx,e.bottom,false,time,e.variant==='branch'?3:variant);
-            if(e.snake)this.snake(e,reduced);
+        const c = this.c;
+        const time = game.sceneTime ?? game.elapsed;
+        const variant = (e.id ?? 0) % 3;
+        const x = e.x + 29;
+        const wind = reduced ? 0 : journeyWind(game.distance, game.mode, game.tutorial);
+        const sway = wind * .008 * Math.sin(time * 4 + (e.id ?? 0));
+        for (const side of ['top', 'bottom']) {
+            const upper = side === 'top';
+            const y = e[side];
+            const broken = e.broken && e.brokenSide === side;
+            if (broken && (reduced || !e.breakFx)) continue;
+            if (e.fragileSide === side) {
+                drawFragileTrunk(c, x, y, upper, e.fragileKind, broken ? e.breakFx.age : undefined);
+                continue;
+            }
+            if (broken) continue;
+            const hit = game.hit;
+            const recoil = !reduced && hit?.id === e.id && hit.side === side
+                ? .012 * Math.sin(hit.age * 33) * (1 - hit.age / .3)
+                : 0;
+            const lean = sway + recoil;
+            if (lean) {
+                c.save();
+                c.transform(1, 0, lean, 1, -lean * y, 0);
+            }
+            this.trunk(`trunk-${variant}`, null, x, y, upper, time,
+                !upper && e.variant === 'branch' ? 3 : variant);
+            if (!upper && e.snake) this.snake(e, reduced);
+            if (lean) c.restore();
         }
     }
     trunk(key,preset,x,y,flip,time=0,variant=0){

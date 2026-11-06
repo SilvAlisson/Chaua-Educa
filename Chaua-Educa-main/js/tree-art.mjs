@@ -24,6 +24,30 @@ export function drawLivingTrunk(c,{x,y,upper=false,width=TREE_WIDTH,length=900,v
  }
 }
 
+const FRAGILE_CELL_WIDTH = 128;
+const FRAGILE_CELL_HEIGHT = 160;
+
+export function drawFragileTrunk(c, x, y, upper, kind, breakAge) {
+ const image = images.get('fragile-trees');
+ if (!image) return;
+ const row = kind === 'hollow' ? FRAGILE_CELL_HEIGHT : 0;
+ const frame = breakAge === undefined ? 0 : breakAge < .055 ? 1 : 2;
+ const column = frame * FRAGILE_CELL_WIDTH;
+ c.save();
+ c.translate(x, y);
+ if (upper) c.scale(1, -1);
+ if (frame < 2) {
+  c.drawImage(image, 9, row + 159, TREE_WIDTH, 1,
+   -TREE_WIDTH / 2, 159, TREE_WIDTH, 841);
+ } else {
+  c.globalAlpha *= Math.max(0, 1 - (breakAge - .055) / .185);
+  c.translate(0, breakAge * 140);
+ }
+ c.drawImage(image, column, row, FRAGILE_CELL_WIDTH, FRAGILE_CELL_HEIGHT,
+  -FRAGILE_CELL_WIDTH / 2, 0, FRAGILE_CELL_WIDTH, FRAGILE_CELL_HEIGHT);
+ c.restore();
+}
+
 export function drawRefugeTree(c,r,support,time=0,width=215,footX=7){
  const f=FOREST_ART.lower[3],s=width/(f.core[1]-f.core[0]);
  // Measured landing point on the integrated left branch (cell-local pixels).

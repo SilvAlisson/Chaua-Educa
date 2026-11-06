@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="320" viewBox="0 0 384 320">
+  <defs>
+    <linearGradient id="bark">
+      <stop stop-color="#3c2822"/>
+      <stop offset=".25" stop-color="#684732"/>
+      <stop offset=".53" stop-color="#9c754f"/>
+      <stop offset=".8" stop-color="#6d4831"/>
+      <stop offset="1" stop-color="#39251f"/>
+    </linearGradient>
+    <radialGradient id="cut" cx=".46" cy=".42" r=".65">
+      <stop stop-color="#d2ac71"/>
+      <stop offset=".71" stop-color="#9d724b"/>
+      <stop offset="1" stop-color="#513523"/>
+    </radialGradient>
+    <linearGradient id="cavity" x2=".4" y2="1">
+      <stop stop-color="#130e0b"/>
+      <stop offset=".65" stop-color="#271811"/>
+      <stop offset="1" stop-color="#735038"/>
+    </linearGradient>
+    <g id="stem">
+      <path d="M9 21 15 14 25 16 37 10 52 13 65 8 82 12 95 10 108 15 119 21V160H9Z" fill="url(#bark)"/>
+      <path d="M13 30Q22 56 17 85T16 160M30 33Q25 69 34 93T29 160M50 35Q53 77 43 105T47 160M67 31Q60 64 69 102T64 160M93 31Q101 65 89 97T93 160M110 31Q105 77 113 105T110 160" fill="none" stroke="#39251f" stroke-width="4" opacity=".52"/>
+      <path d="M22 53Q29 79 22 115V160M55 58Q48 92 55 125V160M78 34Q84 66 75 97T77 160M103 42Q96 78 103 109V160" fill="none" stroke="#c09563" stroke-width="2" opacity=".48"/>
+      <path d="M9 21Q12 7 55 1 97-3 119 18L117 28 108 34 85 39 57 40 33 36 17 32Z" fill="url(#cut)"/>
+      <path d="M20 23Q49 5 100 13T96 27Q65 40 32 28T75 10M34 24Q56 13 86 17T79 26Q57 31 43 25" fill="none" stroke="#604027" stroke-width="1.5" opacity=".74"/>
+      <path d="m11 31 12 4 7 11 13 4-10 8-15-6-9 2m97-15 13-7v28l-7-6-12 5-8-7Z" fill="#526043"/>
+    </g>
+    <g id="rot">
+      <use href="#stem"/>
+      <path d="m43 7 11 15-6 17 8 19-4 29m40-79-12 14 6 12-9 22m-56-34 10 7-5 13 5 20" fill="none" stroke="#38241b" stroke-width="3"/>
+      <path d="M17 82q-10-9-15-2-3 5 12 10l13-2q4-8-10-6Zm9 14q-11-7-16 1 1 7 20 7l8-5Z" fill="#b18b57"/>
+      <path d="M92 83q15-13 26-3 5 7-12 12l-18-2Z" fill="#876747"/>
+      <path d="m58 70 7-7 8 6 5 18-9 17-10-8Z" fill="#34231b" opacity=".8"/>
+    </g>
+    <g id="hollow">
+      <use href="#stem"/>
+      <path d="M23 21 33 13 51 8 64 12 85 9 101 14 108 21 97 29 79 33 58 34 39 30Z" fill="url(#cavity)" stroke="#6b472b" stroke-width="2"/>
+      <path d="m24 23 16 7 20 3 19-1 20-6 8-6" fill="none" stroke="#d2a369" stroke-width="2"/>
+      <path d="M49 52 62 42 76 47 84 65 80 95 68 110 54 103 45 83Z" fill="url(#cavity)" stroke="#bc8c57" stroke-width="2.5"/>
+      <path d="m62 49 3-18m14 62 13 16-3 13M45 81l-10 11 5 13" fill="none" stroke="#442a1f" stroke-width="3"/>
+    </g>
+    <g id="fracture">
+      <path d="m55 0 9 23-11 15 16 15-10 17 9 28-6 22 8 23m-8-75-17 10-8 20m27-45 14-7 11 7" fill="none" stroke="#d3a370" stroke-width="6"/>
+      <path d="m55 0 9 23-11 15 16 15-10 17 9 28-6 22 8 23m-8-75-17 10-8 20m27-45 14-7 11 7" fill="none" stroke="#2c1b15" stroke-width="3"/>
+    </g>
+    <g id="debris">
+      <path d="m14 46 19-24 14 2-11 32-15 8Zm39 32 23-15-2 22-17 14-8-7Zm33-43 9-22 22 10-6 24-20 8Zm10 71 19-12-3 21-12 9Zm-79 7 15-7-4 18-14 12Z" fill="url(#bark)" stroke="#4c3023" stroke-width="2"/>
+      <path d="m19 44 16-16 7-1-9 17Zm73-9 7-15 13 6-5 9ZM57 79l15-10-5 12Z" fill="#c3955f"/>
+      <path d="m4 74 8-5-2 12Zm73 36 9-4-3 12Zm38-53 8-6-2 14ZM42 46l7-4-2 12Z" fill="#9b6946"/>
+    </g>
+  </defs>
+  <use href="#rot"/>
+  <g transform="translate(128)"><use href="#rot"/><use href="#fracture"/></g>
+  <use href="#debris" x="256"/>
+  <use href="#hollow" y="160"/>
+  <g transform="translate(128 160)"><use href="#hollow"/><use href="#fracture"/></g>
+  <g transform="translate(384 160) scale(-1 1)"><use href="#debris"/></g>
+</svg>
