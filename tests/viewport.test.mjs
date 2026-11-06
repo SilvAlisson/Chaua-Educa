@@ -33,9 +33,9 @@ test('notebook game objects grow rather than shrinking the 640-high world',()=>{
   assert.ok(v.worldHeight<640,'notebook must use vertical framing, not a full-world shrink');
  }
 });
-test('portrait improves object size; offscreen warnings are pinned to the edge',()=>{
+test('portrait preserves predator reaction time and pins offscreen warnings to the edge',()=>{
  const v=flightViewport(390,844);
- assert.ok(v.scale/(390/720)>1.2);
+ assert.ok((v.worldLeft+v.worldWidth-270)/350>=1.65);
  const pending={x:960,bottom:442,snake:{phase:'warning'}};
  const message={...snakeWarningPosition(v,pending,true),w:136,h:26};
  const [placed]=placeWarnings([message],v);

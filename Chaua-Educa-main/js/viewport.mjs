@@ -14,10 +14,12 @@ export function flightViewport(width,height,safe={}) {
     const usableWidth=Math.max(1,width-left-right),usableHeight=Math.max(1,height-top-bottom);
     // On short windows show a vertically tracked slice of the world instead
     // of shrinking all sprites to fit 640 logical pixels at once.
-    const referenceWidth=portrait?520:960;
+    // Portrait needs at least 1.65s of visible predator approach at max speed.
+    // Preserve its safe sightline rather than enlarging sprites at the cost of reaction time.
+    const referenceWidth=portrait?720:960;
     const referenceHeight=portrait?640:compact?500:notebook?520:640;
     const scale=Math.max(.01,Math.min(usableWidth/referenceWidth,usableHeight/referenceHeight));
-    const worldLeft=portrait?100:0;
+    const worldLeft=portrait?130:0;
     const worldWidth=usableWidth/scale;
     const h=Math.min(usableHeight,WORLD_HEIGHT*scale);
     const worldHeight=h/scale;
