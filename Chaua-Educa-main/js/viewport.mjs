@@ -1,23 +1,47 @@
-// The visible world and the advertised warning distance must agree on every screen.
+// Responsive world camera. Canvas pixel resolution stays independent from
+// gameplay scale, and all game physics continue in the original 960x640 world.
+const WORLD_HEIGHT=640;
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+
 export function flightViewport(width,height,safe={}) {
     const left=safe.left||0,right=safe.right||0;
-    const compact=height<=500,portrait=width<=700&&height>width;
-    const top=(safe.top||0)+(compact?58:124);
-    const bottom=(safe.bottom||0)+(compact?64:104);
+    const compact=height<=500;
+    const portrait=width<=700&&height>width;
+    const notebook=!portrait&&!compact&&height<=850;
+    // HUD occupies separate screen-space bands rather than being zoomed.
+    const top=(safe.top||0)+(compact?58:notebook?96:124);
+    const bottom=(safe.bottom||0)+(compact?64:notebook?64:104);
     const usableWidth=Math.max(1,width-left-right),usableHeight=Math.max(1,height-top-bottom);
-    const worldLeft=portrait?130:0,minimumWidth=portrait?720:960;
-    const scale=Math.max(.01,Math.min(usableWidth/minimumWidth,usableHeight/640));
-    const worldWidth=usableWidth/scale,w=worldWidth*scale,h=640*scale;
-    return {portrait,scale,worldLeft,worldWidth,x:left,y:top+(usableHeight-h)/2,w,h};
-}
-export function warningPosition(view,worldY){
-    return {x:view.x+view.w-112,y:Math.max(view.y+4,Math.min(view.y+view.h-40,view.y+worldY*view.scale-18))};
+    // On short windows show a vertically tracked slice of the world instead
+    // of shrinking all sprites to fit 640 logical pixels at once.
+    const referenceWidth=portrait?520:960;
+    const referenceHeight=portrait?640:compact?500:notebook?520:640;
+    const scale=Math.max(.01,Math.min(usableWidth/referenceWidth,usableHeight/referenceHeight));
+    const worldLeft=portrait?100:0;
+    const worldWidth=usableWidth/scale;
+    const h=Math.min(usableHeight,WORLD_HEIGHT*scale);
+    const worldHeight=h/scale;
+    const w=worldWidth*scale;
+    return {portrait,scale,worldLeft,worldWidth,worldHeight,worldTop:0,
+        x:left,y:top+(usableHeight-h)/2,w,h};
 }
 
-// The A2 snake rises farther above the perch than the legacy mesh. Keep the
-// warning outside its face while retaining the historical fallback layout.
+// The camera is a presentation-only vertical offset: it never changes
+// collision coordinates, spawn locations, speeds or flight controls.
+export function flightCameraTop(view,playerY){
+    if(view.worldHeight>=WORLD_HEIGHT)return 0;
+    const target=playerY-view.worldHeight*.5;
+    return clamp(target,0,WORLD_HEIGHT-view.worldHeight);
+}
+export function warningPosition(view,worldY){
+    const yy=(worldY-(view.worldTop||0))*view.scale;
+    return {x:view.x+view.w-112,
+        y:clamp(view.y+yy-18,view.y+4,view.y+view.h-40)};
+}
+
+// The A2 snake rises farther above the perch than the legacy mesh.
 export function snakeWarningPosition(view,wood,a2Ready=false){
     const clearance=a2Ready?245:155;
     return {x:view.x+(wood.x-view.worldLeft)*view.scale-30,
-        y:view.y+(wood.bottom-clearance)*view.scale};
+        y:view.y+(wood.bottom-clearance-(view.worldTop||0))*view.scale};
 }

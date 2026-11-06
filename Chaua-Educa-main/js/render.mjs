@@ -9,7 +9,7 @@ import {SPRITES} from './sprite-data.mjs';
 import {birdAnimation,hawkAnimation,snakePlacement,placeWarnings} from './animation.mjs';
 import {hawkAngle} from './collision.mjs';
 import { canvasResolution } from './quality.mjs';
-import { flightViewport, warningPosition, snakeWarningPosition } from './viewport.mjs';
+import { flightViewport, flightCameraTop, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
 import { FRUITS } from './fruits.mjs';
@@ -894,7 +894,28 @@ export class Renderer {
         const c = this.c;
         const sceneTime = game.sceneTime ?? game.elapsed;
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4));
-        const view = this.getViewport();
+        const baseView = this.getViewport();
+        // Follow the player only on screens that cannot fit the full world at
+        // the improved sprite scale. The camera does not touch gameplay math.
+        const desiredTop=flightCameraTop(baseView,game.y);
+        if(!Number.isFinite(this.cameraTop)||this.cameraViewHeight!==baseView.worldHeight||
+           !Number.isFinite(this.cameraTime)||sceneTime<this.cameraTime){
+            this.cameraTop=desiredTop;
+        }else if(baseView.worldHeight>=HEIGHT){
+            this.cameraTop=0;
+        }else{
+            const dt=Math.min(.08,Math.max(0,sceneTime-this.cameraTime));
+            this.cameraTop+=(desiredTop-this.cameraTop)*(1-Math.exp(-10*dt));
+            // No amount of easing should let the bird disappear past the
+            // safe playing area while the player holds a flap.
+            const margin=Math.min(80,baseView.worldHeight*.18);
+            this.cameraTop=Math.max(game.y-baseView.worldHeight+margin,
+                Math.min(this.cameraTop,game.y-margin));
+            this.cameraTop=Math.max(0,Math.min(HEIGHT-baseView.worldHeight,this.cameraTop));
+        }
+        this.cameraTime=sceneTime;
+        this.cameraViewHeight=baseView.worldHeight;
+        const view={...baseView,worldTop:this.cameraTop};
         const s = view.scale;
         // Tiny, muted butterflies stay in the distant layer; no pickup glow or collision.
         c.save();c.globalAlpha=.32;
@@ -914,9 +935,9 @@ export class Renderer {
             shakeX = Math.sin(game.shakeTime * 65) * mag;
             shakeY = Math.cos(game.shakeTime * 80) * mag;
         }
-        c.save(); c.beginPath(); c.rect(view.x, 0, view.w, this.h); c.clip();
-        c.translate(view.x - view.worldLeft * s + shakeX, view.y + shakeY); c.scale(s, s);
-        c.beginPath(); c.rect(view.worldLeft - 120, -600, Math.max(WIDTH, view.worldWidth) + 240, HEIGHT + 1200); c.clip();
+        c.save(); c.beginPath(); c.rect(view.x, view.y, view.w, view.h); c.clip();
+        c.translate(view.x - view.worldLeft * s + shakeX, view.y - view.worldTop * s + shakeY); c.scale(s, s);
+        c.beginPath(); c.rect(view.worldLeft - 120, view.worldTop - 600, Math.max(WIDTH, view.worldWidth) + 240, view.worldHeight + 1200); c.clip();
         if (game.pepper > 0) {
             c.save();
             const remaining = Math.min(1, game.pepper / 2);

@@ -35,6 +35,7 @@ jobs:
           npm run test:visual
           npm run test:immersion
           npm run test:browser
+          node tests/browser-responsive-camera.cjs
           npm run test:journey
           npm run test:background
           node tests/browser-transition-fallback.cjs
