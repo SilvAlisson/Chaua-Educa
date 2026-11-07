@@ -1,3 +1,5 @@
+import {images as gameImages} from './assets.mjs';
+import {snakeRigHits} from './art-v11.mjs';
 import {SNAKE_TIMING} from './animals.mjs';
 import {snakePlacement} from './animation.mjs';
 import {shapesHitRect} from './collision.mjs';
@@ -67,7 +69,9 @@ function candidateRange(value,halfSize,center,anchor,factor){
 // Collision follows the current illustrated pose, including sprite mirroring.
 // When the WebP art is absent, Game keeps the exact original collision path.
 export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
- if(!isSnakeA2Ready()||!wood?.snake||wood.snake.retreat)return false;
+ if(!wood?.snake||wood.snake.retreat)return false;
+ if(gameImages.has('v11-snake'))return snakeRigHits(wood,playerPolygons,reduced);
+ if(!isSnakeA2Ready())return false;
  const pose=snakeA2Pose(wood.snake,reduced),mask=collisionMasks.get(pose.key)?.[pose.frame];
  if(!mask)return false;
  const place=snakePlacement(wood),flip=snakeA2NeedsMirror(pose);
@@ -89,6 +93,7 @@ export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
 // a visible air gap around the snake.
 export function snakeA2FruitHasClearance(wood,x,y,radius=62){
  const place=snakePlacement(wood);
+ if(gameImages.has('v11-snake')&&Math.abs(x-place.x)<165&&y>place.y-200&&y<place.y+65)return false;
  if(!isSnakeA2Ready()){
   const dx=Math.abs(x-place.x),dy=place.y-y;
   if(dx<100&&dy>0&&dy<225)return false;

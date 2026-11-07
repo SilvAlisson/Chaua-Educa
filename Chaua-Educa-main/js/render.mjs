@@ -1,3 +1,4 @@
+import {drawBirdRig,drawSnakeRig,part} from './art-v11.mjs';
 import {breeze,treeBend} from './living-motion.mjs';
 import {drawForestLife} from './forest-life.mjs';
 import {HAWK_ART,hawkUsesActionArt} from './hawk-geometry.mjs';
@@ -115,7 +116,8 @@ function animatedBird(c,p){
     }
     if(turbo&&!perched&&!reduced)drawTurboFlames(c,size,time);
     const action=parrotAction({...p,time,wing:p.wing,reduced,perched,landing,defeated,surprise,impactProgress});
-    const newSprite=!!action&&drawActionSheet(c,action.sheet,action.frame,-77*scale,-77*scale,154*scale,154*scale);
+    const rig=!defeated&&!surprise&&!perched&&landing===null&&drawBirdRig(c,'parrot',p);
+    const newSprite=rig||!!action&&drawActionSheet(c,action.sheet,action.frame,-77*scale,-77*scale,154*scale,154*scale);
     if(!newSprite){
         if(perched&&!surprise&&!defeated&&landing===null)perchedSprite(c,clip,factor);
         else atlasAnimation(c,'chaua',clip,factor);
@@ -875,6 +877,10 @@ export class Renderer {
         }
         c.fill();
         c.restore();
+        if(!reduced&&seasonal){
+            const red=seasonDistance>=14000&&seasonDistance<20000;
+            for(let i=0;i<2;i++){c.save();c.translate(i?w+12:-12,i? h-24:24);c.rotate(breeze(time,wind,false,i*150)*.035);part(c,'forest',(red?12:8)+i,0,0,110,68);c.restore();}
+        }
         if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
         drawForestLife(c,w,h,time,seasonDistance??0,rain,wind,reduced,this.decoration==='low');
         drawJourneyFog(c, w, h, fog);
@@ -1243,7 +1249,7 @@ export class Renderer {
     snake(wood,reduced){
         const s=wood.snake,place=snakePlacement(wood),c=this.c;
         c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
-        if(!drawSnakeA2(c,s,place.factor,reduced)){
+        if(!drawSnakeRig(c,s,place.factor,reduced)&&!drawSnakeA2(c,s,place.factor,reduced)){
             const wrap=images.get('snake-wrap');
             if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
             // Rejected legacy snake sheet includes a duplicate coil and must
@@ -1291,8 +1297,8 @@ export class Renderer {
         const action=hawkAction(entity,time,reduced) ?? (reduced&&hawkUsesActionArt(entity)?{sheet:entity.retreat?'hawk-stunned':'hawk-flight',frame:entity.retreat?2:0}:null);
         c.save();c.translate(x,y+dynamicY+(action?.offsetY||0));
         c.rotate(cAngle+dynamicAngle+(action?.angle||0));
-        let newHawk=false;
-        if(action){
+        let newHawk=!retreat&&drawBirdRig(c,'hawk',{...entity,time,reduced});
+        if(action&&!newHawk){
             const draw=(layer,frame)=>drawActionSheet(layer,action.sheet,frame,-HAWK_ART.size/2,-HAWK_ART.size/2,HAWK_ART.size,HAWK_ART.size);
             if(action.blend>0&&hawkUsesActionArt(entity)){
                 blendSprite(c,layer=>draw(layer,action.frame),layer=>draw(layer,action.next),action.blend,180);newHawk=true;

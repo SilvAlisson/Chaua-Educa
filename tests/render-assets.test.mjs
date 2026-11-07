@@ -44,8 +44,9 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  r.game(g,false);
  r.game(g,true);
  r.setQuality('low');r.game(g,false);assert.equal(r.dpr,1);
- for(const name of ['forest','chaua-atlas','snake-atlas','hawk-atlas','shield','feather'])
+ for(const name of ['forest','chaua-atlas','shield','feather'])
   assert.ok(calls.some(url=>url.endsWith(`/${name}.webp`)),`${name} must be rendered`);
+ for(const name of ['parrot','hawk','snake'])assert.ok(calls.some(url=>url.endsWith('/v11/'+name+'.webp')),name+' rig must be rendered');
  assert.ok(calls.some(url=>url.endsWith('/tree-variants.webp')));
  assert.equal(images.size,Object.keys(ASSET_PATHS).length);
 });
