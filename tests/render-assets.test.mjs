@@ -14,7 +14,8 @@ test('every art URL resolves to a real WebP in the served directory',()=>{
 test('flap uses four authored poses and glide keeps a stable pose',()=>{
  assert.deepEqual([1,.7,.45,.2,0].map(w=>flightPose(w)),[0,2,3,1,1]);assert.equal(flightPose(1,true),1);
 });
-test('render paths draw authored art for home, flight, obstacles, enemies and powers',async()=>{
+test('render paths draw authored art for home, flight, obstacles, enemies and powers',async(t)=>{
+ t.after(()=>{delete globalThis.OffscreenCanvas;});
  globalThis.window={devicePixelRatio:1};
  globalThis.Image=class {
   naturalWidth=627;naturalHeight=627;complete=true;
@@ -22,10 +23,11 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  };
  const calls=[];
  const ctx=new Proxy({}, {get(target,key){
-  if(key==='drawImage')return (img,...args)=>{assert.ok(args.every(Number.isFinite));calls.push(img.url);};
+  if(key==='drawImage')return (img,...args)=>{assert.ok(args.every(Number.isFinite));calls.push(img.url ?? "cached-surface");};
   if(key==='createLinearGradient'||key==='createRadialGradient')return ()=>({addColorStop(){}});
   return target[key]??(()=>{});
  },set(target,key,value){target[key]=value;return true;}});
+ globalThis.OffscreenCanvas=class {constructor(w,h){this.width=w;this.height=h;} getContext(){return ctx;}};
  const canvas={getContext:()=>ctx,getBoundingClientRect:()=>({width:960,height:640})};
  const r=new Renderer(canvas);await r.ready;
  r.home(1,false);

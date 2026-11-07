@@ -1,3 +1,4 @@
+import {SeasonalBackdrop,drawSeasonParticles} from './seasons.mjs';
 import {drawContinuousSnake} from './snake-render.mjs';
 import {drawSnakeA2,preloadSnakeA2,isSnakeA2Ready} from './snake-a2.mjs';
 import {parrotAction,hawkAction} from './action-states.mjs';
@@ -768,12 +769,13 @@ export class Renderer {
         }
         return normal;
     }
-    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0) {
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0, seasonDistance = null) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const palette=BACKGROUND_PALETTE;
         const light = reduced||stageMix===1 ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], stageMix);
-        const forest=images.get('forest');
+        const seasonal=seasonDistance!==null && images.get('season-backgrounds');
+        const forest=seasonal?null:images.get('forest');
         const backdropMix=stageMix===1?1:Math.round(Math.max(0,Math.min(1,stageMix))*64)/64;
         const backdropLight=stageMix===1?light:mixColor(palette[Math.max(0,stage-1)],palette[stage],backdropMix);
         const backdropAlpha=stage===2?1-.4*backdropMix:stage===3?.6+.4*backdropMix:1;
@@ -788,7 +790,7 @@ export class Renderer {
         if(cachedBackdrop){
             c.save();c.setTransform(1,0,0,1,0,0);
             c.drawImage(cachedBackdrop.surface,0,0);c.restore();
-        }else this.skyLayer(light,stage===2&&stageMix===1);
+        }else if(!seasonal)this.skyLayer(light,stage===2&&stageMix===1);
         for (let layer = 0; !images.has('forest') && layer < 3; layer++) {
             const gap = 180 - layer * 25, travel = (offset * (.07 + layer * .06)) % gap;
             c.globalAlpha = .12 + layer * .08;
@@ -807,6 +809,10 @@ export class Renderer {
             c.save();c.globalAlpha=stage===2?1-.4*stageMix:stage===3?.6+.4*stageMix:1;
             this.drawForestSource(c,forest,drift*this.dpr);
             c.restore();
+        }
+        if(seasonal){
+            this.seasonalBackdrop ??= new SeasonalBackdrop();
+            this.seasonalBackdrop.draw(c,seasonal,w,h,this.dpr,time,seasonDistance,reduced);
         }
         if(this.decoration!=='low') {
             c.save();c.globalAlpha=.08;c.fillStyle='#e6f0d9';
@@ -844,6 +850,7 @@ export class Renderer {
         }
         c.fill();
         c.restore();
+        if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
         drawJourneyFog(c, w, h, fog);
         drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm);
         if (wind > 0 && !reduced) {
@@ -916,7 +923,7 @@ export class Renderer {
         const sceneTime = game.sceneTime ?? game.elapsed;
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
             journeyRain(game.distance, game.tutorial), journeyStorm(game.distance, game.mode, game.tutorial),
-            journeyFog(game.distance, game.tutorial), journeyWind(game.distance, game.mode, game.tutorial));
+            journeyFog(game.distance, game.tutorial), journeyWind(game.distance, game.mode, game.tutorial), game.tutorial?null:game.distance);
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.

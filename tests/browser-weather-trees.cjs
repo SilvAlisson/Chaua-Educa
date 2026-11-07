@@ -19,7 +19,7 @@ const fs=require('node:fs');
     window.renderer=new Renderer(canvas);await renderer.ready;
     window.game=new Game();game.state='playing';game.y=320;game.stageAge=5;
    });
-   for(const [name,distance] of [['dawn',0],['storm',11000],['wind',16500],['clear',20000]]){
+   for(const [name,distance] of [['dawn',0],['summer',8000],['storm',11000],['transition',14900],['wind',16500],['clear',22000]]){
     const info=await page.evaluate(({distance})=>{
      game.distance=distance;game.stage=Math.min(3,Math.floor(distance/7000));game.sceneTime=42;
      game.entities=[

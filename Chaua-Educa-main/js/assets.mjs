@@ -4,6 +4,8 @@ import { FRUITS } from './fruits.mjs';
 export const ASSET_PATHS = Object.fromEntries([
  ...['chaua','hawk'].map(k=>[`${k}-atlas`,`../assets/v6/${k}-atlas.webp`]),
  ['snake-atlas','../assets/v7/snake-atlas.webp'],
+ ['season-backgrounds','../assets/v10/season-backgrounds.webp'],
+ ['season-particles','../assets/v10/season-particles.webp'],
  ['tree-variants','../assets/v9/tree-variants.webp'],
  ['snake-wrap','../assets/v8/snake-wrap.webp'],
  ...['lower','upper'].map(k=>[`trees-${k}`,`../assets/v7/trees-${k}.webp`]),
