@@ -1,9 +1,10 @@
+import {SeasonalBackdrop,drawSeasonParticles} from './seasons.mjs';
 import {drawContinuousSnake} from './snake-render.mjs';
 import {drawSnakeA2,preloadSnakeA2,isSnakeA2Ready} from './snake-a2.mjs';
 import {parrotAction,hawkAction} from './action-states.mjs';
 import {drawActionSheet,preloadActionSheets,ACTION_SPRITES_ENABLED} from './action-sheets.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
-import {drawLivingTrunk,drawRefugeTree} from './tree-art.mjs';
+import {drawLivingTrunk,drawTreeVariant,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
 import {birdAnimation,hawkAnimation,snakePlacement,placeWarnings} from './animation.mjs';
@@ -12,6 +13,7 @@ import { canvasResolution } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
+import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawJourneyFog } from './weather.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 
@@ -767,12 +769,13 @@ export class Renderer {
         }
         return normal;
     }
-    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1) {
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0, seasonDistance = null) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const palette=BACKGROUND_PALETTE;
         const light = reduced||stageMix===1 ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], stageMix);
-        const forest=images.get('forest');
+        const seasonal=seasonDistance!==null && images.get('season-backgrounds');
+        const forest=seasonal?null:images.get('forest');
         const backdropMix=stageMix===1?1:Math.round(Math.max(0,Math.min(1,stageMix))*64)/64;
         const backdropLight=stageMix===1?light:mixColor(palette[Math.max(0,stage-1)],palette[stage],backdropMix);
         const backdropAlpha=stage===2?1-.4*backdropMix:stage===3?.6+.4*backdropMix:1;
@@ -787,7 +790,7 @@ export class Renderer {
         if(cachedBackdrop){
             c.save();c.setTransform(1,0,0,1,0,0);
             c.drawImage(cachedBackdrop.surface,0,0);c.restore();
-        }else this.skyLayer(light,stage===2&&stageMix===1);
+        }else if(!seasonal)this.skyLayer(light,stage===2&&stageMix===1);
         for (let layer = 0; !images.has('forest') && layer < 3; layer++) {
             const gap = 180 - layer * 25, travel = (offset * (.07 + layer * .06)) % gap;
             c.globalAlpha = .12 + layer * .08;
@@ -806,6 +809,10 @@ export class Renderer {
             c.save();c.globalAlpha=stage===2?1-.4*stageMix:stage===3?.6+.4*stageMix:1;
             this.drawForestSource(c,forest,drift*this.dpr);
             c.restore();
+        }
+        if(seasonal){
+            this.seasonalBackdrop ??= new SeasonalBackdrop();
+            this.seasonalBackdrop.draw(c,seasonal,w,h,this.dpr,time,seasonDistance,reduced);
         }
         if(this.decoration!=='low') {
             c.save();c.globalAlpha=.08;c.fillStyle='#e6f0d9';
@@ -832,7 +839,8 @@ export class Renderer {
         c.save();c.globalAlpha=.10;c.fillStyle=transition===1?TINT_PALETTE[stage]:mixColor(TINT_PALETTE[Math.max(0,stage-1)],TINT_PALETTE[stage],transition);c.fillRect(0,0,w,h);c.restore();
         // Sunlight and shade breathe slowly with the same wind as leaves and vines.
         c.fillStyle = '#ffffcb10';
-        c.save();c.translate(reduced?0:Math.sin(time*.22)*18,0);
+        c.save();c.globalAlpha = 1 - rain * .9;
+        c.translate(reduced?0:Math.sin(time*.22)*18,0);
         c.beginPath();
         for (let i = 0; i < 3; i++) {
             c.moveTo(w * .65 + i * 95, 0);
@@ -842,6 +850,25 @@ export class Renderer {
         }
         c.fill();
         c.restore();
+        if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
+        drawJourneyFog(c, w, h, fog);
+        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm);
+        if (wind > 0 && !reduced) {
+            c.save();
+            c.globalAlpha = wind * .24;
+            c.strokeStyle = '#e2edcb';
+            c.beginPath();
+            const streaks = this.decoration === 'low' ? 8 : 18;
+            for (let i = 0; i < streaks; i++) {
+                const x = w + 32 - ((i * 137.7 + time * 250) % (w + 64));
+                const y = (i * 93.4) % h;
+                c.moveTo(x, y);
+                c.quadraticCurveTo(x - 12, y - 4, x - 26, y + 1);
+            }
+            c.stroke();
+            c.restore();
+        }
+        c.save();c.globalAlpha = 1 - rain;
         c.fillStyle = '#ffedb275';
         c.beginPath();
         const dustCount = this.decoration==='low'?8:23;
@@ -852,6 +879,7 @@ export class Renderer {
             c.arc(x, y, 1.6, 0, TAU);
         }
         c.fill();
+        c.restore();
         if (home) {
             const wash = c.createLinearGradient(0, 0, w * .7, 0);
             wash.addColorStop(0, '#f1f2da'); wash.addColorStop(.66, '#f0f1d9ef'); wash.addColorStop(1, '#e7edcb00');
@@ -893,7 +921,9 @@ export class Renderer {
         }
         const c = this.c;
         const sceneTime = game.sceneTime ?? game.elapsed;
-        this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4));
+        this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
+            journeyRain(game.distance, game.tutorial), journeyStorm(game.distance, game.mode, game.tutorial),
+            journeyFog(game.distance, game.tutorial), journeyWind(game.distance, game.mode, game.tutorial), game.tutorial?null:game.distance);
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.
@@ -921,6 +951,17 @@ export class Renderer {
             shakeX = Math.sin(game.shakeTime * 65) * mag;
             shakeY = Math.cos(game.shakeTime * 80) * mag;
         }
+        // Trees continue into the canopy and ground outside the flight corridor.
+        // Keep horizontal camera clipping, but do not cut their trunks at the HUD.
+        c.save(); c.beginPath(); c.rect(view.x, 0, view.w, this.h); c.clip();
+        c.translate(view.x - view.worldLeft * s + shakeX, view.y - view.worldTop * s + shakeY);
+        c.scale(s, s);
+        for (const e of game.entities) {
+            if (e.kind === 'wood' && (this.drawOffscreenEntitiesForTest === true ||
+                !Number.isFinite(e.x) || (e.x >= view.worldLeft - 320 &&
+                e.x <= view.worldLeft + view.worldWidth + 320))) this.obstacle(e, game, reduced);
+        }
+        c.restore();
         c.save(); c.beginPath(); c.rect(view.x, view.y, view.w, view.h); c.clip();
         c.translate(view.x - view.worldLeft * s + shakeX, view.y - view.worldTop * s + shakeY); c.scale(s, s);
         c.beginPath(); c.rect(view.worldLeft - 120, view.worldTop - 600, Math.max(WIDTH, view.worldWidth) + 240, view.worldHeight + 1200); c.clip();
@@ -991,9 +1032,8 @@ export class Renderer {
             const margin=e.kind==='wood'?320:e.kind==='hawk'?180:100;
             const drawSprite=this.drawOffscreenEntitiesForTest===true||
                 !Number.isFinite(e.x)||(e.x>=visibleLeft-margin&&e.x<=visibleRight+margin);
-            if (e.kind === 'wood') {
-                if(drawSprite)this.obstacle(e, game, reduced);
-            } else if (e.kind === 'hawk') {
+            if (e.kind === 'wood') continue;
+            if (e.kind === 'hawk') {
                 if (e.warning > 0 || (!e.harmless && e.x>game.x+180)) {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
                     c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
@@ -1104,11 +1144,36 @@ export class Renderer {
     }
 
     obstacle(e, game, reduced=false) {
-        const c=this.c,time=reduced?0:(game.sceneTime??game.elapsed),variant=(e.id??0)%3,cx=e.x+29;
-        if(!e.broken||e.brokenSide!=='top')this.trunk(`trunk-${variant}`,null,cx,e.top,true,time,variant);
-        if(!e.broken||e.brokenSide!=='bottom'){
-            this.trunk(`trunk-${variant}`,null,cx,e.bottom,false,time,e.variant==='branch'?3:variant);
-            if(e.snake)this.snake(e,reduced);
+        const c = this.c;
+        const time = game.sceneTime ?? game.elapsed;
+        const variant = (e.id ?? 0) % 3;
+        const x = e.x + 29;
+        const wind = reduced ? 0 : journeyWind(game.distance, game.mode, game.tutorial);
+        const sway = wind * .008 * Math.sin(time * 4 + (e.id ?? 0));
+        for (const side of ['top', 'bottom']) {
+            const upper = side === 'top';
+            const y = e[side];
+            const broken = e.broken && e.brokenSide === side;
+            if (broken && (reduced || !e.breakFx)) continue;
+            if (e.fragileSide === side) {
+                drawTreeVariant(c, x, y, upper, e.fragileKind, broken ? e.breakFx.age : undefined);
+                continue;
+            }
+            if (broken) continue;
+            const hit = game.hit;
+            const recoil = !reduced && hit?.id === e.id && hit.side === side
+                ? .012 * Math.sin(hit.age * 33) * (1 - hit.age / .3)
+                : 0;
+            const lean = sway + recoil;
+            if (lean) {
+                c.save();
+                c.transform(1, 0, lean, 1, -lean * y, 0);
+            }
+            if (e.decorSide === side) drawTreeVariant(c, x, y, upper, e.decorKind);
+            else this.trunk(`trunk-${variant}`, null, x, y, upper, time,
+                !upper && e.variant === 'branch' ? 3 : variant);
+            if (!upper && e.snake) this.snake(e, reduced);
+            if (lean) c.restore();
         }
     }
     trunk(key,preset,x,y,flip,time=0,variant=0){
