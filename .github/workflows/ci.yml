@@ -36,6 +36,7 @@ jobs:
           npm run test:immersion
           npm run test:browser
           node tests/browser-responsive-camera.cjs
+          node tests/browser-weather-trees.cjs
           npm run test:journey
           npm run test:background
           node tests/browser-transition-fallback.cjs
@@ -49,5 +50,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: auto-visual-captures
-          path: test-results/auto-visual/
+          path: |
+            test-results/auto-visual/
+            test-results/weather-trees/
           if-no-files-found: ignore

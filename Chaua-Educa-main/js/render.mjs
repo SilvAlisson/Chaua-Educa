@@ -944,6 +944,17 @@ export class Renderer {
             shakeX = Math.sin(game.shakeTime * 65) * mag;
             shakeY = Math.cos(game.shakeTime * 80) * mag;
         }
+        // Trees continue into the canopy and ground outside the flight corridor.
+        // Keep horizontal camera clipping, but do not cut their trunks at the HUD.
+        c.save(); c.beginPath(); c.rect(view.x, 0, view.w, this.h); c.clip();
+        c.translate(view.x - view.worldLeft * s + shakeX, view.y - view.worldTop * s + shakeY);
+        c.scale(s, s);
+        for (const e of game.entities) {
+            if (e.kind === 'wood' && (this.drawOffscreenEntitiesForTest === true ||
+                !Number.isFinite(e.x) || (e.x >= view.worldLeft - 320 &&
+                e.x <= view.worldLeft + view.worldWidth + 320))) this.obstacle(e, game, reduced);
+        }
+        c.restore();
         c.save(); c.beginPath(); c.rect(view.x, view.y, view.w, view.h); c.clip();
         c.translate(view.x - view.worldLeft * s + shakeX, view.y - view.worldTop * s + shakeY); c.scale(s, s);
         c.beginPath(); c.rect(view.worldLeft - 120, view.worldTop - 600, Math.max(WIDTH, view.worldWidth) + 240, view.worldHeight + 1200); c.clip();
@@ -1014,9 +1025,8 @@ export class Renderer {
             const margin=e.kind==='wood'?320:e.kind==='hawk'?180:100;
             const drawSprite=this.drawOffscreenEntitiesForTest===true||
                 !Number.isFinite(e.x)||(e.x>=visibleLeft-margin&&e.x<=visibleRight+margin);
-            if (e.kind === 'wood') {
-                if(drawSprite)this.obstacle(e, game, reduced);
-            } else if (e.kind === 'hawk') {
+            if (e.kind === 'wood') continue;
+            if (e.kind === 'hawk') {
                 if (e.warning > 0 || (!e.harmless && e.x>game.x+180)) {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
                     c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();

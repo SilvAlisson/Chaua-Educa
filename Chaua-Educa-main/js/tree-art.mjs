@@ -47,8 +47,17 @@ export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
  c.translate(x, y);
  if (upper) c.scale(1, -1);
  if (breakAge === undefined || breakAge < .055) {
-  c.drawImage(image, sx + (TREE_CELL - TREE_CORE_WIDTH) / 2, sy + splice, TREE_CORE_WIDTH, 1,
-   -TREE_WIDTH / 2, join - .5, TREE_WIDTH, 1000 - join + .5);
+  // Repeat a reflected bark band at native scale. Stretching a scanline
+  // turned grooves and moss into long vertical stripes on portrait screens.
+  const bandHeight = 96, tileHeight = bandHeight * scale;
+  for (let pos = join - .5, tile = 0; pos < 1000; pos += tileHeight, tile++) {
+   c.save();
+   c.translate(0, pos + (tile % 2 === 0 ? tileHeight : 0));
+   if (tile % 2 === 0) c.scale(1, -1);
+   c.drawImage(image, sx + (TREE_CELL - TREE_CORE_WIDTH) / 2, sy + splice - bandHeight,
+    TREE_CORE_WIDTH, bandHeight, -TREE_WIDTH / 2, 0, TREE_WIDTH, tileHeight + .5);
+   c.restore();
+  }
   c.drawImage(image, sx, sy + TREE_CAP_Y, TREE_CELL, splice - TREE_CAP_Y,
    left, 0, TREE_CELL * scale, join);
   if (breakAge !== undefined) {
@@ -65,17 +74,25 @@ export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
  } else {
   const elapsed = breakAge - .055;
   c.globalAlpha *= Math.max(0, 1 - elapsed / .185);
-  // Break the painted cap into strips with diverging motion. The physics
-  // already removed this side when the collision occurred.
-  const stripWidth = 38;
+  // Shared jagged edges preserve the whole painted cap at the start of
+  // the break. Each piece rotates about its own center, with world gravity.
+  const edges = [-TREE_CELL * scale / 2, -19, 19, TREE_CELL * scale / 2];
   for (let i = 0; i < 3; i++) {
    const direction = i - 1;
-   const offset = (TREE_CELL - 3 * stripWidth) / 2 + i * stripWidth;
+   const l = edges[i], r = edges[i + 1], center = (l + r) / 2;
+   const fall = elapsed * 100 + 700 * elapsed * elapsed;
    c.save();
-   c.translate(direction * elapsed * 115, elapsed * (100 + i * 85));
+   c.translate(center + direction * elapsed * 115, join / 2 + (upper ? -fall : fall));
    c.rotate(direction * elapsed * 2);
-   c.drawImage(image, sx + offset, sy + TREE_CAP_Y, stripWidth, 96,
-    left + offset * scale, i * 9, stripWidth * scale, 96 * scale);
+   c.translate(-center, -join / 2);
+   c.beginPath();
+   c.moveTo(l, 0); c.lineTo(r, 0);
+   c.lineTo(r + (i < 2 ? 6 : 0), join * .3);
+   c.lineTo(r - (i < 2 ? 4 : 0), join * .65); c.lineTo(r, join);
+   c.lineTo(l, join); c.lineTo(l - (i > 0 ? 4 : 0), join * .65);
+   c.lineTo(l + (i > 0 ? 6 : 0), join * .3); c.closePath(); c.clip();
+   c.drawImage(image, sx, sy + TREE_CAP_Y, TREE_CELL, splice - TREE_CAP_Y,
+    left, 0, TREE_CELL * scale, join);
    c.restore();
   }
  }
