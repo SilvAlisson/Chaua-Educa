@@ -49,7 +49,13 @@ function continuousBark(image, index) {
  const layer=canvas.getContext('2d',{willReadFrequently:true});
  const sx=(index%2)*TREE_CELL+64,sy=Math.floor(index/2)*TREE_CELL+192;
  layer.drawImage(image,sx,sy,128,64,0,0,128,64);
- const sample=layer.getImageData(0,25,128,1).data;
+ const pixels=layer.getImageData?.(0,25,128,1);
+ if(!pixels?.data || typeof layer.createImageData!=='function'){
+  // Node's minimal canvas stubs do not expose pixel readback. Browser canvas does.
+  cached.set(index,null);
+  return null;
+ }
+ const sample=pixels.data;
  const base=new Array(128);
  for(let x=0;x<128;x++){
   const k=x*4;
@@ -124,7 +130,9 @@ export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
   // Texture is cached once per variant, not rebuilt on each frame.
   const bark=continuousBark(image,index);
   const run=1000-join;
-  c.drawImage(bark,0,0,BARK_SOURCE_WIDTH,run,
+  if(bark)c.drawImage(bark,0,0,BARK_SOURCE_WIDTH,run,
+   -TREE_WIDTH/2,join-.5,TREE_WIDTH,run+.5);
+  else c.drawImage(image,sx+64,sy+192,128,64,
    -TREE_WIDTH/2,join-.5,TREE_WIDTH,run+.5);
   c.drawImage(image, sx, sy + TREE_CAP_Y, TREE_CELL, splice - TREE_CAP_Y,
    left, 0, TREE_CELL * scale, join);
