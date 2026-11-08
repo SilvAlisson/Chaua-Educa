@@ -32,6 +32,80 @@ const TREE_CORE_WIDTH = 128;
 const TREE_VARIANTS = ['rot', 'hollow', 'moss', 'vine'];
 const TREE_SPLICES = [181, 180, 180, 182];
 
+// An atlas cell contains a tiny knot-free bark swatch. Build a long organic
+// painted extension ONCE per atlas/variant; never repeat knots, mushrooms or
+// leaves and never render hundreds of procedural strokes per gameplay frame.
+const BARK_SURFACES = new WeakMap();
+const BARK_SOURCE_WIDTH = 128;
+const BARK_SOURCE_HEIGHT = 1100;
+function continuousBark(image, index) {
+ let cached=BARK_SURFACES.get(image);
+ if(!cached){cached=new Map();BARK_SURFACES.set(image,cached);}
+ if(cached.has(index))return cached.get(index);
+ const canvas=typeof OffscreenCanvas!=='undefined'
+  ?new OffscreenCanvas(BARK_SOURCE_WIDTH,BARK_SOURCE_HEIGHT)
+  :document.createElement('canvas');
+ canvas.width=BARK_SOURCE_WIDTH;canvas.height=BARK_SOURCE_HEIGHT;
+ const layer=canvas.getContext('2d',{willReadFrequently:true});
+ const sx=(index%2)*TREE_CELL+64,sy=Math.floor(index/2)*TREE_CELL+192;
+ layer.drawImage(image,sx,sy,128,64,0,0,128,64);
+ const sample=layer.getImageData(0,25,128,1).data;
+ const base=new Array(128);
+ for(let x=0;x<128;x++){
+  const k=x*4;
+  base[x]=[sample[k],sample[k+1],sample[k+2]];
+ }
+ const softened=base.map((_,x)=>{
+  let r=0,g=0,b=0,n=0;
+  for(let dx=-3;dx<=3;dx++){
+   const color=base[Math.min(127,Math.max(0,x+dx))];
+   r+=color[0];g+=color[1];b+=color[2];n++;
+  }
+  return [r/n,g/n,b/n];
+ });
+ const frame=layer.createImageData(BARK_SOURCE_WIDTH,BARK_SOURCE_HEIGHT);
+ const data=frame.data;
+ const phase=index*.71;
+ for(let y=0;y<BARK_SOURCE_HEIGHT;y++){
+  // Long, nonrepeating waves gently curve the original painted bark grooves.
+  const shift=(Math.sin(y*.013+phase)-Math.sin(phase))*6.5+
+              (Math.sin(y*.041+phase*2)-Math.sin(phase*2))*2.5;
+  const top=Math.min(1,y/13);
+  for(let x=0;x<128;x++){
+   const warped=Math.max(0,Math.min(127,Math.round(x+shift)));
+   const pure=base[x],smooth=softened[warped];
+   const variation=top*(3.6*Math.sin(y*.029+x*.083+phase)+
+                        1.8*Math.sin(y*.071-x*.029+phase));
+   const k=(y*128+x)*4;
+   for(let ch=0;ch<3;ch++){
+    const value=pure[ch]*(1-top)+smooth[ch]*top+variation*(ch===0?1:ch===1?.67:.45);
+    data[k+ch]=Math.max(0,Math.min(255,Math.round(value)));
+   }
+   data[k+3]=255;
+  }
+ }
+ layer.putImageData(frame,0,0);
+ // Hand-painted continuous, meandering bark fissures and warm ridges.
+ // Paths cross the whole 1100px surface and never form identical repetitions.
+ for(let i=0;i<17;i++){
+  const root=7+((i*37+index*11)%115);
+  const phase2=i*1.83+index*.45;
+  layer.beginPath();
+  for(let y=12;y<BARK_SOURCE_HEIGHT;y+=24){
+   const x=root+4.5*Math.sin(y*.015+phase2)+
+               2.2*Math.sin(y*.037+phase2*.57);
+   if(y===12)layer.moveTo(x,y);else layer.lineTo(x,y);
+  }
+  layer.strokeStyle=i%4===0?'rgba(78,35,21,.25)':
+                    i%4===1?'rgba(251,179,95,.21)':
+                    i%4===2?'rgba(90,42,26,.18)':'rgba(254,204,130,.15)';
+  layer.lineWidth=i%5===0?3.2:i%3===0?2.1:1.15;
+  layer.lineCap='round';layer.stroke();
+ }
+ cached.set(index,canvas);
+ return canvas;
+}
+
 export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
  const image = images.get('tree-variants');
  const index = TREE_VARIANTS.indexOf(kind);
@@ -47,17 +121,11 @@ export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
  c.translate(x, y);
  if (upper) c.scale(1, -1);
  if (breakAge === undefined || breakAge < .055) {
-  // Knot-free painted bark in cell y=192..255: the unique knots, mushrooms
-  // and leaves belong to the cap only, never to the infinitely long trunk.
-  const bandHeight = 64, bandY = 192, tileHeight = bandHeight * scale;
-  for (let pos = join - .5, tile = 0; pos < 1000; pos += tileHeight, tile++) {
-   c.save();
-   c.translate(0, pos + (tile % 2 === 0 ? tileHeight : 0));
-   if (tile % 2 === 0) c.scale(1, -1);
-   c.drawImage(image, sx + (TREE_CELL - TREE_CORE_WIDTH) / 2, sy + bandY,
-    TREE_CORE_WIDTH, bandHeight, -TREE_WIDTH / 2, 0, TREE_WIDTH, tileHeight + .5);
-   c.restore();
-  }
+  // Texture is cached once per variant, not rebuilt on each frame.
+  const bark=continuousBark(image,index);
+  const run=1000-join;
+  c.drawImage(bark,0,0,BARK_SOURCE_WIDTH,run,
+   -TREE_WIDTH/2,join-.5,TREE_WIDTH,run+.5);
   c.drawImage(image, sx, sy + TREE_CAP_Y, TREE_CELL, splice - TREE_CAP_Y,
    left, 0, TREE_CELL * scale, join);
   if (breakAge !== undefined) {
