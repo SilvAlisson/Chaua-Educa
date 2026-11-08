@@ -57,8 +57,10 @@ export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0
  const weights=[0,0,0,0];weights[state.from]+=1-state.mix;weights[state.to]+=state.mix;
  // Budget shared between seasons: 18 total, even during the final transition.
  const count=low?7:18, cell=atlas.naturalWidth/2;
+ let used=0;
  for(const season of [0,2]){
-  const active=Math.round(count*weights[season]);
+  const active=Math.min(Math.round(count*weights[season]),count-used);
+  used+=active;
   if(!active)continue;
   for(let i=0;i<active;i++){
    const size=(season===0?13:19)+(i%4)*2;
