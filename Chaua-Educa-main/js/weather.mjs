@@ -69,3 +69,24 @@ export function drawJourneyRain(context, width, height, time, rain, reduced, low
     }
     context.restore();
 }
+
+
+// A separate transparent depth layer: near-lens drops pass IN FRONT of actors,
+// while the original, cheaper rain pass remains BEHIND them. No flashing.
+export function drawWeatherForeground(c,w,h,time,rain,storm,wind,reduced,low){
+ if(rain<=0 || reduced)return;
+ const count=low?18:44;
+ const slant=9+wind*13+storm*3;
+ c.save();
+ c.strokeStyle='#e9f7ff';
+ c.lineWidth=low?1.2:1.5;
+ c.globalAlpha=rain*(.21+storm*.08);
+ c.beginPath();
+ for(let i=0;i<count;i++){
+  const x=((i*173.73+time*(90+wind*180))%(w+40)+w+40)%(w+40)-20;
+  const y=((i*117.47+time*(420+(i%5)*34))%(h+60)+h+60)%(h+60)-30;
+  c.moveTo(x,y);c.lineTo(x+slant,y+16+(i%3)*5);
+ }
+ c.stroke();
+ c.restore();
+}

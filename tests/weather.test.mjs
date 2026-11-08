@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JOURNEY } from '../Chaua-Educa-main/js/journey.mjs';
 import { Game } from '../Chaua-Educa-main/js/engine.mjs';
-import { journeyRain } from '../Chaua-Educa-main/js/weather.mjs';
+import { journeyRain, drawWeatherForeground } from '../Chaua-Educa-main/js/weather.mjs';
 
 test('rain fades in and out within the ancient trees stretch', () => {
     const start = JOURNEY[1].start + 1500;
@@ -36,4 +36,17 @@ test('a fragile trunk breaks only on the struck side and respects shield rules',
         assert.equal(game.state, shield ? 'playing' : 'impact');
         assert.equal(game.shield, false);
     }
+});
+
+test('foreground rain is screen-space, disabled for reduced motion, and bounded',()=>{
+ let lines=0;
+ const c=new Proxy({},{get(target,key){if(key==='lineTo')return ()=>{lines++;};return ()=>{};},set(target,key,v){target[key]=v;return true;}});
+ drawWeatherForeground(c,800,600,10,0,0,0,false,false);
+ drawWeatherForeground(c,800,600,10,1,1,1,true,false);
+ assert.equal(lines,0);
+ drawWeatherForeground(c,800,600,10,1,1,1,false,false);
+ assert.equal(lines,44);
+ lines=0;
+ drawWeatherForeground(c,800,600,10,1,1,1,false,true);
+ assert.equal(lines,18);
 });

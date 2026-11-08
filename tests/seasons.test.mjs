@@ -25,3 +25,13 @@ test('season cache reuses surfaces and retains at most two frames',t=>{
  const old=[...cache.frames.values()];cache.draw(c,atlas,1366,638,1,42,22000,false);
  assert.ok(old.every(s=>s.width===0&&s.height===0));
 });
+
+test('weather particles share the high-detail budget during a phase crossover',()=>{
+ let calls=0;
+ const context=new Proxy({},{get(target,key){if(key==='drawImage')return ()=>{calls++;};return ()=>{};},set(target,key,v){target[key]=v;return true;}});
+ drawSeasonParticles(context,{naturalWidth:256},800,600,42,20900,false,false,1);
+ assert.ok(calls>0&&calls<=18);
+ calls=0;
+ drawSeasonParticles(context,{naturalWidth:256},390,844,42,20900,false,true,1);
+ assert.ok(calls>0&&calls<=7);
+});

@@ -13,7 +13,7 @@ import { canvasResolution } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
-import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawJourneyFog } from './weather.mjs';
+import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawJourneyFog, drawWeatherForeground } from './weather.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 
@@ -921,9 +921,12 @@ export class Renderer {
         }
         const c = this.c;
         const sceneTime = game.sceneTime ?? game.elapsed;
+        const rainLevel=journeyRain(game.distance, game.tutorial);
+        const stormLevel=journeyStorm(game.distance, game.mode, game.tutorial);
+        const windLevel=journeyWind(game.distance, game.mode, game.tutorial);
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
-            journeyRain(game.distance, game.tutorial), journeyStorm(game.distance, game.mode, game.tutorial),
-            journeyFog(game.distance, game.tutorial), journeyWind(game.distance, game.mode, game.tutorial), game.tutorial?null:game.distance);
+            rainLevel, stormLevel, journeyFog(game.distance, game.tutorial),
+            windLevel, game.tutorial?null:game.distance);
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.
@@ -1117,6 +1120,7 @@ export class Renderer {
             }
         }
         c.restore();
+        drawWeatherForeground(c,this.w,this.h,sceneTime,rainLevel,stormLevel,windLevel,reduced,this.decoration==='low');
         // Natural viewport flight boundary
         const notices=[];
         for(const e of game.entities)if(e.kind==='hawk'&&!e.harmless&&e.x>game.x+100){

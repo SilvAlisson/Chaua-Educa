@@ -52,17 +52,18 @@ export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0
  if(reduced || !atlas)return;
  const state=journeySeason(distance);
  const weights=[0,0,0,0];weights[state.from]+=1-state.mix;weights[state.to]+=state.mix;
+ // Budget shared between seasons: 18 total, even during the final transition.
  const count=low?7:18, cell=atlas.naturalWidth/2;
  for(const season of [0,2]){
-  if(weights[season]===0)continue;
-  for(let i=0;i<count;i++){
+  const active=Math.round(count*weights[season]);
+  if(!active)continue;
+  for(let i=0;i<active;i++){
    const size=(season===0?13:19)+(i%4)*2;
-   const travel=time*(14+i%3*3)+distance*.025;
+   const travel=time*(14+i%3*3)*(1+wind*2.2)+distance*.025;
    const x=w+32-((i*137.7+travel)%(w+64))+Math.sin(time*.8+i)*9;
    const y=((i*93.4+time*(22+i%4*7))%(h+64))-32;
-   c.save();c.globalAlpha=weights[season]*.72;
-   c.translate(x,y);c.rotate(Math.sin(time*1.1+i)*.6+time*.3+wind*.25);
-   // A smooth tumble without swapping unrelated images or snapping scale.
+   c.save();c.globalAlpha=Math.min(.72,.72*weights[season]*count/active);
+   c.translate(x,y);c.rotate(Math.sin(time*1.1+i)*.6+time*(.3+wind*.38)+wind*.25);
    c.scale(.72+.28*Math.sin(time*1.4+i),1);
    const frame=season+(i%2);
    c.drawImage(atlas,(frame%2)*cell,Math.floor(frame/2)*cell,cell,cell,-size/2,-size/2,size,size);
