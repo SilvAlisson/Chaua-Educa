@@ -49,6 +49,10 @@ jobs:
           # Old reconstruction accidentally included debug-color bars outside trunks.
           for xy in [(254,145),(509,145),(254,390),(509,390)]:
               assert tree.getpixel(xy)[3] < 15,('stray opaque atlas background',xy,tree.getpixel(xy))
+          for i in range(4):
+              sx=(i%2)*256;sy=(i//2)*256
+              tile=tree.crop((sx+64,sy+192,sx+192,sy+256))
+              assert tile.getchannel('A').getextrema()==(255,255),('bark band not fully opaque',i)
           print('Three atlases verified')
           PY
       - uses: actions/setup-node@v4

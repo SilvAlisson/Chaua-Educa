@@ -47,14 +47,14 @@ export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
  c.translate(x, y);
  if (upper) c.scale(1, -1);
  if (breakAge === undefined || breakAge < .055) {
-  // Repeat a reflected bark band at native scale. Stretching a scanline
-  // turned grooves and moss into long vertical stripes on portrait screens.
-  const bandHeight = 96, tileHeight = bandHeight * scale;
+  // Knot-free painted bark in cell y=192..255: the unique knots, mushrooms
+  // and leaves belong to the cap only, never to the infinitely long trunk.
+  const bandHeight = 64, bandY = 192, tileHeight = bandHeight * scale;
   for (let pos = join - .5, tile = 0; pos < 1000; pos += tileHeight, tile++) {
    c.save();
    c.translate(0, pos + (tile % 2 === 0 ? tileHeight : 0));
    if (tile % 2 === 0) c.scale(1, -1);
-   c.drawImage(image, sx + (TREE_CELL - TREE_CORE_WIDTH) / 2, sy + splice - bandHeight,
+   c.drawImage(image, sx + (TREE_CELL - TREE_CORE_WIDTH) / 2, sy + bandY,
     TREE_CORE_WIDTH, bandHeight, -TREE_WIDTH / 2, 0, TREE_WIDTH, tileHeight + .5);
    c.restore();
   }

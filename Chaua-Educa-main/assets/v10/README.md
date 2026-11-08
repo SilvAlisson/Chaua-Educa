@@ -33,3 +33,7 @@ Partículas: atlas transparente 2×2, um objeto centralizado por célula com mar
 A chuva possui uma segunda camada sutil em primeiro plano, desenhada após os atores e antes dos avisos, preservando a legibilidade e a pausa determinística. O máximo de partículas de estação é compartilhado durante as transições (18 em qualidade alta; 7 na baixa). A floração e a coloração do outono são ambientações artísticas, não uma afirmação sobre as estações da Mata Atlântica.
 
 `.github/workflows/rebuild-weather-art.yml` regenera as três folhas, verifica formato/transparência, executa testes, captura cenas em notebook/celular e só então envia os arquivos para essa branch. Não fazer merge na `main` antes de confirmar esse workflow.
+
+### Continuidade dos troncos sem duplicação
+
+A área da célula do atlas entre y=192 e y=255 contém uma textura de casca de 128×64 px, reconstruída a partir das cores pintadas do próprio tronco, sem nós, folhas, fungos ou vazios repetidos. Somente a extremidade pintada (y=8 até a emenda original) contém esses detalhes únicos. O renderizador espelha pequenas faixas de casca com continuidade de cor, sem esticar um único pixel verticalmente nem duplicar estruturas anatômicas.

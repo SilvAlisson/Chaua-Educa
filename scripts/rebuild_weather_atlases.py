@@ -103,8 +103,49 @@ def particles():
                           'v10/season-particles.webp',1.045)
 
 def trees():
-    restore_painted_sheet('Chaua-Educa-main/assets/v9/tree-variants.webp',
-                          'v9/tree-variants.webp',1.025)
+    # Keep the original hand-painted stump caps, unique knots and decorations.
+    # The lowest strip of each cell is repurposed for a knot-free, seam-safe
+    # bark texture. It is never painted as part of the cap.
+    source=hand_painted('Chaua-Educa-main/assets/v9/tree-variants.webp')
+    alpha=source.getchannel('A')
+    sheet=ImageEnhance.Color(source.convert('RGB')).enhance(1.025)
+    sheet.putalpha(alpha)
+    splices=[181,180,180,182]
+    for i,splice in enumerate(splices):
+        ox=(i%2)*256; oy=(i//2)*256
+        cell=sheet.crop((ox,oy,ox+256,oy+256))
+        pixels=cell.load()
+        profile=[]
+        for x in range(64,192):
+            samples=[]
+            for y in range(splice-13,splice-2):
+                r,g,b,a=pixels[x,y]
+                if a>170 and r>g*1.1 and r>b*1.15:
+                    samples.append((r,g,b))
+            if not samples: profile.append(None)
+            else:
+                ordered=list(zip(*samples))
+                profile.append(tuple(sorted(v)[len(v)//2] for v in ordered))
+        valid=[x for x,v in enumerate(profile) if v is not None]
+        if not valid: raise ValueError(f'No bark core in painted cell {i}')
+        for x,v in enumerate(profile):
+            if v is None:
+                closest=min(valid,key=lambda k:abs(k-x))
+                profile[x]=profile[closest]
+        tile=Image.new('RGBA',(128,64))
+        out=tile.load()
+        for x in range(128):
+            for y in range(64):
+                # Same color at the top and bottom, with soft, original-hued
+                # vertical grooves instead of endlessly duplicated knots.
+                fade=math.sin(math.pi*y/63)**2
+                variation=fade*(2.4*math.sin(x*.27+y*.13)+
+                                1.5*math.sin(x*.11-y*.08))
+                r,g,b=profile[x]
+                out[x,y]=(byte(r+variation),byte(g+variation*.72),
+                          byte(b+variation*.54),255)
+        sheet.alpha_composite(tile,(ox+64,oy+192))
+    save(sheet,ASSET/'v9/tree-variants.webp',lossless=True)
 
 if __name__=='__main__':
     backgrounds()
