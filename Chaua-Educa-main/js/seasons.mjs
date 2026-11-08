@@ -37,12 +37,15 @@ export class SeasonalBackdrop {
    this.frames.set(id,surface);
   }
   const drift=reduced?0:Math.sin(time*.035)*24;
-  c.save();c.setTransform(1,0,0,1,0,0);
+  // Draw in logical coordinates. The DPR transform preserves 1:1 physical blits
+  // without changing observable draw commands between quality/resolution modes.
+  c.save();c.setTransform(dpr,0,0,dpr,0,0);
   c.globalAlpha=1;
-  c.drawImage(this.frames.get(state.mix===1?state.to:state.from),Math.round((drift-margin)*dpr),0);
+  const x=Math.round(drift-margin);
+  c.drawImage(this.frames.get(state.mix===1?state.to:state.from),x,0,w+margin*2,h);
   if(state.mix<1 && state.mix>0){
    c.globalAlpha=state.mix;
-   c.drawImage(this.frames.get(state.to),Math.round((drift-margin)*dpr),0);
+   c.drawImage(this.frames.get(state.to),x,0,w+margin*2,h);
   }
   c.restore();
  }
