@@ -70,7 +70,7 @@ function candidateRange(value,halfSize,center,anchor,factor){
 // When the WebP art is absent, Game keeps the exact original collision path.
 export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
  if(!wood?.snake||wood.snake.retreat)return false;
- if(gameImages.has('v11-snake'))return snakeRigHits(wood,playerPolygons,reduced);
+ if(!isSnakeA2Ready()){ if(gameImages.has('v11-snake'))return snakeRigHits(wood,playerPolygons,reduced); return false; }
  if(!isSnakeA2Ready())return false;
  const pose=snakeA2Pose(wood.snake,reduced),mask=collisionMasks.get(pose.key)?.[pose.frame];
  if(!mask)return false;

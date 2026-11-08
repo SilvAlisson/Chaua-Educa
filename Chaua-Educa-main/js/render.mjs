@@ -505,15 +505,17 @@ export class Renderer {
             getPickupCache('feather-glow', 42, [[6, 0, '#ffe399dd'], [6, 0.6, '#ffd55e66'], [6, 1, '#ffffff00']]);
             getPickupCache('shield-glow', 42, [[6, 0, '#a8f5d0dd'], [6, 0.6, '#46e49e66'], [6, 1, '#ffffff00']]);
             getPepperSprite();
-            const particlesImg = images.get('season-particles');
-            if (particlesImg && !particlesImg._rasterized) {
-                const pw = particlesImg.naturalWidth || particlesImg.width;
-                const ph = particlesImg.naturalHeight || particlesImg.height;
-                const off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : document.createElement('canvas');
-                off.width = pw; off.height = ph;
-                off.getContext('2d').drawImage(particlesImg, 0, 0);
-                off._rasterized = true;
-                images.set('season-particles', off);
+            for (const key of ['season-particles', 'v11-forest', 'v11-parrot', 'v11-hawk', 'v11-snake']) {
+                const img = images.get(key);
+                if (img && !img._rasterized) {
+                    const pw = img.naturalWidth || img.width;
+                    const ph = img.naturalHeight || img.height;
+                    const off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : document.createElement('canvas');
+                    off.width = pw; off.height = ph;
+                    off.getContext('2d').drawImage(img, 0, 0);
+                    off._rasterized = true;
+                    images.set(key, off);
+                }
             }
             this.seasonalBackdrop=new SeasonalBackdrop();
             this.seasonalBackdrop.prepare(images.get('season-backgrounds'),this.w,this.h,this.dpr,0);
@@ -1249,7 +1251,8 @@ export class Renderer {
     snake(wood,reduced){
         const s=wood.snake,place=snakePlacement(wood),c=this.c;
         c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
-        if(!drawSnakeRig(c,s,place.factor,reduced)&&!drawSnakeA2(c,s,place.factor,reduced)){
+        const allowNew = typeof location === 'undefined' || new URLSearchParams(location.search).get('snakeA2') !== '0';
+        if(!allowNew || (!drawSnakeRig(c,s,place.factor,reduced)&&!drawSnakeA2(c,s,place.factor,reduced))){
             const wrap=images.get('snake-wrap');
             if(wrap)c.drawImage(wrap,-SNAKE_WRAP.worldWidth/2,-8,SNAKE_WRAP.worldWidth,SNAKE_WRAP.worldHeight);
             // Rejected legacy snake sheet includes a duplicate coil and must
