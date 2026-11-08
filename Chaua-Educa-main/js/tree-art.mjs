@@ -30,7 +30,7 @@ const TREE_CELL = 256;
 const TREE_CAP_Y = 8;
 const TREE_CORE_WIDTH = 128;
 const TREE_VARIANTS = ['rot', 'hollow', 'moss', 'vine'];
-const TREE_SPLICES = [187, 188, 184, 187];
+const TREE_SPLICES = [181, 180, 180, 182];
 
 export function drawTreeVariant(c, x, y, upper, kind, breakAge) {
  const image = images.get('tree-variants');

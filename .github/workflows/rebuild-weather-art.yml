@@ -16,6 +16,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -43,6 +45,10 @@ jobs:
                   [(0,0),(836,0),(0,471),(836,471)]]
           for frame in frames:
               assert frame.getbbox()
+          tree=Image.open(base/'v9/tree-variants.webp').convert('RGBA')
+          # Old reconstruction accidentally included debug-color bars outside trunks.
+          for xy in [(254,145),(509,145),(254,390),(509,390)]:
+              assert tree.getpixel(xy)[3] < 15,('stray opaque atlas background',xy,tree.getpixel(xy))
           print('Three atlases verified')
           PY
       - uses: actions/setup-node@v4

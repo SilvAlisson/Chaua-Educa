@@ -1,6 +1,6 @@
 # Ambientações sazonais
 
-**Artes reconstruídas de forma determinística com `scripts/rebuild_weather_atlases.py`, utilizando a floresta pintada original `assets/v3/forest.webp` e as árvores originais `assets/v7/trees-lower.webp` sem substituir esses arquivos.** As quatro cenas reutilizam o mesmo enquadramento e os mesmos objetos da floresta original, mudando apenas o clima, a folhagem e detalhes discretos. O menu e o treino continuam usando a floresta original. As ambientações da jornada são uma interpretação artística, não uma representação do calendário climático da Mata Atlântica.
+**Artes reconstruídas de forma determinística com `scripts/rebuild_weather_atlases.py`, usando a floresta pintada original `assets/v3/forest.webp` e preservando as pétalas e troncos pintados da primeira versão desta branch (commit `8ac0815`) sem modificar os originais.** As quatro cenas reutilizam o mesmo enquadramento e os mesmos objetos da floresta original, mudando apenas o clima, a folhagem e detalhes discretos. O menu e o treino continuam usando a floresta original. As ambientações da jornada são uma interpretação artística, não uma representação do calendário climático da Mata Atlântica.
 
 ## Atlas
 
@@ -17,7 +17,7 @@ A jornada percorre primavera, verão, ambiente frio com chuva, outono com vento 
 
 ## Direção de arte usada na geração
 
-Fonte exata: floresta original, processada com Pillow, mesma geometria para os quatro climas. Sprites incompatíveis em pixel art não são utilizados. Fundo: atlas 2×2, repetir o enquadramento da floresta de referência; manter árvores laterais, montanhas, área central de voo e iluminação; modificar somente cores da folhagem, flores discretas e neblina. Primavera com flores rosas/creme; verão verde; outono com tons ferrugem, vermelho e dourado mantendo parte verde; frio com tons azul-esverdeados e neblina, sem neve. Sem personagens, UI ou partículas incorporadas.
+Fontes exatas: floresta original processada com Pillow e elementos pintados originais da própria branch. A regeneração consulta o commit `8ac0815` no histórico Git. Sprites incompatíveis em pixel art ou máscaras de debug não são utilizados. Fundo: atlas 2×2, repetir o enquadramento da floresta de referência; manter árvores laterais, montanhas, área central de voo e iluminação; modificar somente cores da folhagem, flores discretas e neblina. Primavera com flores rosas/creme; verão verde; outono com tons ferrugem, vermelho e dourado mantendo parte verde; frio com tons azul-esverdeados e neblina, sem neve. Sem personagens, UI ou partículas incorporadas.
 
 Partículas: atlas transparente 2×2, um objeto centralizado por célula com margem; pétala rosa, pétala creme, folha tropical oval vermelha e folha tropical dourada; pintura 2.5D, iluminação suave superior esquerda, sem contornos grossos, rótulos, grade ou sombra de chão. Conversão técnica para WebP e redução do atlas de partículas preservam transparência.
 
@@ -28,7 +28,7 @@ Partículas: atlas transparente 2×2, um objeto centralizado por célula com mar
 
 ## Regeneração e garantia de compatibilidade
 
-`python -m pip install Pillow==11.3.0 && python scripts/rebuild_weather_atlases.py` reproduz as três WebP da branch. Árvore-base e vegetação usam os arquivos existentes, de modo que o jogo não passa a ter uma segunda família de árvores incompatível. As emendas da nova folha `tree-variants.webp` usam as alturas por célula `[187, 188, 184, 187]`, com núcleo de 128 px e pivô na coluna de 256 px. Os fundos continuam 1672×941 e compartilham as mesmas coordenadas de elementos; partículas RGBA seguem 256×256. O script valida a altura das emendas e não altera os originais.
+`python -m pip install Pillow==11.3.0 && python scripts/rebuild_weather_atlases.py` reproduz as três WebP da branch. Árvore-base e vegetação preservam as artes originais da branch e do jogo, sem criar uma segunda família visual. As emendas da folha `tree-variants.webp` permanecem nas alturas originais por célula `[181, 180, 180, 182]`, com núcleo de 128 px e pivô na coluna de 256 px. Os fundos continuam 1672×941 e compartilham as mesmas coordenadas de elementos; partículas RGBA seguem 256×256. O script valida a altura das emendas e não altera os originais.
 
 A chuva possui uma segunda camada sutil em primeiro plano, desenhada após os atores e antes dos avisos, preservando a legibilidade e a pausa determinística. O máximo de partículas de estação é compartilhado durante as transições (18 em qualidade alta; 7 na baixa). A floração e a coloração do outono são ambientações artísticas, não uma afirmação sobre as estações da Mata Atlântica.
 
