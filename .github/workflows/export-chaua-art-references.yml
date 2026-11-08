@@ -14,6 +14,20 @@ jobs:
           if-no-files-found: error
           retention-days: 3
           path: |
+            Chaua-Educa-main/assets/v6/chaua-atlas.webp
+            Chaua-Educa-main/assets/v6/hawk-atlas.webp
+            Chaua-Educa-main/assets/v6/snake-atlas.webp
+            Chaua-Educa-main/assets/v7/snake-atlas.webp
+            Chaua-Educa-main/assets/v8/snake-wrap.webp
+            Chaua-Educa-main/public/parrot/fly/flight.webp
+            Chaua-Educa-main/public/parrot/animations/impact.webp
+            Chaua-Educa-main/public/hawk/fly/flight.webp
+            Chaua-Educa-main/public/hawk/animations/stunned.webp
+            Chaua-Educa-main/public/snake/animations/strike.webp
+            Chaua-Educa-main/public/snake/animations/stunned.webp
+            Chaua-Educa-main/public/snake/base/idle.webp
+            Chaua-Educa-main/public/snake/attack/attack.webp
+            Chaua-Educa-main/public/snake/reactions/stunned.webp
             Chaua-Educa-main/assets/v3/forest.webp
             Chaua-Educa-main/assets/v7/trees-lower.webp
             Chaua-Educa-main/assets/v7/trees-upper.webp
