@@ -2,6 +2,7 @@ import { VisualQuality } from './quality.mjs';
 import { LESSONS, resultAdvice } from './tutorial.mjs';
 import { MISSIONS, completedMissions, progressTitle, renderMissions } from './missions.mjs';
 import { ENTRIES, discoveriesFor, renderCollection } from './collection.mjs';
+import { journeyRain, journeyStorm, journeyWind } from './weather.mjs';
 import { JOURNEY_LENGTH } from './journey.mjs';
 import { FlightInput } from './input.mjs';
 import { ForestAudio } from './audio.mjs';
@@ -352,7 +353,9 @@ function frame(time) {
     clock.advance(delta);
     if(game.state!==previousState || time-lastHudTime>=80){syncUI();lastHudTime=time;}
     if(quality.sample(delta,!document.hidden&&document.hasFocus()&&game.state==='playing'))applyVisualQuality();
-    forestAudio.update(game.state,!document.hidden&&document.hasFocus(),time/1000,game.stage);
+    forestAudio.update(game.state,!document.hidden&&document.hasFocus(),time/1000,game.stage,
+        journeyRain(game.distance, game.tutorial), journeyStorm(game.distance, game.mode, game.tutorial),
+        journeyWind(game.distance, game.mode, game.tutorial));
     if(document.hidden){requestAnimationFrame(frame);return;}
     if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
     else {

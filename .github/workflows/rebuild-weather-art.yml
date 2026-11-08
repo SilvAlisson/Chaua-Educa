@@ -1,0 +1,87 @@
+name: Rebuild original-style weather atlases
+on:
+  push:
+    branches: [feat/journey-weather]
+    paths:
+      - scripts/rebuild_weather_atlases.py
+      - .github/workflows/rebuild-weather-art.yml
+      - Chaua-Educa-main/js/seasons.mjs
+      - Chaua-Educa-main/js/weather.mjs
+      - Chaua-Educa-main/js/render.mjs
+      - Chaua-Educa-main/js/tree-art.mjs
+jobs:
+  art:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'Pillow==11.3.0'
+      - name: Regenerate EXACTLY the three new weather atlases from painted source
+        run: python scripts/rebuild_weather_atlases.py
+      - name: Validate formats, frame sizes, alpha and scene registration
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageChops, ImageOps
+          from pathlib import Path
+          base=Path('Chaua-Educa-main/assets')
+          files=[('v10/season-backgrounds.webp',(1672,941),'RGB'),
+                 ('v10/season-particles.webp',(256,256),'RGBA'),
+                 ('v9/tree-variants.webp',(512,512),'RGBA')]
+          for path,size,mode in files:
+              im=Image.open(base/path).convert(mode)
+              assert im.size==size,(path,im.size)
+              if mode=='RGBA':
+                  assert im.getpixel((0,0))[3]==0,path
+                  assert im.getbbox(),path
+              print(path,size,mode)
+          sheet=Image.open(base/'v10/season-backgrounds.webp').convert('RGB')
+          frames=[sheet.crop((x,y,x+836,y+470)) for x,y in
+                  [(0,0),(836,0),(0,471),(836,471)]]
+          for frame in frames:
+              assert frame.getbbox()
+          tree=Image.open(base/'v9/tree-variants.webp').convert('RGBA')
+          # Old reconstruction accidentally included debug-color bars outside trunks.
+          for xy in [(254,145),(509,145),(254,390),(509,390)]:
+              assert tree.getpixel(xy)[3] < 15,('stray opaque atlas background',xy,tree.getpixel(xy))
+          for i in range(4):
+              sx=(i%2)*256;sy=(i//2)*256
+              tile=tree.crop((sx+64,sy+192,sx+192,sy+256))
+              assert tile.getchannel('A').getextrema()==(255,255),('bark band not fully opaque',i)
+          print('Three atlases verified')
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Browser screenshot checks at laptop and mobile sizes
+        run: |
+          npx playwright install --with-deps chromium
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main >/tmp/weather-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node tests/browser-weather-trees.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weather-rebuild-desktop-mobile-captures
+          path: test-results/weather-trees/
+          if-no-files-found: ignore
+      - name: Commit validated WebP files (never modify source assets)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Chaua-Educa-main/assets/v10/season-backgrounds.webp \
+                  Chaua-Educa-main/assets/v10/season-particles.webp \
+                  Chaua-Educa-main/assets/v9/tree-variants.webp
+          if ! git diff --cached --quiet; then
+            git commit -m "art(weather): rebuild atlases from original painted forest and trees"
+            git push
+          fi

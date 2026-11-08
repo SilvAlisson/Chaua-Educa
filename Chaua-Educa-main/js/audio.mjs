@@ -27,7 +27,14 @@ export class ForestAudio {
                 this.wind=c.createBufferSource();this.wind.buffer=buffer;this.wind.loop=true;
                 this.filter=c.createBiquadFilter();this.filter.type='lowpass';this.filter.frequency.value=900;
                 this.ambient=c.createGain();this.ambient.gain.value=0;
-                this.wind.connect(this.filter).connect(this.ambient).connect(this.master);this.wind.start();
+                this.wind.connect(this.filter).connect(this.ambient).connect(this.master);
+                const thunderFilter = c.createBiquadFilter();
+                thunderFilter.type = 'lowpass';
+                thunderFilter.frequency.value = 135;
+                this.thunder = c.createGain();
+                this.thunder.gain.value = 0;
+                this.wind.connect(thunderFilter).connect(this.thunder).connect(this.ambient);
+                this.wind.start();
             }
             if(this.context.state==='suspended')this.context.resume().catch(()=>{});
             this.master.gain.setTargetAtTime(this.visible?this.volume:0,this.context.currentTime,.04);
@@ -66,7 +73,7 @@ export class ForestAudio {
             notes[type].forEach((f,i)=>this.tone(f,now+i*.075,.18,['feather-end','pepper-end'].includes(type) ? .08 : .18,type==='shield-break'?'triangle':'sine'));
         } catch { /* Audio failure never blocks the game. */ }
     }
-    update(state,visible,time,stage) {
+    update(state,visible,time,stage,rain=0,storm=0,wind=0) {
         if(!this.context || this.context.state==='closed')return;
         try {
         if(this.visible!==visible){
@@ -81,9 +88,12 @@ export class ForestAudio {
         if(!active||c.state!=='running')return;
         if(c.currentTime>=this.nextFilter){
             this.nextFilter=c.currentTime+.1;
-            this.filter.frequency.setTargetAtTime(750+Math.sin(time*.6)*180+stage*90,c.currentTime,.5);
+            const windFrequency = 750 + Math.sin(time * .6) * 180 + stage * 90 + wind * 350;
+            this.filter.frequency.setTargetAtTime(windFrequency + rain * 1450 + storm * 450,c.currentTime,.5);
+            const rumble = Math.pow(.5 + .5 * Math.sin(time * 1.55), 4);
+            this.thunder.gain.setTargetAtTime(storm * rumble * .8, c.currentTime, .25);
         }
-        if(c.currentTime>=this.nextChirp) {
+        if(storm<.25 && c.currentTime>=this.nextChirp) {
             this.nextChirp=c.currentTime+5+(Math.sin(time)*.5+.5)*5;
             this.tone(1650,c.currentTime,.13,.06,'sine',2300);
             this.tone(2100,c.currentTime+.18,.16,.05,'sine',1450);
