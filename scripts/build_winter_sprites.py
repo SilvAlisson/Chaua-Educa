@@ -152,7 +152,11 @@ def clean_main_atlas(image, kind):
     mask=Image.fromarray((bits*255).astype(np.uint8),"L")
     mask=mask.filter(ImageFilter.GaussianBlur(.48))
     image.putalpha(mask)
-    return image
+    # Also clear RGB hidden behind alpha=0; WebP can otherwise retain
+    # the old v7 red/yellow artifacts as invisible but preview-visible pixels.
+    rgba=np.asarray(image).copy()
+    rgba[rgba[:,:,3]==0,:3]=0
+    return Image.fromarray(rgba,"RGBA")
 
 for kind in ("lower","upper"):
     original=Image.open(SRC/f"trees-{kind}.webp").convert("RGBA")
@@ -161,6 +165,9 @@ for kind in ("lower","upper"):
     for stage in range(1,5):
         overlay=make_overlay(original,kind,stage)
         combined=Image.alpha_composite(original,overlay)
+        rgba=np.asarray(combined).copy()
+        rgba[rgba[:,:,3]==0,:3]=0
+        combined=Image.fromarray(rgba,"RGBA")
         # WebP lossless with alpha and dimensions identical to original atlas.
         output=DEST/f"trees-{kind}-snow-{stage:02d}.webp"
         combined.save(output,format="WEBP",lossless=True,method=3,exact=True)
