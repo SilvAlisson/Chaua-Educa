@@ -163,9 +163,9 @@ for kind in ("lower","upper"):
         combined=Image.alpha_composite(original,overlay)
         # WebP lossless with alpha and dimensions identical to original atlas.
         output=DEST/f"trees-{kind}-snow-{stage:02d}.webp"
-        combined.save(output,format="WEBP",lossless=True,method=3)
+        combined.save(output,format="WEBP",lossless=True,method=3,exact=True)
         overlay.save(DEST/f"trees-{kind}-overlay-{stage:02d}.webp",
-                     format="WEBP",lossless=True,method=3)
+                     format="WEBP",lossless=True,method=3,exact=True)
         old=np.asarray(original)
         new=np.asarray(combined)
         untouched=np.asarray(overlay.getchannel("A"))==0
@@ -186,5 +186,5 @@ for frame in range(6):
             alpha=int(225*(1-.75*t))
             drawer.ellipse((xx-r,yy-r,xx+r,yy+r),fill=(235,246,255,alpha))
     layer.save(DEST/f"trees-upper-shedding-{frame:02d}.webp",
-               format="WEBP",lossless=True,method=3)
+               format="WEBP",lossless=True,method=3,exact=True)
 print("Winter assets generated successfully")
