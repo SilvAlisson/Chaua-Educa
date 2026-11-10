@@ -8,6 +8,8 @@ Only outward, upward-facing branch/leaf/moss shelves collect snow.
 from pathlib import Path
 import math
 import random
+import base64
+import zlib
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -133,8 +135,28 @@ def make_overlay(original,kind,stage):
         assert not pixel_alpha[534:550,645:820].any(), "Snow detected at bottom-row ceiling"
     return snow
 
+
+def clean_main_atlas(image, kind):
+    """Restore transparent silhouette using the approved original PNG alpha mask.
+
+    Old v7 WebPs have red/yellow rectangular contamination in nominally
+    transparent regions. Exact shapes were taken from the 1024x1024 user
+    reference PNGs and stored as losslessly compressed 1-bit silhouette data.
+    This discards only transparent-area artifacts; the wood RGB is untouched.
+    """
+    text=(ROOT/"scripts"/"winter-masks"/f"{kind}_silhouette.b64").read_text().strip()
+    packed=zlib.decompress(base64.b64decode(text,validate=True))
+    assert len(packed)==(SIZE*SIZE)//8, (kind,len(packed))
+    bits=np.unpackbits(np.frombuffer(packed,dtype=np.uint8)).reshape(SIZE,SIZE)
+    # Subpixel antialiasing while keeping all silhouettes at original positions.
+    mask=Image.fromarray((bits*255).astype(np.uint8),"L")
+    mask=mask.filter(ImageFilter.GaussianBlur(.48))
+    image.putalpha(mask)
+    return image
+
 for kind in ("lower","upper"):
     original=Image.open(SRC/f"trees-{kind}.webp").convert("RGBA")
+    original=clean_main_atlas(original,kind)
     assert original.size==(1024,1024), (kind,original.size)
     for stage in range(1,5):
         overlay=make_overlay(original,kind,stage)
