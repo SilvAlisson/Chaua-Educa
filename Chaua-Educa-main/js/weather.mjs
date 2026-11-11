@@ -145,73 +145,87 @@ export function drawLightning(context, width, height, time, storm, reduced) {
     context.restore();
 }
 
-// Draw behind actors in screen coordinates with realistic slanted velocity, wind drift and droplet ripples
-export function drawJourneyRain(context, width, height, time, rain, reduced, lowDetail, storm = 0, wind = 0, speed = 250) {
-    if (rain === 0) return;
+// Deterministic precipitation: depth-separated translucent drops with rounded
+// heads and small curved trails. Avoid long opaque white streaks and allocations.
+function drawRainDrops(c,w,h,time,rain,low,storm,wind,foreground=false,speed=250) {
+ const bands=foreground?[{depth:1,amount:low?9:18}]:
+  [{depth:.4,amount:low?10:22},{depth:.75,amount:low?10:27}];
+ c.save();c.beginPath();c.rect(0,0,w,h);c.clip();
+ for(const {depth,amount} of bands){
+  const slant=-(4+wind*13+storm*6+speed*.008)*depth;
+  const alpha=Math.min(.75,rain*(foreground?.48:.22+depth*.24)+storm*.05);
+  c.globalAlpha=alpha;
+  c.lineCap='round';
+  c.lineWidth=foreground?1.15:depth*.9;
+  c.strokeStyle=foreground?'#a9d0df':'#6c9dad';
+  c.fillStyle=foreground?'#d5edf5':'#9dc3d2';
+  c.beginPath();
+  for(let i=0;i<amount;i++){
+   const seed=(i+1)*59.37+depth*171.9;
+   const fall=(210+depth*310+storm*120+speed*.1+(i%5)*24)*time;
+   const y=((seed*11.71+fall)%(h+58)+h+58)%(h+58)-29;
+   const x=((seed*17.27+time*(slant*15))%(w+54)+w+54)%(w+54)-27;
+   const len=(foreground?7:4)+depth*7+(i%3)*1.4;
+   c.moveTo(x,y-len*.25);
+   c.quadraticCurveTo(x-slant*.15,y+len*.2,x+slant*.25,y+len);
+  }
+  c.stroke();
+  c.beginPath();
+  for(let i=0;i<amount;i++){
+   const seed=(i+1)*59.37+depth*171.9;
+   const fall=(210+depth*310+storm*120+speed*.1+(i%5)*24)*time;
+   const y=((seed*11.71+fall)%(h+58)+h+58)%(h+58)-29;
+   const x=((seed*17.27+time*(slant*15))%(w+54)+w+54)%(w+54)-27;
+   const size=(foreground?.95:.5)+depth*.7+(i%3)*.1;
+   c.moveTo(x+size,y+lenForTip(depth,foreground));
+   c.ellipse(x,y+lenForTip(depth,foreground),size,size*1.35,slant*.015,0,Math.PI*2);
+  }
+  c.fill();
+ }
+ c.restore();
+}
+function lenForTip(depth,foreground){return ((foreground?7:4)+depth*7)*.8;}
 
-    context.save();
-    context.globalAlpha = rain * .25 + storm * .15;
-    context.fillStyle = '#263e55';
-    context.fillRect(0, 0, width, height);
-
-    if (!reduced) {
-        const count = (lowDetail ? 28 : 72) + Math.round(storm * (lowDetail ? 16 : 48));
-        const drift = -time * (70 + wind * 60);
-        const slant = -((speed * 0.025) + wind * 10 + 8 + storm * 7 + Math.sin(time * .65) * 2);
-        context.globalAlpha = Math.min(0.85, rain * .48 + storm * .25);
-        context.strokeStyle = storm > 0.4 ? '#f0f8ff' : '#e6f6ff';
-        context.lineWidth = storm > 0.4 ? 1.4 : 1.2;
-        context.beginPath();
-
-        for (let i = 0; i < count; i++) {
-            const x = ((i * 137.7 + drift) % (width + 48) + (width + 48)) % (width + 48) - 24;
-            const y = ((i * 93.4 + time * (360 + (i % 4) * 45)) % (height + 36)) - 18;
-            context.moveTo(x, y);
-            context.lineTo(x + slant, y + 14 + (i % 4) * 3);
-        }
-        context.stroke();
-
-        // Rain splash ripples on the forest floor / bottom vegetation
-        if (!lowDetail) {
-            context.globalAlpha = rain * 0.28;
-            context.fillStyle = '#e6f6ff';
-            context.beginPath();
-            const splashCount = 14 + Math.round(storm * 12);
-            for (let i = 0; i < splashCount; i++) {
-                const sx = ((i * 197.3 + time * 120) % width);
-                const sy = height - 25 + (i * 7.1) % 20;
-                const sr = 2.5 + ((i + Math.floor(time * 12)) % 3) * 1.5;
-                context.moveTo(sx + sr, sy);
-                context.arc(sx, sy, sr, 0, Math.PI * 2);
-            }
-            context.fill();
-        }
-    }
-    context.restore();
+function drawRainRipples(c,w,h,time,rain,storm,low){
+ const count=low?5:11;
+ c.save();c.strokeStyle='#c5e5ef';c.lineWidth=1.1;
+ for(let i=0;i<count;i++){
+  const phase=(time*(1.25+storm*.45)+i*.37)%1;
+  const x=(i*149.73+23)%w, y=h-18-(i*13.7)%35;
+  c.globalAlpha=rain*.22*(1-phase);
+  c.beginPath();c.ellipse(x,y,2+phase*8,.8+phase*3,0,0,Math.PI*2);c.stroke();
+ }
+ c.restore();
 }
 
-// Draw in front of actors and obstacles in screen coordinates for cinematic depth
-export function drawForegroundRain(context, width, height, time, rain, reduced, lowDetail, storm = 0, wind = 0, speed = 250) {
-    if (rain === 0 || reduced) return;
+// Dim atmospheric wash and distant blue droplets behind the actors.
+export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250){
+ if(rain<=0)return;
+ const c=context,w=width,h=height;
+ c.save();
+ const haze=c.createLinearGradient(0,0,0,h);
+ haze.addColorStop(0,'#27495b');haze.addColorStop(.6,'#597c86');haze.addColorStop(1,'#aac3bb');
+ c.globalAlpha=rain*(.13+storm*.10);c.fillStyle=haze;c.fillRect(0,0,w,h);
+ c.restore();
+ if(reduced)return;
+ drawRainDrops(c,w,h,time,rain,lowDetail,storm,wind,false,speed);
+ drawRainRipples(c,w,h,time,rain,storm,lowDetail);
+}
 
-    context.save();
-    const count = (lowDetail ? 16 : 36) + Math.round(storm * (lowDetail ? 10 : 22));
-    const drift = -time * (90 + wind * 80);
-    const slant = -((speed * 0.035) + wind * 14 + 10 + storm * 8 + Math.sin(time * 0.75) * 2);
-    const fallSpeed = 580 + storm * 160;
-
-    context.globalAlpha = Math.min(0.72, rain * 0.38 + storm * 0.26);
-    context.strokeStyle = storm > 0.4 ? '#f5faff' : '#d8f0ff';
-    context.lineWidth = storm > 0.4 ? 1.8 : 1.4;
-    context.beginPath();
-
-    for (let i = 0; i < count; i++) {
-        const x = ((i * 187.3 + drift) % (width + 60) + (width + 60)) % (width + 60) - 30;
-        const y = ((i * 113.7 + time * (fallSpeed + (i % 4) * 55)) % (height + 50)) - 25;
-        const len = 22 + (i % 4) * 6;
-        context.moveTo(x, y);
-        context.lineTo(x + slant * (len / 18), y + len);
-    }
-    context.stroke();
-    context.restore();
+// Sparse, larger near-camera droplets and water beads provide depth, never
+// a full screen of bright, opaque white lines.
+export function drawForegroundRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250){
+ if(reduced || rain<=0)return;
+ drawRainDrops(context,width,height,time,rain,lowDetail,storm,wind,true,speed);
+ const c=context;
+ c.save();c.globalAlpha=rain*.28;c.fillStyle='#c8e4eb';
+ const count=lowDetail?3:7;
+ for(let i=0;i<count;i++){
+  const phase=(time*(.48+(i%3)*.1)+i*.37)%1;
+  const x=(i*179.4+width*.13)%(width+16);
+  const y=(i*109.3+time*(110+(i%3)*25))%(height+40)-20;
+  c.globalAlpha=rain*(.15+.22*(1-phase));
+  c.beginPath();c.ellipse(x,y,1.2+phase*1.8,2.3+phase*2.4,-.13,0,Math.PI*2);c.fill();
+ }
+ c.restore();
 }
