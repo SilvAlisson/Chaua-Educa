@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Game,STEP} from '../Chaua-Educa-main/js/engine.mjs';
 import {journeySeason,drawSnowfall,drawSeasonParticles} from '../Chaua-Educa-main/js/seasons.mjs';
 import {winterAmount} from '../Chaua-Educa-main/js/living-motion.mjs';
-import {getWeatherMode,setWeatherMode,drawJourneyRain,drawForegroundRain} from '../Chaua-Educa-main/js/weather.mjs';
+import {getWeatherMode,setWeatherMode,journeyRain,journeyStorm,drawJourneyRain,drawForegroundRain} from '../Chaua-Educa-main/js/weather.mjs';
 import {ACTION_TIMINGS,parrotAction} from '../Chaua-Educa-main/js/action-states.mjs';
 
 function mockCanvas(){
@@ -45,6 +45,19 @@ test('winter scenery, accumulated snow and falling flakes share one distance tra
   drawSeasonParticles(autumn.ctx,fakeAtlas,390,844,12,8000,false,false,.3);
   assert.ok(autumn.calls.petals>0,'autumn petal artwork unexpectedly removed');
   assert.equal(autumn.calls.arcs,0,'snow cannot fall in autumn');
+ }finally{setWeatherMode(old)}
+});
+test('autumn rain yields to snow; thunderstorms never cover full winter',()=>{
+ const old=getWeatherMode();
+ try{
+  setWeatherMode('auto');
+  assert.equal(journeyRain(4000),0);
+  assert.ok(journeyRain(8000)>.2);
+  assert.ok(journeyStorm(8000,'aventura')>.2);
+  assert.equal(journeyStorm(11000,'aventura'),0);
+  assert.equal(journeyRain(10800),0);
+  assert.equal(journeyRain(12000),0);
+  assert.equal(winterAmount(11000),1);
  }finally{setWeatherMode(old)}
 });
 test('manual winter override keeps snow at the beginning of the journey',()=>{
