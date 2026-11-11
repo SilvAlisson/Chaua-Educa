@@ -189,7 +189,7 @@ function drawRainDrops(c,w,h,time,rain,low,storm,wind,foreground=false,speed=250
 }
 function lenForTip(depth,foreground){return ((foreground?7:4)+depth*7)*.8;}
 
-function drawRainRipples(c,w,h,time,rain,storm,low){
+function drawRainRipples(c,w,h,time,rain,storm,low,splashAtlas=null){
  const count=low?5:11;
  c.save();c.strokeStyle='#c5e5ef';c.lineWidth=1.1;
  for(let i=0;i<count;i++){
@@ -197,12 +197,18 @@ function drawRainRipples(c,w,h,time,rain,storm,low){
   const x=(i*149.73+23)%w, y=h-18-(i*13.7)%35;
   c.globalAlpha=rain*.22*(1-phase);
   c.beginPath();c.ellipse(x,y,2+phase*8,.8+phase*3,0,0,Math.PI*2);c.stroke();
+  if(splashAtlas && (i%2===0 || !low)){
+   const frame=Math.min(7,Math.floor(phase*8));
+   c.globalAlpha=Math.min(.7,rain*.6*(1-phase*.6));
+   c.drawImage(splashAtlas,(frame%4)*128,Math.floor(frame/4)*128,128,128,
+     x-18,y-25,36,36);
+  }
  }
  c.restore();
 }
 
 // Dim atmospheric wash and distant blue droplets behind the actors.
-export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250){
+export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250,splashAtlas=null){
  if(rain<=0)return;
  const c=context,w=width,h=height;
  c.save();
@@ -212,7 +218,7 @@ export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail
  c.restore();
  if(reduced)return;
  drawRainDrops(c,w,h,time,rain,lowDetail,storm,wind,false,speed);
- drawRainRipples(c,w,h,time,rain,storm,lowDetail);
+ drawRainRipples(c,w,h,time,rain,storm,lowDetail,splashAtlas);
 }
 
 // Sparse, larger near-camera droplets and water beads provide depth, never
