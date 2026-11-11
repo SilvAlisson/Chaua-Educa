@@ -16,7 +16,7 @@ import { canvasResolution } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
-import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawForegroundRain, drawJourneyFog, drawLightning } from './weather.mjs';
+import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawForegroundRain, drawSurfaceRainImpacts, drawJourneyFog, drawLightning } from './weather.mjs';
 import { FRUITS } from './fruits.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 
@@ -132,14 +132,19 @@ function animatedBird(c,p){
     }
     if(rain>0&&!reduced&&!perched&&!defeated){
         c.save();
-        // 1. Wet glistening sheen along Chaua's top profile
-        c.fillStyle=`rgba(225, 245, 255, ${rain * 0.32})`;
+        // Only a thin glint on the existing head contour. Do not draw an
+        // oval that could be mistaken for a new forehead or duplicate head.
+        c.globalAlpha=Math.min(.3,rain*.25);
+        c.strokeStyle='#a5ced9';c.lineWidth=Math.max(.8,scale*1.4);
+        c.lineCap='round';
         c.beginPath();
-        c.ellipse(10*scale,-18*scale,34*scale,5*scale,-0.18,0,TAU);
-        c.fill();
+        c.moveTo(-14*scale,-32*scale);
+        c.quadraticCurveTo(8*scale,-37*scale,24*scale,-29*scale);
+        c.stroke();
 
-        // 2. Frontal rain impacts on beak and head (droplets shattering & spraying back)
-        c.fillStyle='#d2edff';
+        // 2. Light water beads, never full-white circles obscuring the face.
+        c.globalAlpha=Math.min(.45,rain*.38);
+        c.fillStyle='#add6df';
         c.beginPath();
         for(let i=0;i<4;i++){
             const hitCycle=(time*9+i*1.73)%1;
@@ -898,7 +903,7 @@ export class Renderer {
         }
         return normal;
     }
-    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0, seasonDistance = null) {
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0, seasonDistance = null, rainSpeed = 250) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const palette=BACKGROUND_PALETTE;
@@ -984,7 +989,7 @@ export class Renderer {
         if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
         drawForestLife(c,w,h,time,seasonDistance??0,rain,wind,reduced,this.decoration==='low',storm);
         drawJourneyFog(c, w, h, fog);
-        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind);
+        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind, rainSpeed);
         drawLightning(c, w, h, time, storm, reduced);
         if (wind > 0 && !reduced) {
             c.save();
@@ -1062,7 +1067,7 @@ export class Renderer {
         const wind = journeyWind(game, game.mode, game.tutorial);
         const snow = winterAmount(game);
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
-            rain, storm, fog, wind, game.tutorial?null:game);
+            rain, storm, fog, wind, game.tutorial?null:game, game.speed||250);
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.
@@ -1399,32 +1404,9 @@ export class Renderer {
             else this.trunk(`trunk-${variant}`, null, x, y, upper, time,
                 !upper && e.variant === 'branch' ? 3 : variant, snow, rain);
             if (lean) c.restore();
-            if (rain > 0 && !reduced) {
-                c.save();
-                c.fillStyle = '#d2ecff';
-                c.beginPath();
-                if (!upper) {
-                    for (let s = 0; s < 4; s++) {
-                        const st = (time * 8.5 + (e.id || 0) * 2.3 + s * 1.7) % 1;
-                        const sx = x - 35 + s * 24 + Math.sin(s * 4) * 6;
-                        const sy = y - Math.sin(st * Math.PI) * (7 + (s % 3) * 5);
-                        const sr = Math.max(0.5, (1 - st) * 2.2);
-                        c.moveTo(sx + sr, sy);
-                        c.arc(sx, sy, sr, 0, TAU);
-                    }
-                } else {
-                    for (let d = 0; d < 3; d++) {
-                        const dt = (time * 4.2 + (e.id || 0) * 1.9 + d * 2.1) % 1;
-                        const dx = x - 25 + d * 25 + Math.sin(d * 3) * 5;
-                        const dy = y + dt * dt * 140;
-                        const dr = (1 - dt * 0.35) * 1.6;
-                        c.moveTo(dx + dr, dy);
-                        c.arc(dx, dy, dr, 0, TAU);
-                    }
-                }
-                c.fill();
-                c.restore();
-            }
+            if(rain>.03&&!reduced)
+                drawSurfaceRainImpacts(c,x,upper?y+3:y-3,rain,time,e.id||0,
+                    this.decoration==='low',reduced);
             if (!upper && e.snake) this.snake(e, reduced, snow, rain, time);
         }
     }
@@ -1448,12 +1430,11 @@ export class Renderer {
             drawAnimalBreath(c,-45,-90,snow,t,3.4,0.46,-1,18,-12);
         }
         if(rain>0&&!reduced){
-            c.save();
-            c.globalAlpha=rain*0.22;
-            c.fillStyle='#e2f2ff';
-            c.beginPath();
-            c.ellipse(0,-60,25,45,0.2,0,TAU);
-            c.fill();
+            // Two tiny wet highlights on existing scales, not a pale new body.
+            c.save();c.globalAlpha=Math.min(.27,rain*.22);
+            c.strokeStyle='#a9cdd5';c.lineWidth=1.35;c.lineCap='round';
+            c.beginPath();c.moveTo(-30,-88);c.quadraticCurveTo(-20,-98,-8,-88);
+            c.moveTo(3,-56);c.quadraticCurveTo(14,-53,18,-43);c.stroke();
             c.restore();
         }
         c.restore();
@@ -1509,7 +1490,8 @@ export class Renderer {
         }
         if(rain>0&&!reduced&&!retreat){
             c.save();
-            c.fillStyle='#d8efff';
+            c.globalAlpha=Math.min(.50,rain*.44);
+            c.fillStyle='#abd5df';
             c.beginPath();
             for(let i=0;i<4;i++){
                 const dropCycle=(time*10+i*1.8+((entity?.id)||0)*1.3)%1;

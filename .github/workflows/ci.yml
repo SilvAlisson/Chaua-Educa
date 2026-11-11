@@ -42,6 +42,7 @@ jobs:
           node tests/browser-weather-trees.cjs
           node tests/browser-season-parity.cjs
           node tests/browser-climate-v3.cjs
+          node tests/browser-climate-rain-wet.cjs
           node scripts/benchmark-seasonal-flight.cjs
           npm run test:journey
           npm run test:background
@@ -61,5 +62,6 @@ jobs:
             test-results/weather-trees/
             test-results/season-performance/
             test-results/climate-v3/
+            test-results/climate-rain-wet/
             test-results/climate-calibration/
           if-no-files-found: ignore
