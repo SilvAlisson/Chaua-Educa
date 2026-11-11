@@ -1,9 +1,11 @@
 import { JOURNEY } from './journey.mjs';
 import { smoothstep } from './motion.mjs';
 
-const rainStart = JOURNEY[1].start + 1500;
-const rainEnd = JOURNEY[2].start - 1000;
-const fadeDistance = 1400;
+// Rain builds through the old trees, then yields gradually to the winter
+// transition (9,000–10,800). The full-snow zone must not have a rainstorm.
+const rainStart = JOURNEY[1].start - 1500;
+const rainEnd = JOURNEY[1].start + 3800;
+const fadeDistance = 1800;
 
 let weatherOverride = 'auto';
 
@@ -42,9 +44,10 @@ export function journeyStorm(distance, mode, tutorial = false) {
     if (weatherOverride === 'storm') return 1.0;
     if (weatherOverride !== 'auto') return 0;
     if (tutorial || mode !== 'aventura') return 0;
-    const start = rainStart + 1100;
-    const end = rainEnd - 1100;
-    return smoothstep(Math.min(distance - start, end - distance) / 700);
+    const start = rainStart + 1700;
+    const end = rainEnd - 2000;
+    if(distance<=start||distance>=end)return 0;
+    return smoothstep(Math.min(distance - start, end - distance) / 350);
 }
 
 export function journeyWind(distance, mode, tutorial = false) {
