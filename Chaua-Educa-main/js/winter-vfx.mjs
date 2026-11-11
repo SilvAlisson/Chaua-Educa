@@ -107,3 +107,56 @@ export function winterOverlayStages(intensity){
  return fraction>.001?[{stage:base,alpha:1},{stage:base+1,alpha:fraction}]:
   [{stage:base,alpha:1}];
 }
+
+
+// Cold breath never replaces an existing animal sprite: this function only
+// schedules the original four-frame clay-breath.webp VFX, independently for
+// each animal, according to the same winter weight as the scenery.
+const BREATH_PROFILES=Object.freeze({
+ chaua:Object.freeze({period:2.85,duration:.34,speedX:18,liftY:-9,offset:0,sizeMultiplier:.90}),
+ snake:Object.freeze({period:3.65,duration:.28,speedX:13,liftY:-8,offset:.83,sizeMultiplier:.74}),
+ hawk:Object.freeze({period:4.15,duration:.23,speedX:21,liftY:-7,offset:1.71,sizeMultiplier:.72})
+});
+export function winterBreathSettings(kind,snow,time,{reduced=false,low=false,activity=0,seed=0}={}){
+ const cfg=BREATH_PROFILES[kind],cold=clamp01(snow),motion=clamp01(activity);
+ if(!cfg||!Number.isFinite(time)||cold<=.18||reduced||motion>.88)return null;
+ // Sparse VFX in low detail; in high detail use two staggered original
+ // atlas puffs. Fast movement makes vapor less intense, not more opaque.
+ const period=cfg.period*(low?1.22:1);
+ const shifted=time+cfg.offset+(Number.isFinite(seed)?seed*.017:0);
+ const phase=wrap(shifted/period,1);
+ if(phase>=cfg.duration)return null;
+ const strength=Math.min(.68,(cold-.18)/.82*.56)*(1-motion*.68)*(low?.75:1);
+ if(strength<=.015)return null;
+ return {strength,time:shifted,period,duration:cfg.duration,
+  speedX:cfg.speedX,liftY:cfg.liftY,puffs:low?1:2,sizeMultiplier:cfg.sizeMultiplier};
+}
+
+// A flap, dive or snake movement dislodges only a handful of crystals from
+// points within the original art. No new head/wing/body is painted and there
+// is no emitter state that can desync from paused simulation time.
+const SHAKE_ANCHORS=Object.freeze({
+ chaua:Object.freeze([[-26,-22],[-11,4],[12,8]]),
+ snake:Object.freeze([[-32,-85],[-11,-55],[14,-36]]),
+ hawk:Object.freeze([[-28,-30],[4,-37],[30,-19]])
+});
+export function drawSnowShedding(c,kind,snow,time,activity=0,{scale=1,seed=0,low=false,reduced=false}={}){
+ const cold=clamp01(snow),force=clamp01(activity),anchors=SHAKE_ANCHORS[kind];
+ if(!anchors||reduced||cold<.32||force<.16||!Number.isFinite(time))return;
+ const count=low?2:5,spread=low?9:16;
+ c.save();
+ c.globalAlpha=Math.min(.55,(cold-.32)*.57*force);
+ c.fillStyle='#e5f3f8';
+ c.beginPath();
+ for(let i=0;i<count;i++){
+  const [ax,ay]=anchors[i%anchors.length];
+  const variation=wrap((time*.55)+(seed*.063)+(i*.219),1);
+  const dx=(-7-variation*spread-(i%2)*4)*scale;
+  const dy=(-4-variation*(8+i%3*3))*scale;
+  const x=ax*scale+dx,y=ay*scale+dy;
+  const radius=Math.max(.36,(1-variation)*(.85+(i%3)*.22)*scale);
+  c.moveTo(x+radius,y);
+  c.arc(x,y,radius,0,Math.PI*2);
+ }
+ c.fill();c.restore();
+}

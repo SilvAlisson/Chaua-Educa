@@ -2,7 +2,7 @@ import {breeze,treeBend,winterAmount} from './living-motion.mjs';
 import {drawForestLife} from './forest-life.mjs';
 import {HAWK_ART,hawkUsesActionArt} from './hawk-geometry.mjs';
 import {SeasonalBackdrop,drawSeasonParticles} from './seasons.mjs';
-import {drawSnowfall,drawAnimalFrost,drawSnowContact} from './winter-vfx.mjs';
+import {drawSnowfall,drawAnimalFrost,drawSnowContact,winterBreathSettings,drawSnowShedding} from './winter-vfx.mjs';
 import {drawContinuousSnake} from './snake-render.mjs';
 import {drawSnakeA2,preloadSnakeA2,isSnakeA2Ready} from './snake-a2.mjs';
 import {parrotAction,hawkAction} from './action-states.mjs';
@@ -11,7 +11,7 @@ import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawTreeVariant,drawRefugeTree} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
-import {birdAnimation,hawkAnimation,snakePlacement,placeWarnings} from './animation.mjs';
+import {birdAnimation,hawkAnimation,snakePlacement,spriteHeadRect,placeWarnings} from './animation.mjs';
 import {hawkAngle} from './collision.mjs';
 import { canvasResolution } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
@@ -103,7 +103,7 @@ function birdFoot(scale){
     const f=SPRITES.chaua.frames[12];return (f.content[1]+f.content[3]-5-f.anchor[1])*27.7027*scale/SPRITES.chaua.landmarkWidth;
 }
 function animatedBird(c,p){
-    const {x,y,scale=1,angle=0,time=0,reduced=false,reaction=0,defeated=false,impactProgress=0,turbo=false,stamina=1,perched=false,surprise=false,won=false,landing=null,snow=0,rain=0}=p;
+    const {x,y,scale=1,angle=0,time=0,reduced=false,reaction=0,defeated=false,impactProgress=0,turbo=false,stamina=1,perched=false,surprise=false,won=false,landing=null,snow=0,rain=0,low=false}=p;
     const clip=birdAnimation({wing:p.wing,time,perched:perched&&!surprise,landing,defeated:defeated||surprise,impactProgress:surprise?1:impactProgress,reduced});
     const factor=27.7027*scale/SPRITES.chaua.landmarkWidth,size=125*scale;
     c.save();c.translate(x,y);
@@ -129,8 +129,18 @@ function animatedBird(c,p){
     else if(reaction>0&&!reduced)drawFruitSparkles(c,size*.44,-size*.08,reaction,time);
     else if(stamina<.28&&!reduced&&!perched)drawSweatDrops(c,ex,ey,size,time);
     if(snow>0)drawAnimalFrost(c,'chaua',snow,scale,reduced);
-    if(snow>0&&!reduced&&!defeated&&!surprise){
-        drawAnimalBreath(c,44*scale,2*scale,snow,time,2.4,0.46,1,20*scale,-10*scale);
+    if(snow>.32&&!perched&&!defeated&&!surprise){
+        drawSnowShedding(c,'chaua',snow,time,p.flapImpulse||0,
+            {scale,low,reduced,seed:2});
+    }
+    // Preserve the original four-frame clay-breath.webp effect.
+    // Exhalation softens during strong flaps and never covers the impact pose.
+    if(snow>.18&&!perched&&!defeated&&!surprise&&!turbo){
+        const activity=Math.min(1,Math.abs(p.vy||0)/950+(p.flapImpulse||0)*.55);
+        const breath=winterBreathSettings('chaua',snow,time,{low,reduced,activity});
+        if(breath)drawAnimalBreath(c,44*scale,2*scale,breath.strength,
+            breath.time,breath.period,breath.duration,1,breath.speedX*scale,
+            breath.liftY*scale,breath.puffs,breath.sizeMultiplier);
     }
     if(rain>0&&!reduced&&!perched&&!defeated){
         c.save();
@@ -340,16 +350,17 @@ function drawFruitSparkles(c, bx, by, reaction, t) {
 }
 
 
-export function drawAnimalBreath(c, x, y, snow, time, period = 2.4, duration = 0.45, dirX = 1, speedX = 18, liftY = -8) {
+export function drawAnimalBreath(c, x, y, snow, time, period = 2.4, duration = 0.45, dirX = 1, speedX = 18, liftY = -8, puffs = 3, sizeMultiplier = 1) {
     if (snow <= 0.05) return;
-    const cycle = (time / period) % 1;
+    if(!Number.isFinite(time)||!Number.isFinite(period)||period<=0)return;
+    const cycle = ((time / period) % 1 + 1) % 1;
     if (cycle >= duration) return;
     const phase = cycle / duration;
     const alphaBase = Math.sin(phase * Math.PI) * 0.85 * snow;
     const breathImg = images.get('clay-breath');
     c.save();
     if (breathImg) {
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < Math.min(3, Math.max(1, puffs)); i++) {
             const delay = i * 0.15;
             if (phase < delay) continue;
             const p = (phase - delay) / (1 - delay);
@@ -358,7 +369,7 @@ export function drawAnimalBreath(c, x, y, snow, time, period = 2.4, duration = 0
             const sy = 0;
             const sw = 128;
             const sh = 128;
-            const scale = (0.16 + p * 0.22) * (1 - i * 0.15);
+            const scale = (0.16 + p * 0.22) * (1 - i * 0.15) * sizeMultiplier;
             const dw = 128 * scale;
             const dh = 128 * scale;
             const px = x + dirX * p * (speedX + i * 5);
@@ -372,7 +383,7 @@ export function drawAnimalBreath(c, x, y, snow, time, period = 2.4, duration = 0
             c.restore();
         }
     } else {
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < Math.min(3, Math.max(1, puffs)); i++) {
             const delay = i * 0.14;
             if (phase < delay) continue;
             const p = (phase - delay) / (1 - delay);
@@ -569,10 +580,10 @@ export function drawBird(c, {
     x, y, scale = 1, angle = 0, wing = 0, perched = false, time = 0, surprise = false,
     reduced = false, reaction = 0, flapImpulse = 0, vy = 0,
     defeated = false, impactProgress = 0, turbo = false, stamina = 1, won = false, landing = null,
-    shieldHitAge = null, snow = 0, rain = 0
+    shieldHitAge = null, snow = 0, rain = 0, low = false
 }) {
     if(!images.has('chaua-atlas'))return;
-    return animatedBird(c,{x,y,scale,angle,wing,perched,time,surprise,reduced,reaction,flapImpulse,vy,defeated,impactProgress,turbo,stamina,won,landing,shieldHitAge,snow,rain});
+    return animatedBird(c,{x,y,scale,angle,wing,perched,time,surprise,reduced,reaction,flapImpulse,vy,defeated,impactProgress,turbo,stamina,won,landing,shieldHitAge,snow,rain,low});
 }
 
 // Shared attachment geometry keeps the authored perch positioned harmoniously.
@@ -1204,7 +1215,7 @@ export class Renderer {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
                     c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
                 }
-                if(e.warning<=0&&drawSprite)this.hawk(e, reduced ? 0 : sceneTime, reduced, false, 0, false, snow, rain);
+                if(e.warning<=0&&drawSprite)this.hawk(e, reduced ? 0 : sceneTime, reduced, false, 0, false, snow, rain, this.decoration==='low');
             } else if (!e.collected&&drawSprite) this.pickup(e, game.elapsed, reduced, snow, rain);
         }
         if (game.shield || game.invincible > 0) {
@@ -1260,7 +1271,7 @@ export class Renderer {
             shieldHitAge:game.hit&&game.invincible>0?game.hit.age:null,
             defeated: isDefeated, impactProgress: impactProg, turbo: (game.pepper || 0) > 0,
             stamina: game.stamina !== undefined ? game.stamina : 1, won: game.state === 'ended' && game.won,
-            snow, rain
+            snow, rain, low:this.decoration==='low'
         });
         if (!reduced) {
             const pList = this.decoration==='low'?game.particles:game.particles;
@@ -1417,13 +1428,13 @@ export class Renderer {
             if(rain>.03&&!reduced)
                 drawSurfaceRainImpacts(c,x,upper?y+3:y-3,rain,time,e.id||0,
                     this.decoration==='low',reduced);
-            if (!upper && e.snake) this.snake(e, reduced, snow, rain, time);
+            if (!upper && e.snake) this.snake(e, reduced, snow, rain, time, this.decoration==='low');
         }
     }
     trunk(key,preset,x,y,flip,time=0,variant=0,snow=0,rain=0){
         drawLivingTrunk(this.c,{x,y,upper:flip,width:TREE_WIDTH,length:1000,variant,time,snow,rain});
     }
-    snake(wood,reduced,snow=0,rain=0,time=0){
+    snake(wood,reduced,snow=0,rain=0,time=0,low=false){
         const s=wood.snake,place=snakePlacement(wood),c=this.c;
         c.save();c.translate(place.x,place.y);c.scale(place.facing,1);
         if(!drawSnakeA2(c,s,place.factor,reduced)){
@@ -1436,9 +1447,24 @@ export class Renderer {
         }
         if(s.retreat&&s.dazed&&!reduced)drawOrbitingStars(c,0,-165,65,s.retreatTime||0);
         if(snow>.12)drawAnimalFrost(c,'snake',snow,1,reduced);
-        if(snow>0&&!reduced&&!s.retreat){
-            const t=(time||0)+(wood.id||0)*1.3;
-            drawAnimalBreath(c,-45,-90,snow,t,3.4,0.46,-1,18,-12);
+        const activePhase=s.phase==='striking'?1:s.phase==='windup'?.70:
+            s.phase==='recovering'?.48:(s.retreat?.90:0);
+        if(snow>.32&&activePhase>.16)
+            drawSnowShedding(c,'snake',snow,time,activePhase,
+                {low,reduced,seed:wood.id||0});
+        if(snow>.18&&!s.retreat){
+            const breath=winterBreathSettings('snake',snow,time,
+                {low,reduced,activity:activePhase,seed:wood.id||0});
+            if(breath){
+                // The existing animated snake's head collider supplies
+                // the mouth anchor; no separate head art is drawn.
+                const head=spriteHeadRect(wood,reduced);
+                const mouthX=Math.max(-85,Math.min(-18,head.x-place.x+3));
+                const mouthY=Math.max(-150,Math.min(-35,head.y+head.h*.58-place.y));
+                drawAnimalBreath(c,mouthX,mouthY,breath.strength,
+                    breath.time,breath.period,breath.duration,-1,
+                    breath.speedX,breath.liftY,breath.puffs,breath.sizeMultiplier);
+            }
         }
         if(rain>0&&!reduced){
             // Two tiny wet highlights on existing scales, not a pale new body.
@@ -1451,7 +1477,7 @@ export class Renderer {
         c.restore();
     }
     flightBorders(view) {}
-    hawk(entityOrX, yOrTime = 0, timeOrReduced = 0, warning = false, angle = 0, retreat = false, snow = 0, rain = 0) {
+    hawk(entityOrX, yOrTime = 0, timeOrReduced = 0, warning = false, angle = 0, retreat = false, snow = 0, rain = 0, low = false) {
         const c = this.c;
         let x, y, time, e = null;
         if (typeof entityOrX === 'object') {
@@ -1496,9 +1522,22 @@ export class Renderer {
         if(!newHawk)atlasAnimation(c,'hawk',clip,HAWK_ART.legacyScale,180);
         if(snow>.12)drawAnimalFrost(c,'hawk',snow,1,reduced);
         if(retreat&&!reduced)drawOrbitingStars(c,-35,-60,110,time);
-        if(snow>0&&!reduced&&!retreat){
-            const t=(time||0)+((entity?.id)||0)*0.7;
-            drawAnimalBreath(c,-86,14,snow,t,1.5,0.48,1,40,-6);
+        // Release crystals once at the start of the dive or recoil, not
+        // continuously through the entire predator's crossing animation.
+        const span=(entity.startX||0)-(entity.targetX||0);
+        const diveProgress=span>0?Math.max(0,Math.min(1,((entity.startX||x)-x)/span)):1;
+        const diving=entity.dive&&diveProgress>.04&&diveProgress<.29;
+        const recoil=retreat&&(entity.retreatTime||0)<.32;
+        const shake=diving?.82:recoil?.94:0;
+        if(snow>.32&&shake>.16)
+            drawSnowShedding(c,'hawk',snow,time,shake,
+                {low,reduced,seed:entity.id||0});
+        if(snow>.18&&!retreat&&!warning){
+            const breath=winterBreathSettings('hawk',snow,time,
+                {low,reduced,activity:entity.dive?.75:0,seed:entity.id||0});
+            if(breath)drawAnimalBreath(c,-86,14,breath.strength,
+                breath.time,breath.period,breath.duration,-1,
+                breath.speedX,breath.liftY,breath.puffs,breath.sizeMultiplier);
         }
         if(rain>0&&!reduced&&!retreat){
             c.save();
