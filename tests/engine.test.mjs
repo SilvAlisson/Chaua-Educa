@@ -3,6 +3,7 @@ import { QUESTIONS } from '../Chaua-Educa-main/js/questions.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, FlightClock, STEP, FLIGHT, overlaps } from '../Chaua-Educa-main/js/engine.mjs';
+import { ACTION_TIMINGS } from '../Chaua-Educa-main/js/action-states.mjs';
 
 function flight(options) { const game = new Game(options); game.state = 'playing'; game.nextSpawn = Infinity; return game; }
 function advance(game, seconds) { for (let i = 0; i < Math.round(seconds / STEP); i++) game.tick(STEP); }
@@ -76,7 +77,7 @@ test('one shield preserves living wood, grants escape time and no contact points
     assert.equal(game.y, (obstacle.top + obstacle.bottom) / 2);
     assert.ok(game.woodRects(obstacle).some(rect=>rect.y===obstacle.bottom));
     obstacle.x = game.x - 200; game.tick(STEP); assert.equal(game.score, 0);
-    game.invincible = 0; game.y=300; game.entities = [wood(game)]; game.tick(STEP); assert.equal(game.state, 'impact'); advance(game,.45); assert.equal(game.state, 'ended');
+    game.invincible = 0; game.y=300; game.entities = [wood(game)]; game.tick(STEP); assert.equal(game.state, 'impact'); advance(game,ACTION_TIMINGS.parrotImpact*.5); assert.equal(game.state,'impact'); advance(game,ACTION_TIMINGS.parrotImpact*.6); assert.equal(game.state, 'ended');
 });
 
 test('shield repels animals and never destroys them', () => {
