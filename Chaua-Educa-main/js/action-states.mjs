@@ -3,7 +3,7 @@ import {SNAKE_TIMING} from './animals.mjs';
 // Each state is derived from the simulation clock; no per-frame mutable timers.
 const clamp = value => Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
 const frame = (count, progress) => Math.min(count-1,Math.floor(clamp(progress)*count));
-export const ACTION_TIMINGS = Object.freeze({parrotImpact:.42,shieldRebound:.30,hawkStun:1.05,hawkRetreat:2,snakeDaze:.85});
+export const ACTION_TIMINGS = Object.freeze({parrotImpact:1.2,shieldRebound:.30,hawkStun:1.05,hawkRetreat:2,snakeDaze:.85});
 export function parrotAction(p = {}) {
  if(p.reduced||p.perched||p.landing!==null&&p.landing!==undefined||p.surprise)return null;
  if(p.defeated)return {state:'impact',sheet:'parrot-impact',frame:frame(6,p.impactProgress||0)};

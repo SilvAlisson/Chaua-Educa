@@ -1,5 +1,6 @@
 import {smoothstep} from './motion.mjs';
 import {getWeatherMode} from './weather.mjs';
+import {journeySeason} from './seasons.mjs';
 
 const clamp = v => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
 
@@ -17,12 +18,12 @@ export function treeBend(time, wind, id, hitAge, reduced = false) {
     return breeze(time, wind, false, id * 41) * 0.003 + recoil;
 }
 
-// Distance-based or weather-override winter mountain transition
+// Use exactly the same crossfade as the seasonal backdrop. Snow on trunks,
+// animals and fruit must never lag behind or outlive the visible winter scene.
 export function winterAmount(distance) {
-    const wm = getWeatherMode();
-    if (wm === 'winter') return 1.0;
-    if (wm !== 'auto') return 0;
-    return smoothstep(clamp((distance - 17500) / 700)) * smoothstep(clamp((20200 - distance) / 700));
+    const state = journeySeason(distance);
+    return clamp((state.from === 3 ? 1 - state.mix : 0) +
+        (state.to === 3 ? state.mix : 0));
 }
 
 // Bright summer tropical sun presence

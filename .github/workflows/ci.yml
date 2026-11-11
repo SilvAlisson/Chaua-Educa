@@ -39,6 +39,7 @@ jobs:
           node tests/browser-mobile-home-layout.cjs
           node tests/browser-responsive-camera.cjs
           node tests/browser-weather-trees.cjs
+          node tests/browser-winter-weather-scenes.cjs
           node tests/browser-season-parity.cjs
           node scripts/benchmark-seasonal-flight.cjs
           npm run test:journey
@@ -57,5 +58,6 @@ jobs:
           path: |
             test-results/auto-visual/
             test-results/weather-trees/
+            test-results/winter-weather/
             test-results/season-performance/
           if-no-files-found: ignore

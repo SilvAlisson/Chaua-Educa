@@ -73,26 +73,58 @@ export class SeasonalBackdrop {
  }
 }
 
+// Procedural snow has its own falling motion: winter must never reuse
+// the autumn/spring petal artwork. A few depth bands avoid expensive sprites.
+export function drawSnowfall(c,w,h,time,intensity,reduced,low,wind=0,foreground=false){
+ if(reduced || intensity<=.01 || w<=0 || h<=0)return;
+ const bands=foreground?[{depth:1,count:low?5:10}]:
+   [{depth:.38,count:low?6:14},{depth:.7,count:low?7:18}];
+ c.save();
+ c.beginPath();c.rect(0,0,w,h);c.clip();
+ for(const {depth,count} of bands){
+  for(let i=0;i<count;i++){
+   const seed=(i+1)*37.37+depth*131.5;
+   const travel=time*(30+depth*63+(i%5)*6);
+   const y=((seed*17.21+travel)%(h+64)+h+64)%(h+64)-32;
+   const drift=time*(wind*20+depth*5);
+   const sway=Math.sin(time*(.47+depth*.55)+seed)*((1-depth)*13+4);
+   const x=((seed*29.43+drift+sway)%(w+64)+w+64)%(w+64)-32;
+   const r=(foreground?1.4:.75)+depth*(foreground?1.85:1.25)+(i%3)*.24;
+   const alpha=Math.min(.87,intensity*(foreground?.53:.38+depth*.28));
+   c.globalAlpha=alpha;
+   c.fillStyle='#f8fcff';
+   c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();
+   if(foreground && i%3===0){
+    c.globalAlpha=alpha*.18;
+    c.beginPath();c.arc(x,y,r*2.4,0,Math.PI*2);c.fill();
+   }
+  }
+ }
+ c.restore();
+}
+
 export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0){
- if(reduced || !atlas)return;
+ if(reduced)return;
  const state=journeySeason(distance);
  const weights=[0,0,0,0];weights[state.from]+=1-state.mix;weights[state.to]+=state.mix;
- const count=low?7:14, cell=(atlas.naturalWidth||atlas.width)/2;
+ // Snow replaces petals as the winter weight rises, including crossfades.
+ drawSnowfall(c,w,h,time,weights[3],reduced,low,wind);
+ if(!atlas)return;
+ const count=low?7:14,cell=(atlas.naturalWidth||atlas.width)/2;
  const layers=[
-  {row: 0, weight: weights[0]},
-  {row: 2, weight: weights[1] + weights[2]}
+  {row:0,weight:weights[0]},
+  {row:2,weight:weights[1]+weights[2]}
  ];
- for(const {row, weight} of layers){
-  if(weight<=0)continue;
+ for(const {row,weight} of layers){
+  if(weight<=.01)continue;
   for(let i=0;i<count;i++){
    const baseSize=row===0?32:38;
    const size=baseSize+(i%4)*4;
    const travel=time*(15+i%3*4)+distance*.028;
    const x=w+48-((i*147.7+travel)%(w+96))+Math.sin(time*.9+i)*16;
    const y=((i*97.4+time*(22+i%4*7))%(h+80))-40;
-   c.save();c.globalAlpha=Math.min(0.92, weight*.85);
+   c.save();c.globalAlpha=Math.min(.92,weight*.85);
    c.translate(x,y);c.rotate(Math.sin(time*1.1+i)*.65+time*.25+wind*.3);
-   // A smooth tumble without swapping unrelated images or snapping scale.
    c.scale(.75+.25*Math.sin(time*1.4+i),1);
    const frame=row+(i%2);
    c.drawImage(atlas,(frame%2)*cell,Math.floor(frame/2)*cell,cell,cell,-size/2,-size/2,size,size);
