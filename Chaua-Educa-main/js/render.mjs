@@ -615,15 +615,18 @@ export class Renderer {
             getPickupCache('feather-glow', 42, [[6, 0, '#ffe399dd'], [6, 0.6, '#ffd55e66'], [6, 1, '#ffffff00']]);
             getPickupCache('shield-glow', 42, [[6, 0, '#a8f5d0dd'], [6, 0.6, '#46e49e66'], [6, 1, '#ffffff00']]);
             getPepperSprite();
-            const particlesImg = images.get('season-particles');
-            if (particlesImg && !particlesImg._rasterized) {
-                const pw = particlesImg.naturalWidth || particlesImg.width;
-                const ph = particlesImg.naturalHeight || particlesImg.height;
-                const off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : document.createElement('canvas');
-                off.width = pw; off.height = ph;
-                off.getContext('2d').drawImage(particlesImg, 0, 0);
-                off._rasterized = true;
-                images.set('season-particles', off);
+            // Rasterize small atlas effects exactly once on load. Their SVG
+            // gradients/blur must not be rerasterized on every 60 FPS frame.
+            for (const key of ['season-particles','frost-breath-fx','rain-splash-fx']) {
+                const img=images.get(key);
+                if (!img || img._rasterized) continue;
+                const pw=img.naturalWidth || img.width, ph=img.naturalHeight || img.height;
+                const surface=typeof OffscreenCanvas !== 'undefined' ?
+                    new OffscreenCanvas(pw, ph) : document.createElement('canvas');
+                surface.width=pw;surface.height=ph;
+                surface.getContext('2d').drawImage(img,0,0);
+                surface._rasterized=true;
+                images.set(key,surface);
             }
             this.seasonalBackdrop=new SeasonalBackdrop();
             this.seasonalBackdrop.prepare(images.get('season-backgrounds'),this.w,this.h,this.dpr,0);
