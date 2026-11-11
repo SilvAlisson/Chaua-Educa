@@ -1054,13 +1054,15 @@ export class Renderer {
         }
         const c = this.c;
         const sceneTime = game.sceneTime ?? game.elapsed;
-        const rain = journeyRain(game.distance, game.tutorial);
-        const storm = journeyStorm(game.distance, game.mode, game.tutorial);
-        const fog = journeyFog(game.distance, game.tutorial);
-        const wind = journeyWind(game.distance, game.mode, game.tutorial);
-        const snow = winterAmount(game.distance);
+        // One flight-time climate state drives every visible layer. Physics and
+        // stage geometry retain their existing world-distance calculations.
+        const rain = journeyRain(game, game.tutorial);
+        const storm = journeyStorm(game, game.mode, game.tutorial);
+        const fog = journeyFog(game, game.tutorial);
+        const wind = journeyWind(game, game.mode, game.tutorial);
+        const snow = winterAmount(game);
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
-            rain, storm, fog, wind, game.tutorial?null:game.distance);
+            rain, storm, fog, wind, game.tutorial?null:game);
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
         // the improved sprite scale. The camera does not touch gameplay math.
@@ -1339,8 +1341,8 @@ export class Renderer {
         }
         c.restore();
         if(rain>0&&!reduced){
-            const rWind=journeyWind(game.distance,game.mode,game.tutorial);
-            const rStorm=journeyStorm(game.distance);
+            const rWind=journeyWind(game,game.mode,game.tutorial);
+            const rStorm=journeyStorm(game,game.mode,game.tutorial);
             drawForegroundRain(c,this.w,this.h,sceneTime,rain,reduced,this.decoration==='low',rStorm,rWind,game.speed||250);
         }
         // Natural viewport flight boundary
@@ -1374,9 +1376,9 @@ export class Renderer {
         const time = game.sceneTime ?? game.elapsed;
         const variant = (e.id ?? 0) % 3;
         const x = e.x + 29;
-        const wind = reduced ? 0 : journeyWind(game.distance, game.mode, game.tutorial);
-        const rain = reduced ? 0 : journeyRain(game.distance, game.tutorial);
-        const snow = reduced ? 0 : winterAmount(game.distance);
+        const wind = reduced ? 0 : journeyWind(game, game.mode, game.tutorial);
+        const rain = reduced ? 0 : journeyRain(game, game.tutorial);
+        const snow = reduced ? 0 : winterAmount(game);
         for (const side of ['top', 'bottom']) {
             const upper = side === 'top';
             const y = e[side];

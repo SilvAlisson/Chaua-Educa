@@ -1,5 +1,6 @@
 import {smoothstep} from './motion.mjs';
 import {getWeatherMode} from './weather.mjs';
+import {seasonFromFlight,seasonWeights} from './climate-timeline.mjs';
 
 const clamp = v => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
 
@@ -22,6 +23,8 @@ export function winterAmount(distance) {
     const wm = getWeatherMode();
     if (wm === 'winter') return 1.0;
     if (wm !== 'auto') return 0;
+    if (distance && typeof distance==='object') return seasonWeights(seasonFromFlight(distance))[3];
+    // Historical distance-only API for visual benchmarks and legacy tests.
     return smoothstep(clamp((distance - 17500) / 700)) * smoothstep(clamp((20200 - distance) / 700));
 }
 
@@ -32,7 +35,11 @@ export function summerSunAmount(distance = 0, rain = 0, storm = 0) {
     if (wm === 'storm' || wm === 'rain' || wm === 'winter') return 0;
     if (wm === 'autumn') return 0.25;
     if (wm === 'spring') return 0.55;
+    if (distance && typeof distance==='object') {
+        const w=seasonWeights(seasonFromFlight(distance));
+        return clamp((w[0]*.50+w[2]*1.0+w[1]*.15)*(1-rain*.8-storm*.7));
+    }
     if (rain > 0.1 || storm > 0.1) return Math.max(0, 1 - (rain * 0.8 + storm * 0.9));
-    // In auto journey: vibrant tropical sunlight that breathes naturally with distance
+    // Legacy distance-only fallback.
     return 0.75;
 }

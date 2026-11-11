@@ -1,5 +1,10 @@
 import { JOURNEY } from './journey.mjs';
 import { smoothstep } from './motion.mjs';
+import {seasonFromFlight,seasonWeights} from './climate-timeline.mjs';
+
+// All VISUAL weather in the active game reads the same seasonal clock.
+// Numeric-distance inputs remain for existing world-physics wind and tests.
+const visualWeights=source=>seasonWeights(seasonFromFlight(source));
 
 const rainStart = JOURNEY[1].start + 1500;
 const rainEnd = JOURNEY[2].start - 1000;
@@ -34,14 +39,20 @@ export function journeyRain(distance, tutorial = false) {
     if (weatherOverride === 'storm') return 1.0;
     if (weatherOverride === 'rain') return 0.85;
     if (weatherOverride === 'summer' || weatherOverride === 'winter' || weatherOverride === 'autumn' || weatherOverride === 'spring') return 0;
-    if (tutorial || distance <= rainStart || distance >= rainEnd) return 0;
+    if (tutorial || distance?.tutorial) return 0;
+    if (distance && typeof distance==='object') return visualWeights(distance)[1]*.85;
+    if (distance <= rainStart || distance >= rainEnd) return 0;
     return smoothstep(Math.min(distance - rainStart, rainEnd - distance) / fadeDistance);
 }
 
 export function journeyStorm(distance, mode, tutorial = false) {
     if (weatherOverride === 'storm') return 1.0;
     if (weatherOverride !== 'auto') return 0;
-    if (tutorial || mode !== 'aventura') return 0;
+    if (tutorial || distance?.tutorial || (mode ?? distance?.mode) !== 'aventura') return 0;
+    if (distance && typeof distance==='object') {
+        const autumn=visualWeights(distance)[1];
+        return smoothstep(Math.max(0,(autumn-.30)/.7))*.58;
+    }
     const start = rainStart + 1100;
     const end = rainEnd - 1100;
     return smoothstep(Math.min(distance - start, end - distance) / 700);
@@ -54,7 +65,11 @@ export function journeyWind(distance, mode, tutorial = false) {
     if (weatherOverride === 'summer') return 0.20;
     if (weatherOverride === 'spring') return 0.25;
     if (weatherOverride === 'rain') return 0.35;
-    if (tutorial) return 0;
+    if (tutorial || distance?.tutorial) return 0;
+    if (distance && typeof distance==='object') {
+        const w=visualWeights(distance);
+        return w[0]*.20+w[1]*.75+w[2]*.20+w[3]*.45;
+    }
     const start = JOURNEY[2].start + 600;
     const end = JOURNEY[2].start + 3700;
     const gust = smoothstep(Math.min(distance - start, end - distance) / 900);
@@ -65,8 +80,12 @@ export function journeyFog(distance, tutorial = false) {
     if (weatherOverride === 'rain') return 0.6;
     if (weatherOverride === 'storm') return 0.4;
     if (weatherOverride === 'winter') return 0.5;
-    if (weatherOverride !== 'auto') return 0;
-    return tutorial ? 0 : 1 - smoothstep(distance / 2900);
+    if (weatherOverride !== 'auto' || tutorial || distance?.tutorial) return 0;
+    if (distance && typeof distance==='object') {
+        const w=visualWeights(distance);
+        return w[0]*.52+w[1]*.32+w[2]*.10+w[3]*.55;
+    }
+    return 1 - smoothstep(distance / 2900);
 }
 
 export function drawJourneyFog(context, width, height, fog) {

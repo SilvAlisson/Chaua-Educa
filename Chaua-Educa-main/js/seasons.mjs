@@ -1,5 +1,6 @@
 import {smoothstep} from './motion.mjs';
 import {getWeatherMode} from './weather.mjs';
+import {seasonFromFlight} from './climate-timeline.mjs';
 
 // Artistic ambiences along the journey, not a simulation of the local calendar.
 const PHASES = [[0,0],[6000,1],[9000,3],[14000,2],[20000,0]];
@@ -9,6 +10,14 @@ export function journeySeason(distance) {
  if (wm === 'autumn') return {from: 1, to: 1, mix: 1};
  if (wm === 'winter') return {from: 3, to: 3, mix: 1};
  if (wm === 'summer') return {from: 2, to: 2, mix: 1};
+
+ // Active gameplay supplies the Game object (elapsed/mode/seed).
+ // Numeric offsets are preserved ONLY for existing render diagnostics,
+ // historical captures and standalone API callers during migration.
+ if (distance && typeof distance === 'object') {
+  if (distance.tutorial) return {from:0,to:0,mix:1};
+  return seasonFromFlight(distance);
+ }
 
  let phase=0;
  while(phase+1<PHASES.length && distance>=PHASES[phase+1][0])phase++;
@@ -29,7 +38,8 @@ export class SeasonalBackdrop {
    this.pending=null;this.frames.clear();this.key=key;this.atlas=atlas;
   }
   const needed=new Set(state.mix===1?[state.to]:[state.from,state.to]);
-  const upcoming=journeySeason(distance+900).to;
+  const ahead=typeof distance==='number'?distance+900:{...distance,elapsed:(distance.elapsed||0)+10};
+  const upcoming=journeySeason(ahead).to;
   if(this.prewarmEnabled && state.mix===1)needed.add(upcoming);
   for(const [id,surface] of this.frames)if(!needed.has(id)){
    surface.width=0;surface.height=0;this.frames.delete(id);
@@ -77,6 +87,7 @@ export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0
  if(reduced || !atlas)return;
  const state=journeySeason(distance);
  const weights=[0,0,0,0];weights[state.from]+=1-state.mix;weights[state.to]+=state.mix;
+ const driftOffset=typeof distance==='number'?distance:(distance.distance||0);
  const count=low?7:14, cell=(atlas.naturalWidth||atlas.width)/2;
  const layers=[
   {row: 0, weight: weights[0]},
@@ -87,7 +98,7 @@ export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0
   for(let i=0;i<count;i++){
    const baseSize=row===0?32:38;
    const size=baseSize+(i%4)*4;
-   const travel=time*(15+i%3*4)+distance*.028;
+   const travel=time*(15+i%3*4)+driftOffset*.028;
    const x=w+48-((i*147.7+travel)%(w+96))+Math.sin(time*.9+i)*16;
    const y=((i*97.4+time*(22+i%4*7))%(h+80))-40;
    c.save();c.globalAlpha=Math.min(0.92, weight*.85);
