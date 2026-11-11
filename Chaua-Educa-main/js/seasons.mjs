@@ -1,6 +1,7 @@
 import {smoothstep} from './motion.mjs';
 import {getWeatherMode} from './weather.mjs';
 import {seasonFromFlight} from './climate-timeline.mjs';
+import {drawSnowfall} from './winter-vfx.mjs';
 
 // Artistic ambiences along the journey, not a simulation of the local calendar.
 const PHASES = [[0,0],[6000,1],[9000,3],[14000,2],[20000,0]];
@@ -84,14 +85,18 @@ export class SeasonalBackdrop {
 }
 
 export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0){
- if(reduced || !atlas)return;
+ if(reduced)return;
  const state=journeySeason(distance);
  const weights=[0,0,0,0];weights[state.from]+=1-state.mix;weights[state.to]+=state.mix;
  const driftOffset=typeof distance==='number'?distance:(distance.distance||0);
+ // Snow shares the exact winter weight used by terrain, animals and lighting.
+ // The original atlas contains only petals and leaves, not snow textures.
+ drawSnowfall(c,w,h,time,weights[3],reduced,low,wind,false);
+ if(!atlas)return;
  const count=low?7:14, cell=(atlas.naturalWidth||atlas.width)/2;
  const layers=[
   {row: 0, weight: weights[0]},
-  {row: 2, weight: weights[1] + weights[2]}
+  {row: 2, weight: weights[1]}
  ];
  for(const {row, weight} of layers){
   if(weight<=0)continue;

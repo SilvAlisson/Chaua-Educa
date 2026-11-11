@@ -1,6 +1,7 @@
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {FOREST_ART} from './forest-art-data.mjs';
 import {images} from './assets.mjs';
+import {winterOverlayStages} from './winter-vfx.mjs';
 
 // Tiny local highlights follow the existing bark, without painting a large
 // rectangular light patch or modifying any authored tree atlas.
@@ -41,7 +42,7 @@ export function drawWetBarkSheen(c,x,y,width,wet,time=0,seed=0){
 // strip extends toward the viewport edge; caps, knots and leaves never stretch.
 export function drawLivingTrunk(c, {x, y, upper = false, width = TREE_WIDTH, length = 900, variant = 0, time = 0, snow = 0, rain = 0}) {
  const kind = upper ? 'upper' : 'lower';
- const fullSnow = snow >= 0.98;
+ const fullSnow = snow >= 1 - 1e-6;
  const snowImg4 = fullSnow ? (images.get(`trees-${kind}-snow-04`) || images.get(`trees-${kind}-snow`)) : null;
  const image = snowImg4 || images.get(`trees-${kind}`);
  if (!image) return;
@@ -66,23 +67,24 @@ export function drawLivingTrunk(c, {x, y, upper = false, width = TREE_WIDTH, len
  // Restrained wet detail on existing bark, near the visible trunk cap.
  if(rain>0)drawWetBarkSheen(c,coreLeft,upper?join-70:py+8,width,rain,time,variant);
 
- // Snow accumulation transition: overlay pure snow layer progressively
- if (snow > 0 && !fullSnow) {
-  const stageNum = Math.min(4, Math.max(1, Math.ceil(snow * 4)));
-  const overlay = images.get(`trees-${kind}-overlay-0${stageNum}`) || images.get(`trees-${kind}-snow-0${stageNum}`) || images.get(`trees-${kind}-snow`);
-  if (overlay) {
-   c.save?.();
-   if (c.globalAlpha !== undefined) c.globalAlpha = Math.min(1, snow * 1.15);
-   if (upper) {
-    const start = y - length;
-    if (join > start) c.drawImage(overlay, sx + stripLeft, sy + splice, stripWidth, 1, coreLeft, start, width, join - start + .5);
-    c.drawImage(overlay, sx + cx, sy + splice, cw, f.endY - splice, px, join, cw * s, (f.endY - splice) * s);
-   } else {
-    const end = y + length;
-    if (end > join) c.drawImage(overlay, sx + stripLeft, sy + splice, stripWidth, 1, coreLeft, join - .5, width, end - join + .5);
-    c.drawImage(overlay, sx + cx, sy + cy, cw, splice - cy, px, py, cw * s, (splice - cy) * s);
+ // Crossfade between the EXISTING four transparent snowfall WebP layers.
+ // Only the visible branch/cap is coated; a suspended tree must never gain
+ // snow along the trunk section attached to the ceiling.
+ if(snow>0&&!fullSnow){
+  for(const {stage,alpha} of winterOverlayStages(snow)){
+   const overlay=images.get(`trees-${kind}-overlay-0${stage}`) ||
+     images.get(`trees-${kind}-snow-0${stage}`) ||
+     images.get(`trees-${kind}-snow`);
+   if(!overlay || alpha<=0)continue;
+   c.save();c.globalAlpha=Math.min(1,alpha);
+   if(upper){
+    c.drawImage(overlay,sx+cx,sy+splice,cw,f.endY-splice,
+      px,join,cw*s,(f.endY-splice)*s);
+   }else{
+    c.drawImage(overlay,sx+cx,sy+cy,cw,splice-cy,
+      px,py,cw*s,(splice-cy)*s);
    }
-   c.restore?.();
+   c.restore();
   }
  }
 

@@ -2,6 +2,7 @@ import {breeze,treeBend,winterAmount} from './living-motion.mjs';
 import {drawForestLife} from './forest-life.mjs';
 import {HAWK_ART,hawkUsesActionArt} from './hawk-geometry.mjs';
 import {SeasonalBackdrop,drawSeasonParticles} from './seasons.mjs';
+import {drawSnowfall,drawAnimalFrost,drawSnowContact} from './winter-vfx.mjs';
 import {drawContinuousSnake} from './snake-render.mjs';
 import {drawSnakeA2,preloadSnakeA2,isSnakeA2Ready} from './snake-a2.mjs';
 import {parrotAction,hawkAction} from './action-states.mjs';
@@ -127,6 +128,7 @@ function animatedBird(c,p){
     }
     else if(reaction>0&&!reduced)drawFruitSparkles(c,size*.44,-size*.08,reaction,time);
     else if(stamina<.28&&!reduced&&!perched)drawSweatDrops(c,ex,ey,size,time);
+    if(snow>0)drawAnimalFrost(c,'chaua',snow,scale,reduced);
     if(snow>0&&!reduced&&!defeated&&!surprise){
         drawAnimalBreath(c,44*scale,2*scale,snow,time,2.4,0.46,1,20*scale,-10*scale);
     }
@@ -909,6 +911,7 @@ export class Renderer {
         const palette=BACKGROUND_PALETTE;
         const light = reduced||stageMix===1 ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], stageMix);
         const seasonal=seasonDistance!==null && images.get('season-backgrounds');
+        const winterLight=seasonDistance!==null?winterAmount(seasonDistance):0;
         const forest=seasonal?null:images.get('forest');
         const backdropMix=stageMix===1?1:Math.round(Math.max(0,Math.min(1,stageMix))*64)/64;
         const backdropLight=stageMix===1?light:mixColor(palette[Math.max(0,stage-1)],palette[stage],backdropMix);
@@ -975,7 +978,7 @@ export class Renderer {
         c.save();c.globalAlpha=.10;c.fillStyle=transition===1?TINT_PALETTE[stage]:mixColor(TINT_PALETTE[Math.max(0,stage-1)],TINT_PALETTE[stage],transition);c.fillRect(0,0,w,h);c.restore();
         // Sunlight and shade breathe slowly with the same wind as leaves and vines.
         c.fillStyle = '#ffffcb10';
-        c.save();c.globalAlpha = 1 - rain * .9;
+        c.save();c.globalAlpha = (1 - rain * .9)*(1-winterLight*.96);
         c.translate(reduced?0:Math.sin(time*.22)*18,0);
         c.beginPath();
         for (let i = 0; i < 3; i++) {
@@ -986,17 +989,17 @@ export class Renderer {
         }
         c.fill();
         c.restore();
-        if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
         drawForestLife(c,w,h,time,seasonDistance??0,rain,wind,reduced,this.decoration==='low',storm);
+        if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
         drawJourneyFog(c, w, h, fog);
         drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind, rainSpeed);
         drawLightning(c, w, h, time, storm, reduced);
         if (wind > 0 && !reduced) {
             c.save();
-            c.globalAlpha = wind * .24;
-            c.strokeStyle = '#e2edcb';
+            c.globalAlpha = wind * (winterLight>.15?.09:.24);
+            c.strokeStyle = winterLight>.15?'#bfd9e2':'#e2edcb';
             c.beginPath();
-            const streaks = this.decoration === 'low' ? 8 : 18;
+            const streaks = winterLight>.15?(this.decoration==='low'?4:9):(this.decoration === 'low' ? 8 : 18);
             for (let i = 0; i < streaks; i++) {
                 const x = w + 32 - ((i * 137.7 + time * 250) % (w + 64));
                 const y = (i * 93.4) % h;
@@ -1006,10 +1009,11 @@ export class Renderer {
             c.stroke();
             c.restore();
         }
-        c.save();c.globalAlpha = 1 - rain;
+        // Golden pollen belongs to warm seasons; it must not mix with snow.
+        c.save();c.globalAlpha = (1-rain)*(1-winterLight);
         c.fillStyle = '#ffedb275';
         c.beginPath();
-        const dustCount = this.decoration==='low'?8:23;
+        const dustCount = winterLight>=.999?0:(this.decoration==='low'?8:23);
         for (let i = 0; i < dustCount; i++) {
             const x = ((i * 137.7 + (reduced ? 0 : Math.sin(time * .19 + i) * 22)) % w + w) % w;
             const y = ((i * 93.4 + (reduced ? 0 : time * 3)) % (h * .9));
@@ -1243,7 +1247,7 @@ export class Renderer {
 
         if(game.refuge) {
             const support=320+birdFoot(1.04);
-            drawRefugeTree(c,game.refuge,support,reduced?0:sceneTime);
+            drawRefugeTree(c,game.refuge,support,reduced?0:sceneTime,215,7,snow,rain);
         }
         const isDefeated = (game.state === 'ended' && !game.won) || game.state === 'impact';
         const impactProg = game.state === 'impact' ? Math.max(0, 1 - (game.impactRemaining || 0) / 0.42) : (game.state === 'ended' && !game.won ? 1 : 0);
@@ -1350,6 +1354,10 @@ export class Renderer {
             const rStorm=journeyStorm(game,game.mode,game.tutorial);
             drawForegroundRain(c,this.w,this.h,sceneTime,rain,reduced,this.decoration==='low',rStorm,rWind,game.speed||250);
         }
+        // Only a few flakes pass in front of the flight action. HUD and
+        // predator/snake notices are drawn above them for legibility.
+        if(snow>.01)drawSnowfall(c,this.w,this.h,sceneTime,snow,reduced,
+            this.decoration==='low',wind,true);
         // Natural viewport flight boundary
         const notices=[];
         for(const e of game.entities)if(e.kind==='hawk'&&!e.harmless&&e.x>game.x+100){
@@ -1391,6 +1399,7 @@ export class Renderer {
             if (broken && (reduced || !e.breakFx)) continue;
             if (e.fragileSide === side) {
                 drawTreeVariant(c, x, y, upper, e.fragileKind, broken ? e.breakFx.age : undefined, snow, rain, time);
+                if(!broken&&snow>.15)drawSnowContact(c,x,upper?y-18:y-18,snow,time,e.id||0,reduced,this.decoration==='low');
                 continue;
             }
             if (broken) continue;
@@ -1404,6 +1413,7 @@ export class Renderer {
             else this.trunk(`trunk-${variant}`, null, x, y, upper, time,
                 !upper && e.variant === 'branch' ? 3 : variant, snow, rain);
             if (lean) c.restore();
+            if(snow>.15)drawSnowContact(c,x,y-18,snow,time,e.id||0,reduced,this.decoration==='low');
             if(rain>.03&&!reduced)
                 drawSurfaceRainImpacts(c,x,upper?y+3:y-3,rain,time,e.id||0,
                     this.decoration==='low',reduced);
@@ -1425,6 +1435,7 @@ export class Renderer {
             drawContinuousSnake(c,images.get('snake-atlas'),s,place.factor,reduced,wood.id);
         }
         if(s.retreat&&s.dazed&&!reduced)drawOrbitingStars(c,0,-165,65,s.retreatTime||0);
+        if(snow>.12)drawAnimalFrost(c,'snake',snow,1,reduced);
         if(snow>0&&!reduced&&!s.retreat){
             const t=(time||0)+(wood.id||0)*1.3;
             drawAnimalBreath(c,-45,-90,snow,t,3.4,0.46,-1,18,-12);
@@ -1483,6 +1494,7 @@ export class Renderer {
             newHawk=draw(c,activeFrame);
         }
         if(!newHawk)atlasAnimation(c,'hawk',clip,HAWK_ART.legacyScale,180);
+        if(snow>.12)drawAnimalFrost(c,'hawk',snow,1,reduced);
         if(retreat&&!reduced)drawOrbitingStars(c,-35,-60,110,time);
         if(snow>0&&!reduced&&!retreat){
             const t=(time||0)+((entity?.id)||0)*0.7;

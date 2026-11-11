@@ -63,24 +63,8 @@ export function drawForestLife(c, w, h, time, distance, rain, wind, reduced = fa
         c.fillStyle = '#deefff';
         c.fillRect(0, 0, w, h);
 
-        if (!reduced) {
-            const layers = low ? 1 : 2;
-            for (let layer = 0; layer < layers; layer++) {
-                const flakeCount = low ? 16 : (layer === 0 ? 38 : 26);
-                const speed = 20 + layer * 18;
-                const r = layer === 0 ? 1.3 : 2.4;
-                c.globalAlpha = snow * (layer === 0 ? 0.40 : 0.75);
-                c.fillStyle = '#f5faff';
-                c.beginPath();
-                for (let i = 0; i < flakeCount; i++) {
-                    const x = ((i * 139.73 - t * speed + Math.sin(t * 0.65 + i) * 16 + air * 24) % (w + 40) + w + 40) % (w + 40) - 20;
-                    const y = (i * 71.17 + t * (speed + (i % 3) * 6)) % (h + 30) - 15;
-                    c.moveTo(x + r, y);
-                    c.arc(x, y, r, 0, Math.PI * 2);
-                }
-                c.fill();
-            }
-        }
+        // Falling flakes now belong to the shared seasonal particle layer.
+        // Do not draw a second snowfall pass over the same background.
     }
 
     // 3. NÉVOA DA MATA (Humid ground mist rising from Atlantic Forest)
