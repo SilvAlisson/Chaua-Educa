@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,FlightClock,STEP} from '../Chaua-Educa-main/js/engine.mjs';
+import {ACTION_TIMINGS} from '../Chaua-Educa-main/js/action-states.mjs';
 function flight(){const g=new Game();g.state='playing';g.nextSpawn=Infinity;return g;}
-test('fatal impact animates briefly with frozen flight and ends exactly once',()=>{
+test('fatal impact recoils then remains stunned with frozen flight and ends exactly once',()=>{
  const events=[],g=flight();g.onEvent=e=>events.push(e);g.feather=6;
  const wood={id:7,kind:'wood',x:g.x,top:350,bottom:500};g.entities=[wood];g.collide(wood);
  assert.equal(g.state,'impact');assert.equal(g.hit.id,7);assert.equal(g.particles.filter(p=>p.feather).length,18);
@@ -10,7 +11,16 @@ test('fatal impact animates briefly with frozen flight and ends exactly once',()
  const clock=new FlightClock(g);clock.advance(.2);
  assert.equal(g.state,'impact');assert.notEqual(g.particles[0].x,before);
  assert.deepEqual([g.y,g.vy,g.score,g.elapsed,g.feather,wood.x],flightState);
- clock.advance(.25);assert.equal(g.state,'ended');assert.equal(events.filter(e=>e.type==='lose').length,1);
+ clock.advance(.25);assert.equal(g.state,'impact');
+ const frozenRemaining=g.impactRemaining;
+ assert.ok(frozenRemaining>.6,'daze must remain after the brief initial recoil');
+ // FlightClock caps each advance at .25s; simulate real frame updates
+ // rather than passing one large duration and silently dropping time.
+ clock.advance(.25);assert.equal(g.state,'impact');
+ clock.advance(.25);assert.equal(g.state,'impact');
+ clock.advance(.25);assert.equal(g.state,'ended');
+ assert.equal(g.impactRemaining,0);
+ assert.equal(events.filter(e=>e.type==='lose').length,1);
  g.start();assert.equal(g.hit,null);assert.equal(g.particles.length,0);assert.equal(g.impactRemaining,0);
 });
 test('shield sheds feathers and shakes wood without ending or awarding points',()=>{

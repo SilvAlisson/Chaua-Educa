@@ -5,7 +5,7 @@ import {SeasonalBackdrop,drawSeasonParticles} from './seasons.mjs';
 import {drawSnowfall,drawAnimalFrost,drawSnowContact,winterBreathSettings,drawSnowShedding} from './winter-vfx.mjs';
 import {drawContinuousSnake} from './snake-render.mjs';
 import {drawSnakeA2,preloadSnakeA2,isSnakeA2Ready} from './snake-a2.mjs';
-import {parrotAction,hawkAction} from './action-states.mjs';
+import {parrotAction,hawkAction,ACTION_TIMINGS} from './action-states.mjs';
 import {drawActionSheet,preloadActionSheets,ACTION_SPRITES_ENABLED} from './action-sheets.mjs';
 import {SNAKE_WRAP} from './snake-wrap-data.mjs';
 import {drawLivingTrunk,drawTreeVariant,drawRefugeTree} from './tree-art.mjs';
@@ -124,7 +124,12 @@ function animatedBird(c,p){
     const a=SPRITES.chaua.frames[clip.frame].eye,b=SPRITES.chaua.frames[clip.next].eye;
     const ex=(a[0]+(b[0]-a[0])*clip.blend-192)*factor,ey=(a[1]+(b[1]-a[1])*clip.blend-192)*factor;
     if(defeated||surprise){
-        if(!newSprite){drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);if(!reduced)drawOrbitingStars(c,ex,ey-size*.35,size,time);}
+        // The action atlas already depicts the injured bird; never overlay a
+        // second eye or head. Orbiting stars remain visible throughout the
+        // fatal daze, including when the authored action spritesheet is active.
+        if(!newSprite)drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);
+        if(!reduced)drawOrbitingStars(c,newSprite?0:ex,
+            newSprite?-50*scale:ey-size*.35,size*.82,time);
     }
     else if(reaction>0&&!reduced)drawFruitSparkles(c,size*.44,-size*.08,reaction,time);
     else if(stamina<.28&&!reduced&&!perched)drawSweatDrops(c,ex,ey,size,time);
@@ -1261,7 +1266,13 @@ export class Renderer {
             drawRefugeTree(c,game.refuge,support,reduced?0:sceneTime,215,7,snow,rain);
         }
         const isDefeated = (game.state === 'ended' && !game.won) || game.state === 'impact';
-        const impactProg = game.state === 'impact' ? Math.max(0, 1 - (game.impactRemaining || 0) / 0.42) : (game.state === 'ended' && !game.won ? 1 : 0);
+        // Recoil lasts just .32s; the final dazed pose stays fixed while
+        // stars continue orbiting until the Game Over dialog is presented.
+        const impactProg = game.state === 'impact'
+            ? Math.max(0,Math.min(1,
+                (ACTION_TIMINGS.parrotImpact-(game.impactRemaining||0))/
+                ACTION_TIMINGS.parrotRecoil))
+            : (game.state === 'ended' && !game.won ? 1 : 0);
         const contact=woodContactPosition(game,impactProg,reduced);
         drawBird(c, {
             x: contact.x, y: contact.y, scale: 1.04, perched: game.state === 'ended' && game.won,

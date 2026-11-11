@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parrotAction,hawkAction,snakeAction} from '../Chaua-Educa-main/js/action-states.mjs';
+import {parrotAction,hawkAction,snakeAction,ACTION_TIMINGS} from '../Chaua-Educa-main/js/action-states.mjs';
 import {ACTION_SHEET_DEFS,drawActionSheet} from '../Chaua-Educa-main/js/action-sheets.mjs';
 test('all six image atlas grid definitions match authored bundle dimensions',()=>{
  assert.equal(Object.keys(ACTION_SHEET_DEFS).length,6);
@@ -12,6 +12,10 @@ test('parrot flight, shield contact and fatal impact never mix their states',()=
  assert.equal(parrotAction({wing:0}).state,'gliding');
  assert.equal(parrotAction({shieldHitAge:.11}).state,'shield-rebound');
  assert.equal(parrotAction({defeated:true,impactProgress:.7}).state,'impact');
+ assert.equal(parrotAction({defeated:true,impactProgress:1}).state,'stunned');
+ assert.equal(parrotAction({defeated:true,impactProgress:1}).frame,5);
+ assert.ok(ACTION_TIMINGS.parrotImpact>ACTION_TIMINGS.parrotRecoil);
+ assert.ok(ACTION_TIMINGS.shieldRebound<ACTION_TIMINGS.parrotImpact);
  assert.equal(parrotAction({reduced:true,defeated:true}),null);
  assert.equal(parrotAction({perched:true}),null);
  assert.equal(parrotAction({landing:.5}),null);

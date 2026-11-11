@@ -12,6 +12,7 @@ import { planEncounter, seededRandom } from './encounters.mjs';
 import { FRUITS } from './fruits.mjs';
 import { journeyWind } from './weather.mjs';
 import { QUESTIONS } from './questions.mjs';
+import { ACTION_TIMINGS } from './action-states.mjs';
 
 export const WIDTH = 960;
 export const HEIGHT = 640;
@@ -356,7 +357,7 @@ export class Game {
 
     end(won, reason, collision = false) {
         if (['ended','impact'].includes(this.state)) return;
-        this.impactRemaining = collision && !this.reducedMotion ? .42 : 0;
+        this.impactRemaining = collision && !this.reducedMotion ? ACTION_TIMINGS.parrotImpact : 0;
         this.state = this.impactRemaining > 0 ? 'impact' : 'ended';
         if(collision) this.featherBurst(['#48965b','#7db852','#3c8b91','#d7b85b'],18);
         this.won = won;
@@ -673,8 +674,14 @@ export class Game {
             return;
         }
         if(this.state==='impact') {
-            this.advanceEffects(dt);this.impactRemaining-=dt;
-            if(this.impactRemaining<=1e-10 || this.reducedMotion)this.state='ended';
+            // Fatal damage freezes all flight physics and score. Only harmless
+            // particles/stars animate until the result dialog becomes visible.
+            this.advanceEffects(dt);
+            this.impactRemaining=Math.max(0,this.impactRemaining-dt);
+            if(this.impactRemaining<=1e-10 || this.reducedMotion){
+                this.impactRemaining=0;
+                this.state='ended';
+            }
             return;
         }
         if (this.state === 'countdown') {

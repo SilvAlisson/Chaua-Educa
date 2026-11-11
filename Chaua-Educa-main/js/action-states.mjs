@@ -3,10 +3,23 @@ import {SNAKE_TIMING} from './animals.mjs';
 // Each state is derived from the simulation clock; no per-frame mutable timers.
 const clamp = value => Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
 const frame = (count, progress) => Math.min(count-1,Math.floor(clamp(progress)*count));
-export const ACTION_TIMINGS = Object.freeze({parrotImpact:.42,shieldRebound:.30,hawkStun:1.05,hawkRetreat:2,snakeDaze:.85});
+// The actual impact motion finishes quickly, then the authored final dazed
+// pose remains visible until the Game Over dialog. Shield recovery is separate.
+export const ACTION_TIMINGS = Object.freeze({
+ parrotImpact:1.2,
+ parrotRecoil:.32,
+ shieldRebound:.30,
+ hawkStun:1.05,
+ hawkRetreat:2,
+ snakeDaze:.85
+});
 export function parrotAction(p = {}) {
  if(p.reduced||p.perched||p.landing!==null&&p.landing!==undefined||p.surprise)return null;
- if(p.defeated)return {state:'impact',sheet:'parrot-impact',frame:frame(6,p.impactProgress||0)};
+ if(p.defeated){
+   const progress=clamp(p.impactProgress||0);
+   return {state:progress>=1?'stunned':'impact',sheet:'parrot-impact',
+     frame:frame(6,progress)};
+ }
  if(Number.isFinite(p.shieldHitAge)&&p.shieldHitAge>=0&&p.shieldHitAge<ACTION_TIMINGS.shieldRebound)
    return {state:'shield-rebound',sheet:'parrot-impact',frame:frame(6,p.shieldHitAge/ACTION_TIMINGS.shieldRebound)};
  const t=Number.isFinite(p.time)?p.time:0;
