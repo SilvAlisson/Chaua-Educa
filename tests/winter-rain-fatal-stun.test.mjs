@@ -1,3 +1,6 @@
+import {readFileSync} from 'node:fs';
+import {drawAnimalBreath} from '../Chaua-Educa-main/js/render.mjs';
+import {ASSET_PATHS,images} from '../Chaua-Educa-main/js/assets.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP} from '../Chaua-Educa-main/js/engine.mjs';
@@ -103,4 +106,39 @@ test('fatal collision preserves daze for the full transition, shield rebound doe
  const reduced=new Game();reduced.state='playing';reduced.reducedMotion=true;
  reduced.collide({kind:'boundary',side:'top'});
  assert.equal(reduced.state,'ended','reduced-motion gameover should not wait');
+});
+
+
+// Artistic VFX use small reusable atlases, while the main weather particles
+// remain deterministic and procedural for minimal draw cost.
+test('frost-breath and puddle splash atlases are transparent, local and eight-frame',()=>{
+ const fs={readFileSync};
+ for(const [key,name] of [['frost-breath-fx','frost-breath'],['rain-splash-fx','rain-splash']]){
+  const src=ASSET_PATHS[key];
+  assert.equal(src,'../assets/v11/'+name+'.svg');
+  const data=fs.readFileSync(new URL('../Chaua-Educa-main/assets/v11/'+name+'.svg',import.meta.url),'utf8');
+  assert.match(data,/xmlns="http:\/\/www.w3.org\/2000\/svg"/);
+  assert.match(data,/width="512" height="256"/);
+  assert.equal((data.match(/<g transform="translate\(/g)||[]).length,8);
+  assert.doesNotMatch(data,/<image|https?:\/\//i);
+ }
+});
+test('all three animals share authored breath atlas with correct frame row and fallback',()=>{
+ const c=mockCanvas(),draws=[];
+ c.ctx.drawImage=(...args)=>draws.push(args);
+ images.set('frost-breath-fx',{width:512,height:256});
+ try{
+  drawAnimalBreath(c.ctx,22,0,1,.92,2.4,.45,1,20,-10);
+  assert.ok(draws.length>=1);
+  assert.ok(draws.some(args=>args[2]===128),'late breath frame must use second atlas row');
+  assert.ok(draws.every(args=>args[3]===128&&args[4]===128),'wrong source cell size');
+ }finally{images.delete('frost-breath-fx')}
+});
+test('rain splash atlas augments wet ripples without removing procedural rain',()=>{
+ const {ctx,calls}=mockCanvas(),frames=[];
+ ctx.drawImage=(...args)=>frames.push(args);
+ drawJourneyRain(ctx,390,844,6,.8,false,true,.35,.25,250,{width:512,height:256});
+ assert.ok(frames.length>=1,'rain splash never sampled');
+ assert.ok(frames.every(f=>f[3]===128&&f[4]===128),'wrong splash cell');
+ assert.ok(calls.ellipses>=1,'procedural rain fallback was removed');
 });
