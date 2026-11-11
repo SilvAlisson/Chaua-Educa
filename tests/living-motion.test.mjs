@@ -11,5 +11,6 @@ test('ambient motion is bounded, continuous and stationary with reduced motion',
  }
  assert.equal(winterAmount(0),0);
  assert.equal(winterAmount(21000),0);
- assert.equal(winterAmount(19000),1);
+ assert.equal(winterAmount(11000),1);
+ assert.equal(winterAmount(19000),0);
 });
