@@ -120,7 +120,7 @@ test('frost-breath and puddle splash atlases are transparent, local and eight-fr
   assert.match(data,/xmlns="http:\/\/www.w3.org\/2000\/svg"/);
   assert.match(data,/width="512" height="256"/);
   assert.equal((data.match(/<g transform="translate\(/g)||[]).length,8);
-  assert.doesNotMatch(data,/<image|https?:\/\//i);
+  assert.doesNotMatch(data,/<image|<foreignObject|href="https?:\/\//i);
  }
 });
 test('all three animals share authored breath atlas with correct frame row and fallback',()=>{
