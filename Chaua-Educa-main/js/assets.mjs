@@ -18,6 +18,8 @@ export const ASSET_PATHS = Object.fromEntries([
  ['season-backgrounds','../assets/v10/season-backgrounds.webp'],
  ['season-particles','../assets/v10/season-particles.webp'],
  ['clay-breath','../assets/v10/clay-breath.webp'],
+ ['frost-breath-fx','../assets/v11/frost-breath.svg'],
+ ['rain-splash-fx','../assets/v11/rain-splash.svg'],
 ]);
 export const images = new Map();
 let pending;

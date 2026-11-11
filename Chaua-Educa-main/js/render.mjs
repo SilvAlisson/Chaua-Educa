@@ -343,16 +343,18 @@ export function drawAnimalBreath(c, x, y, snow, time, period = 2.4, duration = 0
     if (cycle >= duration) return;
     const phase = cycle / duration;
     const alphaBase = Math.sin(phase * Math.PI) * 0.85 * snow;
-    const breathImg = images.get('clay-breath');
+    const frostAtlas=images.get('frost-breath-fx');
+    const breathImg=frostAtlas||images.get('clay-breath');
+    const frameCount=frostAtlas?8:4;
     c.save();
     if (breathImg) {
         for (let i = 0; i < 3; i++) {
             const delay = i * 0.15;
             if (phase < delay) continue;
             const p = (phase - delay) / (1 - delay);
-            const frame = Math.min(3, Math.floor(p * 4));
-            const sx = frame * 128;
-            const sy = 0;
+            const frame = Math.min(frameCount - 1, Math.floor(p * frameCount));
+            const sx = (frame % 4) * 128;
+            const sy = Math.floor(frame / 4) * 128;
             const sw = 128;
             const sh = 128;
             const scale = (0.16 + p * 0.22) * (1 - i * 0.15);
@@ -613,15 +615,18 @@ export class Renderer {
             getPickupCache('feather-glow', 42, [[6, 0, '#ffe399dd'], [6, 0.6, '#ffd55e66'], [6, 1, '#ffffff00']]);
             getPickupCache('shield-glow', 42, [[6, 0, '#a8f5d0dd'], [6, 0.6, '#46e49e66'], [6, 1, '#ffffff00']]);
             getPepperSprite();
-            const particlesImg = images.get('season-particles');
-            if (particlesImg && !particlesImg._rasterized) {
-                const pw = particlesImg.naturalWidth || particlesImg.width;
-                const ph = particlesImg.naturalHeight || particlesImg.height;
-                const off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : document.createElement('canvas');
-                off.width = pw; off.height = ph;
-                off.getContext('2d').drawImage(particlesImg, 0, 0);
-                off._rasterized = true;
-                images.set('season-particles', off);
+            // Rasterize small atlas effects exactly once on load. Their SVG
+            // gradients/blur must not be rerasterized on every 60 FPS frame.
+            for (const key of ['season-particles','frost-breath-fx','rain-splash-fx']) {
+                const img=images.get(key);
+                if (!img || img._rasterized) continue;
+                const pw=img.naturalWidth || img.width, ph=img.naturalHeight || img.height;
+                const surface=typeof OffscreenCanvas !== 'undefined' ?
+                    new OffscreenCanvas(pw, ph) : document.createElement('canvas');
+                surface.width=pw;surface.height=ph;
+                surface.getContext('2d').drawImage(img,0,0);
+                surface._rasterized=true;
+                images.set(key,surface);
             }
             this.seasonalBackdrop=new SeasonalBackdrop();
             this.seasonalBackdrop.prepare(images.get('season-backgrounds'),this.w,this.h,this.dpr,0);
@@ -988,7 +993,7 @@ export class Renderer {
         if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
         drawForestLife(c,w,h,time,seasonDistance??0,rain,wind,reduced,this.decoration==='low',storm);
         drawJourneyFog(c, w, h, fog);
-        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind);
+        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind, 250, images.get('rain-splash-fx'));
         drawLightning(c, w, h, time, storm, reduced);
         if (wind > 0 && !reduced) {
             c.save();

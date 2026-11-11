@@ -5,10 +5,17 @@ import {ASSET_PATHS, images, flightPose} from '../Chaua-Educa-main/js/assets.mjs
 import {Renderer} from '../Chaua-Educa-main/js/render.mjs';
 import {Game} from '../Chaua-Educa-main/js/engine.mjs';
 
-test('every art URL resolves to a real WebP in the served directory',()=>{
- for(const path of Object.values(ASSET_PATHS)) {
+test('every art URL resolves to a supported local raster or vector asset',()=>{
+ for(const path of Object.values(ASSET_PATHS)){
   const bytes=readFileSync(new URL('../Chaua-Educa-main/js/'+path,import.meta.url));
-  assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP');
+  if(path.endsWith('.webp')){
+   assert.equal(bytes.toString('ascii',0,4),'RIFF',path);
+   assert.equal(bytes.toString('ascii',8,12),'WEBP',path);
+  }else if(path.endsWith('.svg')){
+   const svg=bytes.toString('utf8');
+   assert.match(svg,/^<svg\b[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/,path);
+   assert.doesNotMatch(svg,/<script|<foreignObject|<image|href="https?:\/\//i,path);
+  }else assert.fail('Unsupported asset format '+path);
  }
 });
 test('flap uses four authored poses and glide keeps a stable pose',()=>{
