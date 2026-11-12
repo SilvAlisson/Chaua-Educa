@@ -4,7 +4,7 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const scenes=[['spring',.10,0],['summer',.35,2],['autumn',.56,1],['winter',.85,3]];
+const scenes=[['spring',.10,0],['summer',.35,1],['autumn',.56,2],['winter',.85,3]];
 (async()=>{
  const browser=await chromium.launch({
   executablePath:process.env.CHROMIUM_PATH||undefined,

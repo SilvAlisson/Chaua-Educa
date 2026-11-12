@@ -4,6 +4,7 @@ import { Game, STEP } from '../Chaua-Educa-main/js/engine.mjs';
 import { birdBlend, hawkBlend, impactPose, borderCells } from '../Chaua-Educa-main/js/motion.mjs';
 import { Renderer, drawBird } from '../Chaua-Educa-main/js/render.mjs';
 import { images } from '../Chaua-Educa-main/js/assets.mjs';
+import {preloadActionSheets} from '../Chaua-Educa-main/js/action-sheets.mjs';
 
 function weights({pose,next,blend}) {
     const result=[0,0,0,0];result[pose]+=1-blend;result[next]+=blend;return result;
@@ -39,7 +40,25 @@ test('bird and hawk blends remain continuous across every pose boundary',()=>{
     assert.deepEqual(hawkBlend(10,{reduced:true}),{pose:0,next:0,blend:0});
 });
 
-test('impact starts at the exact flight anchor and settles without a full-body spin',()=>{
+async function prepareActionTestImages(){
+  // Unit tests verify draw transforms with synthetic Image metadata; actual
+  // source artwork/pixels are always checked in the Chromium integration suite.
+  if(typeof globalThis.Image==='undefined')globalThis.Image=class {
+    naturalWidth=0;naturalHeight=0;
+    set src(url){
+      const path=String(url);
+      if(path.includes('/parrot/fly/'))[this.naturalWidth,this.naturalHeight]=[1024,512];
+      if(path.includes('/parrot/animations/'))[this.naturalWidth,this.naturalHeight]=[768,512];
+      if(path.includes('/hawk/fly/'))[this.naturalWidth,this.naturalHeight]=[1280,640];
+      if(path.includes('/hawk/animations/'))[this.naturalWidth,this.naturalHeight]=[960,640];
+      queueMicrotask(()=>this.onload?.());
+    }
+    async decode(){}
+  };
+  await preloadActionSheets();
+}
+test('impact starts at the exact flight anchor and settles without a full-body spin',async()=>{
+    await prepareActionTestImages();
     assert.deepEqual(impactPose(0),{angle:-0,x:-0,y:0});
     assert.ok(Math.abs(impactPose(.001).angle)<.00001);
     assert.ok(Math.abs(impactPose(1).angle)<Math.PI/2);
@@ -77,7 +96,8 @@ test('snake retreat never changes or fades the supporting procedural trunk',()=>
     assert.equal(kinds.length,6);assert.deepEqual(kinds.slice(0,2),kinds.slice(2,4));assert.deepEqual(kinds.slice(0,2),kinds.slice(4,6));
 });
 
-test('reduced motion fixes the hawk pose and removes all tumble rotation',()=>{
+test('reduced motion fixes the hawk pose and removes all tumble rotation',async()=>{
+    await prepareActionTestImages();
     const r=Object.create(Renderer.prototype);images.set('hawk-atlas',{naturalWidth:1536,naturalHeight:1536});
     const capture=recordingContext();r.c=capture.context;
     r.hawk({x:400,y:320,retreat:true,dazed:true,tumbleAngle:9},0,true);

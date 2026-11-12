@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
 import {flightViewport} from '../Chaua-Educa-main/js/viewport.mjs';
-import {snakeHeadRect} from '../Chaua-Educa-main/js/geometry.mjs';
+import {snakeA2HeadRect as snakeHeadRect} from '../Chaua-Educa-main/js/snake-a2.mjs';
 import {planEncounter} from '../Chaua-Educa-main/js/encounters.mjs';
 import {pilotTarget} from './helpers/pilot.mjs';
 import DB from '../Chaua-Educa-main/js/database.js';

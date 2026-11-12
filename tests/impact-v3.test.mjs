@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP,VICTORY_SCORE} from '../Chaua-Educa-main/js/engine.mjs';
-import {ACTION_TIMINGS,parrotAction,hawkAction,snakeAction}
+import {ACTION_TIMINGS,parrotAction,hawkAction}
  from '../Chaua-Educa-main/js/action-states.mjs';
 import {impactPose} from '../Chaua-Educa-main/js/motion.mjs';
+import {snakeA2Pose} from '../Chaua-Educa-main/js/snake-a2.mjs';
 
 const flight=()=>{const game=new Game({seed:104});game.state='playing';game.nextSpawn=Infinity;return game;};
 const advance=(game,seconds)=>{for(let i=0;i<Math.ceil(seconds/STEP);i++)game.tick(STEP)};
@@ -84,7 +85,7 @@ test('fatal pose settles without moving the bird throughout the prolonged daze',
  // Existing predator and snake animations are not replaced by the player
  // stun sequence; their own shield-recoil loops remain intact.
  assert.equal(hawkAction({retreat:true,dazed:true,retreatTime:.6}).sheet,'hawk-stunned');
- assert.equal(snakeAction({retreat:true,dazed:true,retreatTime:.6}).sheet,'snake-stunned');
+ assert.equal(snakeA2Pose({retreat:true,dazed:true,retreatTime:.6}).key,'stunned');
 });
 
 test('reduced motion and non-contact losses do not delay the gameover dialog',()=>{

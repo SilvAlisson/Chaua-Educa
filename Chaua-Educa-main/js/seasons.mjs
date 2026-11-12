@@ -1,37 +1,28 @@
-import {smoothstep} from './motion.mjs';
 import {getWeatherMode} from './weather.mjs';
 import {seasonFromFlight} from './climate-timeline.mjs';
 import {drawSnowfall} from './winter-vfx.mjs';
 
-// Artistic ambiences along the journey, not a simulation of the local calendar.
-const PHASES = [[0,0],[6000,1],[9000,3],[14000,2],[20000,0]];
-export function journeySeason(distance) {
+export function journeySeason(game) {
  const wm = getWeatherMode();
  if (wm === 'spring') return {from: 0, to: 0, mix: 1};
- if (wm === 'autumn') return {from: 1, to: 1, mix: 1};
+ if (wm === 'autumn') return {from: 2, to: 2, mix: 1};
  if (wm === 'winter') return {from: 3, to: 3, mix: 1};
- if (wm === 'summer') return {from: 2, to: 2, mix: 1};
+ if (wm === 'summer') return {from: 1, to: 1, mix: 1};
 
- // Active gameplay supplies the Game object (elapsed/mode/seed).
- // Numeric offsets are preserved ONLY for existing render diagnostics,
- // historical captures and standalone API callers during migration.
- if (distance && typeof distance === 'object') {
-  if (distance.tutorial) return {from:0,to:0,mix:1};
-  return seasonFromFlight(distance);
- }
-
- let phase=0;
- while(phase+1<PHASES.length && distance>=PHASES[phase+1][0])phase++;
- const to=PHASES[phase][1], from=phase?PHASES[phase-1][1]:to;
- return {from,to,mix:phase?smoothstep((distance-PHASES[phase][0])/1800):1};
+ // A single calibrated clock determines every season. Do not accept the
+ // historical world-distance argument: it selected an unrelated season order.
+ if(!game || typeof game!=='object')
+  throw new TypeError('journeySeason requires the current Game flight state');
+ if(game.tutorial)return {from:0,to:0,mix:1};
+ return seasonFromFlight(game);
 }
 
 // Cache only the two visible frames at viewport resolution. Resizing or changing
 // quality releases the old surfaces; there is no per-frame atlas resampling.
 export class SeasonalBackdrop {
  constructor(){this.frames=new Map();this.key='';this.pending=null;this.prewarmEnabled=true;}
- prepare(atlas,w,h,dpr,distance){
-  const state=journeySeason(distance), margin=26;
+ prepare(atlas,w,h,dpr,game){
+  const state=journeySeason(game), margin=26;
   const key=`${w}:${h}:${dpr}`;
   if(this.key!==key || this.atlas!==atlas){
    for(const surface of this.frames.values()){surface.width=0;surface.height=0;}
@@ -39,7 +30,11 @@ export class SeasonalBackdrop {
    this.pending=null;this.frames.clear();this.key=key;this.atlas=atlas;
   }
   const needed=new Set(state.mix===1?[state.to]:[state.from,state.to]);
-  const ahead=typeof distance==='number'?distance+900:{...distance,elapsed:(distance.elapsed||0)+10};
+  // A Game.visual(alpha) view inherits mode, seed and tutorial through its
+  // prototype. Object spread silently DROPS them, making prewarm predict the
+  // next season using the wrong flight reference and seed.
+  const ahead={elapsed:(game.elapsed||0)+10,mode:game.mode,
+   seed:game.seed,tutorial:game.tutorial};
   const upcoming=journeySeason(ahead).to;
   if(this.prewarmEnabled && state.mix===1)needed.add(upcoming);
   for(const [id,surface] of this.frames)if(!needed.has(id)){
@@ -70,8 +65,8 @@ export class SeasonalBackdrop {
   }
   return state;
  }
- draw(c,atlas,w,h,dpr,time,distance,reduced){
-  const state=this.prepare(atlas,w,h,dpr,distance),margin=26;
+ draw(c,atlas,w,h,dpr,time,game,reduced){
+  const state=this.prepare(atlas,w,h,dpr,game),margin=26;
   const drift=reduced?0:Math.sin(time*.035)*24;
   c.save();c.setTransform(1,0,0,1,0,0);
   c.globalAlpha=1;
@@ -84,11 +79,11 @@ export class SeasonalBackdrop {
  }
 }
 
-export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0){
+export function drawSeasonParticles(c,atlas,w,h,time,game,reduced,low,wind=0){
  if(reduced)return;
- const state=journeySeason(distance);
+ const state=journeySeason(game);
  const weights=[0,0,0,0];weights[state.from]+=1-state.mix;weights[state.to]+=state.mix;
- const driftOffset=typeof distance==='number'?distance:(distance.distance||0);
+ const driftOffset=game.distance||0;
  // Snow shares the exact winter weight used by terrain, animals and lighting.
  // The original atlas contains only petals and leaves, not snow textures.
  drawSnowfall(c,w,h,time,weights[3],reduced,low,wind,false);
@@ -96,7 +91,7 @@ export function drawSeasonParticles(c,atlas,w,h,time,distance,reduced,low,wind=0
  const count=low?7:14, cell=(atlas.naturalWidth||atlas.width)/2;
  const layers=[
   {row: 0, weight: weights[0]},
-  {row: 2, weight: weights[1]}
+  {row: 2, weight: weights[2]}
  ];
  for(const {row, weight} of layers){
   if(weight<=0)continue;

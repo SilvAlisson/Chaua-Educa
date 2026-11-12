@@ -37,7 +37,7 @@ test('portrait preserves predator reaction time and pins offscreen warnings to t
  const v=flightViewport(390,844);
  assert.ok((v.worldLeft+v.worldWidth-270)/350>=1.65);
  const pending={x:960,bottom:442,snake:{phase:'warning'}};
- const message={...snakeWarningPosition(v,pending,true),w:136,h:26};
+ const message={...snakeWarningPosition(v,pending),w:136,h:26};
  const [placed]=placeWarnings([message],v);
  assert.ok(placed.x>=v.x+4&&placed.x+136<=v.x+v.w-4);
 });
@@ -56,17 +56,14 @@ test('viewport changes cannot mutate physics or encounter state',()=>{
  const g=new Game({random:()=>.5});g.spawn();const before=JSON.stringify(g);
  flightViewport(390,844);flightViewport(844,390);assert.equal(JSON.stringify(g),before);
 });
-test('A2 notices follow the camera without moving legacy relative placement',()=>{
+test('only A2 warning clearance follows the camera without changing gameplay coordinates',()=>{
  const wood={x:360,bottom:442};
  for(const [width,height] of [[1200,720],[390,844],[844,390]]){
   const originalView=flightViewport(width,height);
   const view={...originalView,worldTop:flightCameraTop(originalView,320)};
-  const original=snakeWarningPosition(view,wood);
-  const a2=snakeWarningPosition(view,wood,true);
-  assert.equal(original.x,view.x+(wood.x-view.worldLeft)*view.scale-30);
-  assert.equal(original.y,view.y+(wood.bottom-155-view.worldTop)*view.scale);
-  assert.equal(a2.x,original.x);
-  assert.ok(Math.abs((original.y-a2.y)-90*view.scale)<1e-9);
+  const notice=snakeWarningPosition(view,wood);
+  assert.equal(notice.x,view.x+(wood.x-view.worldLeft)*view.scale-30);
+  assert.equal(notice.y,view.y+(wood.bottom-245-view.worldTop)*view.scale);
  }
 });
 

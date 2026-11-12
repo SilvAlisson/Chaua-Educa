@@ -21,3 +21,5 @@ python3 scripts/prepare_sprite_atlases.py Chaua-Educa-main/assets/v6/sources
 ```
 
 O script extrai os 16 componentes principais, remove resíduos de transparência externos, registra as poses, verifica margens e codifica WebP sem perdas. Não gera nem redesenha personagens. Direção de arte e resumo dos prompts: [PROMPTS.md](PROMPTS.md).
+
+**Nota 2026-11:** `prepare_sprite_atlases.py` passou a gerar somente Chauá e gavião. O `snake-source.png` permanece como fonte autoral arquivada; o atlas v6 da cobra não faz parte do jogo atual.

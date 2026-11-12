@@ -9,12 +9,12 @@ const assert=require('node:assert/strict');
    const page=await browser.newPage({viewport,deviceScaleFactor:1});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/js/script.js',route=>route.fulfill({contentType:'text/javascript',body:''}));
-   await page.goto((process.env.GAME_URL||'http://127.0.0.1:5501/')+'?actionSprites=1&snakeA2=1',{waitUntil:'domcontentloaded'});
+   await page.goto((process.env.GAME_URL||'http://127.0.0.1:5501/'),{waitUntil:'domcontentloaded'});
    const result=await page.evaluate(async()=>{
     const {Renderer}=await import('/js/render.mjs');
     const {Game,STEP}=await import('/js/engine.mjs');
-    const {spriteBodyRects,spriteHeadRect,snakePlacement}=await import('/js/animation.mjs');
-    const {playerShapes,roundedShape,shapesIntersect}=await import('/js/collision.mjs');
+    const {snakePlacement}=await import('/js/snake-a2.mjs');
+    const {playerShapes}=await import('/js/collision.mjs');
     const {isSnakeA2Ready,drawSnakeA2,snakeA2HitsPlayer,snakeA2FruitHasClearance,placeA2Fruit}=await import('/js/snake-a2.mjs');
     const scratch=document.createElement('canvas');scratch.width=scratch.height=100;
     await new Renderer(scratch).ready;
@@ -28,7 +28,7 @@ const assert=require('node:assert/strict');
      {phase:'striking',phaseAge:.03},{phase:'striking',phaseAge:.18},
      {phase:'recovering',phaseAge:.12},{phase:'recovering',phaseAge:.56}
     ];
-    let samples=0,missed=0,legacyGap=0;
+    let samples=0,missed=0;
     for(const state of states){
      wood.snake=state;
      const p=snakePlacement(wood);
@@ -42,7 +42,6 @@ const assert=require('node:assert/strict');
       samples++;
       const bird=playerShapes(x,y),hit=snakeA2HitsPlayer(wood,bird);
       if(!hit)missed++;
-      if(hit&&![spriteHeadRect(wood),...spriteBodyRects(wood)].some(rect=>shapesIntersect(bird,[roundedShape(rect)])))legacyGap++;
      }
     }
     let checked=0,moved=0;
@@ -114,14 +113,13 @@ const assert=require('node:assert/strict');
      if(snakeA2HitsPlayer(target,playerShapes(g.x,y)))collisionProbe.push(y);
     const probeY=collisionProbe[Math.floor(collisionProbe.length/2)];
     if(probeY!==undefined){g.y=probeY;g.vy=0;g.tick(STEP);}
-    return {samples,missed,legacyGap,checked,moved,forced,unsafeCount:unsafe.length,unsafe:unsafe.slice(0,5),
+    return {samples,missed,checked,moved,forced,unsafeCount:unsafe.length,unsafe:unsafe.slice(0,5),
       simulation:{probeY,state:g.state,cause:g.endCause}};
    });
    assert.equal(result.error,undefined,JSON.stringify(result));
    assert.ok(result.samples>200,'Not enough real pixels checked');
    assert.equal(result.missed,0,'Visible A2 pixels not covered by bird collision');
-   assert.ok(result.legacyGap>0,'Legacy geometry mismatch was not reproduced');
-   assert.equal(result.unsafeCount,0,'Fruit overlaps snake: '+JSON.stringify(result.unsafe));
+      assert.equal(result.unsafeCount,0,'Fruit overlaps snake: '+JSON.stringify(result.unsafe));
    assert.equal(result.forced.overlaps,true,'Fixture must overlap a real A2 silhouette');
    assert.equal(result.forced.renderedOverlap,true,'Fixture must overlap visible WebP pixels');
    assert.equal(result.forced.safe,true,'A previous encounter left a fruit inside the A2 silhouette');
@@ -132,7 +130,7 @@ const assert=require('node:assert/strict');
    assert.ok(result.simulation.probeY!==undefined,'Could not find a live hitbox point');
    assert.equal(result.simulation.cause,'snake','Engine collision not using A2: '+JSON.stringify(result.simulation));
    assert.deepEqual(errors,[],'Browser page errors');
-   console.log('PASS A2 HITBOX AND FRUIT '+JSON.stringify({viewport,samples:result.samples,legacyGap:result.legacyGap,fruits:result.checked,moved:result.moved}));
+   console.log('PASS A2 HITBOX AND FRUIT '+JSON.stringify({viewport,samples:result.samples,fruits:result.checked,moved:result.moved}));
    await page.close();
   }
  }finally{await browser.close();}

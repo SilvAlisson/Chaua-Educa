@@ -1,5 +1,16 @@
 name: Validate game
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   audit-source:
     runs-on: ubuntu-latest
@@ -15,6 +26,7 @@ jobs:
           if-no-files-found: error
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -22,7 +34,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node scripts/verify-all-9-spritesheets.cjs
+      - run: node scripts/verify-current-spritesheets.cjs
       - run: npm test
       - run: node scripts/calibrate-climate-journey.mjs
       - run: npm run build
@@ -39,11 +51,12 @@ jobs:
           npm run test:perf-probe
           npm run test:snake-continuity
           npm run test:snake
+          node tests/browser-required-action-assets.cjs
           npm run test:snake-raster-parity
           node tests/browser-v2-a2-integration.cjs
           node tests/browser-v2-a2-scenes.cjs
           node tests/browser-a2-collision-fruits.cjs
-          npm run benchmark:snake-mesh
+          npm run benchmark:snake-a2
           npm run test:reference-art
           npm run test:visual
           npm run test:immersion
@@ -54,6 +67,8 @@ jobs:
           node tests/browser-weather-trees.cjs
           node tests/browser-season-parity.cjs
           node tests/browser-climate-v3.cjs
+          node tests/browser-season-atlas-semantic.cjs
+          node tests/browser-weather-controls-v3.cjs
           node tests/browser-climate-rain-wet.cjs
           node tests/browser-climate-winter-v3.cjs
           node tests/browser-impact-v3.cjs
@@ -77,11 +92,15 @@ jobs:
             test-results/weather-trees/
             test-results/season-performance/
             test-results/climate-v3/
+            test-results/season-atlas-semantic/
             test-results/climate-rain-wet/
             test-results/climate-winter-v3/
             test-results/climate-impact-v3/
             test-results/climate-breath-v3/
             test-results/responsive-camera/
             test-results/v2-action-integration/
+            test-results/reference-art/
+            test-results/render-parts/
+            test-results/snake-strike/
             test-results/climate-calibration/
           if-no-files-found: ignore

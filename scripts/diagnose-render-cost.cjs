@@ -80,7 +80,7 @@ function summarize(values) {
           };
         };
         function assertMethod(condition,name){if(!condition)throw Error('Missing method: '+name);}
-        for(const name of ['background','game','trunk','obstacle','hawk','pickup','snake','flightBorders'])
+        for(const name of ['background','game','trunk','obstacle','hawk','pickup','snake'])
           record(Renderer.prototype,name);
         record(Game.prototype,'visual');
         record(FlightClock.prototype,'advance');

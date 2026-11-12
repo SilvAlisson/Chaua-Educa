@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SPRITES} from '../Chaua-Educa-main/js/sprite-data.mjs';
-import {CLIPS,sequence,birdAnimation,hawkAnimation,snakeAnimation,placeWarnings} from '../Chaua-Educa-main/js/animation.mjs';
+import {CLIPS,sequence,birdAnimation,hawkAnimation,placeWarnings} from '../Chaua-Educa-main/js/animation.mjs';
 import {Game} from '../Chaua-Educa-main/js/engine.mjs';
+import {snakeA2Pose} from '../Chaua-Educa-main/js/snake-a2.mjs';
 
-test('all 48 authored frames have fixed cells, transparent gutters and usable animation clips',()=>{
+test('all 32 active v6 bird/hawk frames have fixed cells, transparent gutters and usable clips',()=>{
+ assert.deepEqual(Object.keys(SPRITES).sort(),['chaua','hawk']);
  for(const [name,data]of Object.entries(SPRITES)){
   assert.equal(data.frames.length,16);
   const used=new Set(Object.values(CLIPS[name]).flat());assert.equal(used.size,16);
@@ -12,19 +14,19 @@ test('all 48 authored frames have fixed cells, transparent gutters and usable an
    assert.deepEqual(f.rect,[(i%4)*384,Math.floor(i/4)*384,384,384]);
    assert.deepEqual(f.anchor,data.anchor);
    const [x,y,w,h]=f.content;assert.ok(x>=10&&y>=10&&x+w<=374&&y+h<=374);
-   if(name!=='snake')assert.ok(f.eye.every(Number.isFinite));else assert.ok(f.head.every(Number.isFinite));
+   assert.ok(f.eye.every(Number.isFinite));
   }
  }
 });
 test('clips meet at the same weighted pose at every boundary, including a wrapped wingbeat',()=>{
  const weights=clip=>{const a=Array(16).fill(0);a[clip.frame]+=1-clip.blend;a[clip.next]+=clip.blend;return a;};
- for(const frames of [CLIPS.chaua.flight,CLIPS.hawk.flight,CLIPS.snake.alert])for(let i=0;i<=frames.length;i++){
+ for(const frames of [CLIPS.chaua.flight,CLIPS.hawk.flight])for(let i=0;i<=frames.length;i++){
   const a=weights(sequence(frames,i/frames.length-1e-7,true)),b=weights(sequence(frames,i/frames.length+1e-7,true));
   a.forEach((n,k)=>assert.ok(Math.abs(n-b[k])<.00001));
  }
  assert.equal(birdAnimation({landing:1}).frame,birdAnimation({perched:true,time:0}).frame);
  assert.equal(hawkAnimation({retreat:true,retreatTime:2}).frame,15);
- assert.equal(snakeAnimation({retreat:true,retreatTime:2}).frame,15);
+ assert.equal(snakeA2Pose({retreat:true,dazed:true,retreatTime:2}).key,'stunned');
  const g=new Game();g.won=true;g.reset();assert.equal(g.won,false);
 });
 test('simultaneous predator and snake notices stay in the viewport without overlapping',()=>{

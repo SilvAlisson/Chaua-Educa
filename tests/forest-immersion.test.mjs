@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {Game,STEP} from '../Chaua-Educa-main/js/engine.mjs';
 import {TREE_WIDTH,livingWoodRects} from '../Chaua-Educa-main/js/forest-geometry.mjs';
 import {woodContactPosition} from '../Chaua-Educa-main/js/render.mjs';
-import {birdAnimation,snakePlacement,spriteHeadRect} from '../Chaua-Educa-main/js/animation.mjs';
+import {birdAnimation} from '../Chaua-Educa-main/js/animation.mjs';
+import {snakePlacement,snakeA2HeadRect} from '../Chaua-Educa-main/js/snake-a2.mjs';
 import {SPRITES} from '../Chaua-Educa-main/js/sprite-data.mjs';
 import {impactPose} from '../Chaua-Educa-main/js/motion.mjs';
 
@@ -17,7 +18,7 @@ test('new encounters never generate hollow windows or pasted dry wood blocks',()
  for(let i=0;i<100;i++){g.elapsed=i*2;g.entities=[];g.spawn();for(const w of g.entities.filter(e=>e.kind==='wood'))assert.ok(['plain','branch'].includes(w.variant));}
 });
 test('snake faces the approaching bird and its complete body is comparable in size',()=>{
- const w={x:500,bottom:420,snake:{branch:true,age:2,phase:'occupied'}},p=snakePlacement(w),r=spriteHeadRect(w);
+ const w={x:500,bottom:420,snake:{branch:true,age:2,phase:'occupied'}},p=snakePlacement(w),r=snakeA2HeadRect(w);
  assert.equal(p.facing,1);assert.ok(p.factor*260>=85);assert.ok(r.x+r.w/2<p.x);assert.ok(r.y<w.bottom);
 });
 test('every fatal wood impact pose is kept fully outside the obstacle, including rotation',()=>{

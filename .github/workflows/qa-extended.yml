@@ -1,0 +1,43 @@
+name: Extended browser and real-art QA
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-browser-and-art:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/verify-current-spritesheets.cjs
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Assert real action sprite sheets and cross-browser parity
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-cross-browser.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node tests/browser-action-sprites.cjs
+          node tests/browser-real-action-sprites.cjs
+          node tests/browser-v2-cross-browser.cjs
+      - name: Save real art and cross-browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: extended-browser-qa
+          path: |
+            test-results/action-sprites/
+            test-results/v2-cross-browser/
+          if-no-files-found: ignore
+          retention-days: 7

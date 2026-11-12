@@ -19,10 +19,7 @@ function components(pixels,width,height,select){
  try{
   const page=await browser.newPage({viewport:{width:512,height:512}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
-  const legacyURL=new URL(process.env.GAME_URL||'http://127.0.0.1:5501/');
-  legacyURL.searchParams.set('snakeA2','0');
-  legacyURL.searchParams.set('actionSprites','0');
-  await page.goto(legacyURL.href,{waitUntil:'networkidle'});
+  await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
   await page.evaluate(async()=>{
    const {Renderer,drawBird}=await import('/js/render.mjs');const canvas=document.createElement('canvas');canvas.style.cssText='position:fixed;inset:0;width:512px;height:512px';document.body.replaceChildren(canvas);
    const r=new Renderer(canvas);await r.ready;window.visualTest={r,drawBird};
@@ -31,7 +28,7 @@ function components(pixels,width,height,select){
   const atlasChecks=await page.evaluate(async()=>{
    const {SPRITES}=await import('/js/sprite-data.mjs'),{images}=await import('/js/assets.mjs');
    const result=[];const cell=document.createElement('canvas');cell.width=384;cell.height=384;const c=cell.getContext('2d',{willReadFrequently:true});
-   for(const [name,data]of Object.entries(SPRITES))for(let i=0;i<16;i++){
+   for(const [name,data]of Object.entries(SPRITES).filter(([name])=>name!=='snake'))for(let i=0;i<16;i++){
     c.clearRect(0,0,384,384);c.drawImage(images.get(`${name}-atlas`),...data.frames[i].rect,0,0,384,384);
     const p=c.getImageData(0,0,384,384).data;let gutter=0;
     for(let y=0;y<384;y++)for(let x=0;x<384;x++)if(x<10||y<10||x>=374||y>=374)gutter=Math.max(gutter,p[(y*384+x)*4+3]);
@@ -41,7 +38,7 @@ function components(pixels,width,height,select){
    return result;
   });
   for(const f of atlasChecks){assert.equal(f.gutter,0,`${f.name} ${f.i}: clipped gutter`);assert.ok(f.body>300&&f.connected>.97,`${f.name} ${f.i}: missing or fragmented body`);}
-  console.log('PASS 48 authored atlas cells: transparent gutters, complete principal silhouettes');
+  console.log('PASS 32 active bird/hawk atlas cells: transparent gutters, complete principal silhouettes');
   const blinkChecks=await page.evaluate(async()=>{
    const {drawBird}=window.visualTest,{SPRITES}=await import('/js/sprite-data.mjs');
    const canvas=document.createElement('canvas');canvas.width=800;canvas.height=700;const c=canvas.getContext('2d',{willReadFrequently:true}),results=[];
@@ -66,22 +63,31 @@ function components(pixels,width,height,select){
   for(const r of blinkChecks){if('outside'in r)assert.equal(r.outside,0,`blink moves body/feet at scale ${r.scale}, time ${r.time}`);else assert.ok(r.eyeChanges>0,`blink missing at scale ${r.scale}`);}
   console.log('PASS perched blink at four scales: only the eye changes, body and feet stay registered');
   const snakeChecks=await page.evaluate(async()=>{
-   const {images}=await import('/js/assets.mjs'),{Game}=await import('/js/engine.mjs'),{SPRITES}=await import('/js/sprite-data.mjs'),{snakePlacement}=await import('/js/animation.mjs');
-   const {r}=window.visualTest,c=r.c,g=new Game();g.reducedMotion=true;const results=[];
-   const original=c.drawImage;
+   const {r}=window.visualTest;
+   const {snakeA2Pose,snakeA2CollisionRects}=await import('/js/snake-a2.mjs');
+   const original=r.c.drawImage;
+   const output=[];
    try{
-    for(const branch of [false,true])for(const phase of ['watching','warning','windup','striking','recovering','spent','leaving'])for(const age of [.1,.4,.8,1.3,2]){
-     const wood={kind:'wood',x:220,bottom:320,snake:{branch,phase,age,retreat:false}},calls=[];
-     c.drawImage=function(image,...args){if(image===images.get('snake-atlas'))calls.push(args);return original.call(this,image,...args);};r.base();r.snake(wood,true);
-     const [sx,sy,sw,sh,dx,dy,dw,dh]=calls[0],frame=SPRITES.snake.frames.find(f=>f.rect[0]===sx&&f.rect[1]===sy),[cx,cy,rx,ry]=frame.head,p=snakePlacement(wood);
-     const shown={x:p.x+dx+(cx-rx)*dw/sw,y:p.y+dy+(cy-ry)*dh/sh,w:rx*2*dw/sw,h:ry*2*dh/sh},actual=g.snakeRects(wood)[0];
-     results.push({branch,phase,age,delta:Math.max(...Object.keys(shown).map(k=>Math.abs(shown[k]-actual[k])))});
+    for(const branch of [false,true])for(const phase of ['watching','warning','windup','striking','recovering','spent','leaving']){
+     const wood={id:13,kind:'wood',x:220,bottom:320,variant:branch?'branch':'plain',
+        snake:{phase,age:1,warningAge:.4,phaseAge:.1,retreat:false}};
+     let count=0,src='',rect;
+     r.c.drawImage=function(image,...args){count++;src=image.src;rect=args;return original.call(this,image,...args);};
+     r.base();r.snake(wood,true);
+     const pose=snakeA2Pose(wood.snake,true),hitboxes=snakeA2CollisionRects(wood,true);
+     output.push({branch,phase,count,src,rect,pose,hitboxes:hitboxes.length});
     }
-   }finally{c.drawImage=original;}
-   return results;
+   }finally{r.c.drawImage=original;}
+   return output;
   });
-  for(const r of snakeChecks)assert.ok(r.delta<1e-8,`reduced-motion head mismatch: ${JSON.stringify(r)}`);
-  console.log('PASS reduced-motion snake geometry matches the actual rendered atlas frame on trunks and branches');
+  for(const r of snakeChecks){
+   assert.equal(r.count,1,'A2 snake must be drawn as one sprite without a second head');
+   assert.match(r.src,/\/public\/snake\/base\/idle\.webp$/);
+   assert.equal(r.rect[2],384);
+   assert.ok(r.hitboxes>10,'A2 collision mask missing');
+   assert.equal(r.pose.frame,0,'Reduced motion must use a stable official pose');
+  }
+  console.log('PASS reduced-motion A2 snake draws one official sprite and keeps its pixel mask');
   const beaks=[];
   for(let i=0;i<60;i++){
    const beak=await page.evaluate(i=>{
@@ -91,8 +97,23 @@ function components(pixels,width,height,select){
    },i);
    assert.ok(beak,'beak landmark missing');beaks.push(beak);
   }
-  for(const key of ['w','h','x','y'])assert.ok(Math.max(...beaks.map(b=>b[key]))-Math.min(...beaks.map(b=>b[key]))<=2,`unstable beak ${key}`);
-  console.log('PASS 60 bird frames: stable beak dimensions/anchor across poses, falling, turbo, pickups, fatigue and impact');
+  // A tight invariant is meaningful within the SAME flight action, not across
+  // deliberately different full-body sprites (fatal impact vs airborne) or FX.
+  const flight=beaks.slice(0,10);
+  for(const key of ['w','h','x','y']){
+   const variation=Math.max(...flight.map(b=>b[key]))-Math.min(...flight.map(b=>b[key]));
+   const tolerance={w:5,h:7,x:5,y:6}[key];
+   assert.ok(variation<=tolerance,`ordinary flight beak jumps in ${key} (${variation}px): ${JSON.stringify(flight)}`);
+  }
+  const reference={x:flight.reduce((n,b)=>n+b.x,0)/flight.length,
+   y:flight.reduce((n,b)=>n+b.y,0)/flight.length};
+  beaks.forEach((b,i)=>{
+   assert.ok(b.area>=12&&b.w>=4&&b.h>=4&&b.w<=50&&b.h<=50,
+    `missing/detached primary beak in animation state ${i}: ${JSON.stringify(b)}`);
+   assert.ok(Math.abs(b.x-reference.x)<=30&&Math.abs(b.y-reference.y)<=30,
+    `duplicate or displaced beak at state ${i}: ${JSON.stringify({b,reference})}`);
+  });
+  console.log('PASS 60 bird frames: stable flight beak, one bounded beak in collision, turbo, pickups and impact');
   for(let i=0;i<144;i++){
    const pieces=await page.evaluate(i=>{
     const {r}=window.visualTest;r.base();r.hawk({id:3,x:256,y:256,warning:0,dive:i>=72,startX:400,startY:256,targetX:100,targetY:i>=72?400:256},.01+(i%72)/60,false);

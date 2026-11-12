@@ -30,10 +30,15 @@ test('shield daze alone uses reaction art and reduced motion is static',()=>{
  assert.deepEqual(snakeA2Pose({retreat:true,dazed:false}),{key:'idle',frame:7,state:'retreat'});
  assert.equal(snakeA2Pose({phase:'striking'},true).key,'idle');
 });
-test('without optional binary art, production fallback remains functional',async()=>{
- assert.equal(await preloadSnakeA2(),false);
+test('official A2 physics is independent of browser graphics and rendering fails explicitly',async()=>{
+ const {snakeA2HitsPlayer,snakeA2CollisionRects}=await import('../Chaua-Educa-main/js/snake-a2.mjs');
+ const {playerShapes}=await import('../Chaua-Educa-main/js/collision.mjs');
+ await preloadSnakeA2(); // Node has no Image; the static A2 collision data must still work.
  assert.equal(isSnakeA2Ready(),false);
- assert.equal(drawSnakeA2(null,{phase:'striking'},.52),false);
+ const wood={x:200,bottom:450,snake:{phase:'watching',age:0}};
+ assert.ok(snakeA2CollisionRects(wood).length>20);
+ assert.equal(typeof snakeA2HitsPlayer(wood,playerShapes(229,350)),'boolean');
+ assert.throws(()=>drawSnakeA2(null,{phase:'striking'},.52),/A2 ainda não carregada/);
 });
 
 test('A2 faces the incoming Chauá throughout alert, windup and strike',()=>{

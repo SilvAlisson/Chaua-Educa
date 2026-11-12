@@ -1,29 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {snakeMotion,deformSnakePoint} from '../Chaua-Educa-main/js/snake-motion.mjs';
+import {snakeA2Pose,snakeA2CollisionRects} from '../Chaua-Educa-main/js/snake-a2.mjs';
 import {advanceSnake,SNAKE_TIMING as T} from '../Chaua-Educa-main/js/animals.mjs';
 import {Game,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
 import {planEncounter,seededRandom} from '../Chaua-Educa-main/js/encounters.mjs';
 import DB from '../Chaua-Educa-main/js/database.js';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
 
-test('continuous head motion joins every phase and does not reset when the tree passes',()=>{
- const stages=[['warning',0],['warning',T.warning],['windup',0],['windup',T.windup],['striking',0],['striking',T.strike],['recovering',0],['recovering',T.recovery],['spent',0]];
- const p=stages.map(([phase,t])=>snakeMotion({phase,phaseAge:t,warningAge:t,age:3}));
- for(const [a,b]of [[1,2],[3,4],[5,6],[7,8]])for(const k of Object.keys(p[a]))near(p[a][k],p[b][k]);
- const wood={x:400,bottom:440,snake:{}};let previous=deformSnakePoint(130,137,snakeMotion(wood.snake)),max=0;
- for(let i=0;i<900;i++){advanceSnake(wood,1/240,220);const now=deformSnakePoint(130,137,snakeMotion(wood.snake));max=Math.max(max,Math.hypot(now.x-previous.x,now.y-previous.y)*.52);previous=now;}
- assert.ok(max<1.5,`head teleports ${max} units per 240Hz tick`);
- const moving={x:400,snake:{attackStarted:true,attackAge:.7,phase:'recovering',age:2}};moving.x=90;advanceSnake(moving,.01,220);assert.equal(moving.snake.phase,'recovering');
-});
-test('head stays rigid, coil stays anchored, reduced motion stays static and shield retreat starts at the displayed pose',()=>{
- for(const phase of ['warning','windup','striking','recovering'])for(let i=0;i<60;i++){
-  const pose=snakeMotion({phase,warningAge:i/60,phaseAge:i/60,age:2}),a=deformSnakePoint(110,130,pose),b=deformSnakePoint(160,145,pose);
-  near(Math.hypot(a.x-b.x,a.y-b.y),Math.hypot(50,15));assert.deepEqual(deformSnakePoint(230,310,pose),{x:230,y:310});
-  assert.deepEqual(snakeMotion({phase,phaseAge:i},true),{x:0,y:0,angle:0,mouth:0});
+test('A2 frame sequence remains within the official eight frames through the whole strike',()=>{
+ const wood={x:400,bottom:440,snake:{age:0,phase:'watching'}};
+ let prev=null,seen=new Set();
+ for(let i=0;i<900;i++){
+  advanceSnake(wood,1/240,220);const pose=snakeA2Pose(wood.snake);
+  assert.ok(pose.frame>=0&&pose.frame<8);
+  const rects=snakeA2CollisionRects(wood);
+  assert.ok(rects.length>15,'official snake silhouette must not disappear');
+  seen.add(pose.state);
+  if(prev&&prev.state===pose.state&&pose.state==='strike')assert.ok(Math.abs(pose.frame-prev.frame)<=1);
+  prev=pose;
  }
- const g=new Game();g.state='playing';g.shield=true;const w={kind:'wood',x:400,top:100,bottom:450,snake:{kind:'snake',phase:'striking',phaseAge:.17,age:2}};const before=snakeMotion(w.snake);g.collide(w.snake,true,w);assert.deepEqual(snakeMotion(w.snake),before);
+ for(const state of ['alert','windup','strike','recover','spent'])assert.ok(seen.has(state),state);
+});
+test('A2 has no historic recoil geometry; shield removes collision but keeps authored stunned art',()=>{
+ const g=new Game();g.state='playing';g.shield=true;
+ const w={kind:'wood',x:400,top:100,bottom:450,snake:{kind:'snake',phase:'striking',phaseAge:.17,age:2}};
+ assert.ok(g.snakeRects(w).length>20);
+ g.collide(w.snake,true,w);
+ assert.equal(w.snake.retreat,true);assert.equal(w.snake.phase,'retreat');
+ assert.equal(g.snakeRects(w).length,0);
+ assert.equal(snakeA2Pose(w.snake).key,'stunned');
 });
 test('Amigavel encounter trace is bit-for-bit unchanged from v8',()=>{
  let center=320,lastPattern=null;const random=seededRandom(47),trace=[];

@@ -1,0 +1,96 @@
+name: Manual performance diagnostics
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Diagnostic scenario (never changes the production source)
+        required: true
+        type: choice
+        default: render
+        options:
+          - render
+          - long-flight
+          - dpr
+          - forest
+          - transitions
+          - offscreen
+          - action-art
+      dpr:
+        description: Device pixel ratio for the DPR flight diagnostic
+        required: true
+        type: choice
+        default: '1.25'
+        options: ['1.00', '1.15', '1.25', '1.35', '1.50', '1.70']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnostics-${{ github.ref }}-${{ inputs.suite }}
+  cancel-in-progress: true
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 38
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Execute selected diagnostic only
+        env:
+          QA_SUITE: ${{ inputs.suite }}
+          QA_DPR: ${{ inputs.dpr }}
+        run: |
+          set -euo pipefail
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-diagnostics.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          case "$QA_SUITE" in
+            render)
+              npm run test:render-profile
+              npm run benchmark:render-parts
+              PERF_SECONDS=6 npm run benchmark:hotspots
+              npm run benchmark:resolution
+              ;;
+            long-flight)
+              LONG_SECONDS=90 npm run benchmark:long-flight
+              ;;
+            dpr)
+              LONG_MODE=high LONG_DPR="$QA_DPR" LONG_SECONDS=90 LONG_OUTPUT="test-results/dpr-long/$QA_DPR" npm run benchmark:long-flight
+              ;;
+            forest)
+              npm run test:background
+              node scripts/benchmark-prescale-audit.cjs
+              node scripts/benchmark-fragmented-composite.cjs
+              node scripts/benchmark-stable-forest-stages.cjs
+              ;;
+            transitions)
+              node tests/browser-transition-fallback.cjs
+              node scripts/benchmark-transition-composite.cjs
+              node scripts/benchmark-transition-tiles.cjs
+              node scripts/benchmark-transition-temporal.cjs
+              ;;
+            offscreen)
+              node scripts/benchmark-offscreen-culling.cjs
+              node tests/browser-snake-continuity.cjs
+              ;;
+            action-art)
+              node tests/browser-action-sprites.cjs
+              node tests/browser-real-action-sprites.cjs
+              node tests/browser-v2-a2-integration.cjs
+              ;;
+            *) echo "Unsupported suite: $QA_SUITE" >&2; exit 2 ;;
+          esac
+      - name: Retain diagnostic reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: manual-${{ inputs.suite }}-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

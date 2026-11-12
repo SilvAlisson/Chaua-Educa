@@ -1,54 +1,24 @@
 import {SNAKE_TIMING} from './animals.mjs';
-import {snakePlacement} from './animation.mjs';
 import {shapesHitRect} from './collision.mjs';
+import {SNAKE_A2_MASKS} from './snake-a2-masks.mjs';
 
-// Use A2 by default. The original snake remains available via ?snakeA2=0.
-export const SNAKE_A2_ENABLED =
- typeof location!=='undefined'&&new URLSearchParams(location.search).get('snakeA2')!=='0';
+// Official snake implementation: no legacy art or query-string toggle.
 export const SNAKE_A2_GRID=Object.freeze({columns:4,rows:2,cell:384,anchorX:192,anchorY:352});
 const PATHS=Object.freeze({
  idle:'../public/snake/base/idle.webp',
  attack:'../public/snake/attack/attack.webp',
  stunned:'../public/snake/reactions/stunned.webp'
 });
+export function snakePlacement(wood){return {x:wood.x+29,y:wood.bottom+20,factor:.52,facing:1};}
 const images=new Map();
-// Precompute each visible frame's alpha silhouette during loading rather than
-// reading the canvas during 120 Hz gameplay. All hitboxes share the same WebP.
-const MASK_CELL=12, MASK_SIDE=SNAKE_A2_GRID.cell/MASK_CELL, ALPHA_THRESHOLD=112;
-const collisionMasks=new Map();
-let allVisibleFramesMask=null;
-function imageCollisionMasks(image){
- const canvas=typeof OffscreenCanvas!=='undefined'
-  ?new OffscreenCanvas(image.naturalWidth,image.naturalHeight)
-  :typeof document!=='undefined'?document.createElement('canvas'):null;
- if(!canvas)throw Error('No canvas for A2 collision masks');
- canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
- const context=canvas.getContext('2d',{willReadFrequently:true});
- if(!context)throw Error('No 2D canvas for A2 collision masks');
- context.drawImage(image,0,0);
- const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;
- const frames=[],rowStride=canvas.width*4;
- for(let frameIndex=0;frameIndex<8;frameIndex++){
-  const frameX=frameIndex%SNAKE_A2_GRID.columns*SNAKE_A2_GRID.cell;
-  const frameY=Math.floor(frameIndex/SNAKE_A2_GRID.columns)*SNAKE_A2_GRID.cell;
-  const cells=new Uint8Array(MASK_SIDE*MASK_SIDE);
-  for(let row=0;row<MASK_SIDE;row++)for(let col=0;col<MASK_SIDE;col++){
-   const sourceX=frameX+col*MASK_CELL,sourceY=frameY+row*MASK_CELL;
-   let filled=false;
-   for(let y=0;y<MASK_CELL&&!filled;y++){
-    const start=(sourceY+y)*rowStride+(sourceX*4)+3;
-    for(let x=0;x<MASK_CELL;x++)if(pixels[start+x*4]>=ALPHA_THRESHOLD){filled=true;break;}
-   }
-   cells[row*MASK_SIDE+col]=filled?1:0;
-  }
-  frames.push(cells);
- }
- return frames;
-}
+// Generated offline from the official A2 artwork: deterministic physics at 120 Hz
+// without browser image readbacks. All collision shapes use the same frames.
+const MASK_CELL=12, MASK_SIDE=SNAKE_A2_GRID.cell/MASK_CELL;
+const collisionMasks=SNAKE_A2_MASKS;
 function buildVisibleFootprint(){
  const union=new Uint8Array(MASK_SIDE*MASK_SIDE);
  for(const key of ['idle','attack','stunned'])for(let frame=0;frame<8;frame++){
-  const cells=collisionMasks.get(key)[frame],flip=snakeA2NeedsMirror({key,frame});
+  const cells=collisionMasks[key][frame],flip=snakeA2NeedsMirror({key,frame});
   for(let row=0;row<MASK_SIDE;row++)for(let col=0;col<MASK_SIDE;col++)
    if(cells[row*MASK_SIDE+col])union[row*MASK_SIDE+(flip?MASK_SIDE-1-col:col)]=1;
  }
@@ -65,11 +35,11 @@ function candidateRange(value,halfSize,center,anchor,factor){
 }
 
 // Collision follows the current illustrated pose, including sprite mirroring.
-// When the WebP art is absent, Game keeps the exact original collision path.
+// Collision never switches to a historical implementation.
 export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
- if(!isSnakeA2Ready()||!wood?.snake||wood.snake.retreat)return false;
- const pose=snakeA2Pose(wood.snake,reduced),mask=collisionMasks.get(pose.key)?.[pose.frame];
- if(!mask)return false;
+ if(!wood?.snake||wood.snake.retreat)return false;
+ const pose=snakeA2Pose(wood.snake,reduced),mask=collisionMasks[pose.key]?.[pose.frame];
+ if(!mask)throw new Error(`A2 collision mask is missing: ${pose.key} frame ${pose.frame}`);
  const place=snakePlacement(wood),flip=snakeA2NeedsMirror(pose);
  for(const polygon of playerPolygons){
   if(!polygon?.length)continue;
@@ -89,11 +59,6 @@ export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
 // a visible air gap around the snake.
 export function snakeA2FruitHasClearance(wood,x,y,radius=62){
  const place=snakePlacement(wood);
- if(!isSnakeA2Ready()){
-  const dx=Math.abs(x-place.x),dy=place.y-y;
-  if(dx<100&&dy>0&&dy<225)return false;
-  return true;
- }
  const [colStart,colEnd]=candidateRange(x,radius,place.x,SNAKE_A2_GRID.anchorX,place.factor);
  const [rowStart,rowEnd]=candidateRange(y,radius,place.y,SNAKE_A2_GRID.anchorY,place.factor);
  const r2=radius*radius;
@@ -129,6 +94,7 @@ export function placeA2Fruit(snakes,x,y,minimumY,maximumY,previous=[]){
  }
  return best;
 }
+const allVisibleFramesMask=buildVisibleFootprint();
 let loading;
 const clamp=(value,lo=0,hi=1)=>Math.max(lo,Math.min(hi,Number.isFinite(value)?value:lo));
 const frame=(progress,count)=>Math.min(count-1,Math.floor(clamp(progress)*count));
@@ -164,38 +130,37 @@ export function snakeA2Pose(s={},reduced=false){
  }
 }
 export function preloadSnakeA2(){
- if(!SNAKE_A2_ENABLED||typeof Image==='undefined')return Promise.resolve(false);
+ // Headless physics/tests use the same versioned masks; only rendering needs Image.
+ if(typeof Image==='undefined')return Promise.resolve();
  if(loading)return loading;
- loading=Promise.all(Object.entries(PATHS).map(([key,path])=>new Promise(resolve=>{
+ loading=Promise.all(Object.entries(PATHS).map(([key,path])=>new Promise((resolve,reject)=>{
   const image=new Image();
+  const url=new URL(path,import.meta.url).href;
   image.onload=()=>{
-   if(image.naturalWidth===SNAKE_A2_GRID.columns*SNAKE_A2_GRID.cell&&
-      image.naturalHeight===SNAKE_A2_GRID.rows*SNAKE_A2_GRID.cell){
-    images.set(key,image);
-    try{collisionMasks.set(key,imageCollisionMasks(image));resolve(true);}
-    catch{images.delete(key);resolve(false);}
-   }else resolve(false);
+   if(image.naturalWidth!==SNAKE_A2_GRID.columns*SNAKE_A2_GRID.cell||
+      image.naturalHeight!==SNAKE_A2_GRID.rows*SNAKE_A2_GRID.cell){
+    reject(new Error(`Sprite A2 inválido (${key}): dimensões inesperadas.`));return;
+   }
+   images.set(key,image);resolve();
   };
-  image.onerror=()=>resolve(false);
-  image.src=new URL(path,import.meta.url).href;
- }))).then(results=>{
-  if(results.some(ok=>!ok)||images.size!==3||collisionMasks.size!==3){images.clear();collisionMasks.clear();return false;}
-  allVisibleFramesMask=buildVisibleFootprint();
-  return true;
- });
+  image.onerror=()=>reject(new Error(`Não foi possível carregar a cobra A2: ${url}`));
+  image.src=url;
+ }))).then(()=>{
+  if(images.size!==3)throw new Error('A cobra A2 não está pronta.');
+ }).catch(error=>{images.clear();throw error;});
  return loading;
 }
-export function isSnakeA2Ready(){return SNAKE_A2_ENABLED&&images.size===3&&collisionMasks.size===3&&!!allVisibleFramesMask;}
+export function isSnakeA2Ready(){return images.size===3;}
 export function snakeA2NeedsMirror(pose){
  return pose?.key==='attack'&&(pose.frame===4||pose.frame===5)
   ||pose?.key==='stunned'&&pose.frame===3;
 }
 export function drawSnakeA2(c,s,factor,reduced=false){
- if(!isSnakeA2Ready())return false;
+ if(!isSnakeA2Ready())throw new Error('Cobra A2 ainda não carregada.');
  const pose=snakeA2Pose(s,reduced);
  if(!pose)return false;
  const image=images.get(pose.key);
- if(!image)return false;
+ if(!image)throw new Error(`Sprite A2 ausente: ${pose.key}`);
  const {columns,cell,anchorX,anchorY}=SNAKE_A2_GRID;
  const sx=pose.frame%columns*cell,sy=Math.floor(pose.frame/columns)*cell;
  // The generated A2 sheet mixes directions: idle and windup already
@@ -208,4 +173,46 @@ export function drawSnakeA2(c,s,factor,reduced=false){
  c.drawImage(image,sx,sy,cell,cell,-anchorX*factor,-anchorY*factor,cell*factor,cell*factor);
  c.restore();
  return true;
+}
+
+
+// Geometric diagnostics use the SAME pixel masks as the production collision.
+export function snakeA2CollisionRects(wood,reduced=false){
+ if(!wood?.snake||wood.snake.retreat)return [];
+ const place=snakePlacement(wood),pose=snakeA2Pose(wood.snake,reduced);
+ const mask=collisionMasks[pose.key][pose.frame],flip=snakeA2NeedsMirror(pose),rects=[];
+ for(let row=0;row<MASK_SIDE;row++){
+  let start=-1;
+  for(let col=0;col<=MASK_SIDE;col++){
+   const occupied=col<MASK_SIDE&&!!mask[row*MASK_SIDE+(flip?MASK_SIDE-1-col:col)];
+   if(occupied&&start<0)start=col;
+   if(!occupied&&start>=0){
+    const side=MASK_CELL*place.factor;
+    rects.push({x:place.x+(start*MASK_CELL-SNAKE_A2_GRID.anchorX)*place.factor,
+     y:place.y+(row*MASK_CELL-SNAKE_A2_GRID.anchorY)*place.factor,
+     w:(col-start)*side,h:side});
+    start=-1;
+   }
+  }
+ }
+ return rects;
+}
+
+// Upper silhouette supplies the head/mouth location for weather effects.
+// The collision remains the complete mask, not this illustrative bounding box.
+export function snakeA2HeadRect(wood,reduced=false){
+ if(!wood?.snake||wood.snake.retreat)return null;
+ const place=snakePlacement(wood),pose=snakeA2Pose(wood.snake,reduced);
+ const mask=collisionMasks[pose.key][pose.frame],flip=snakeA2NeedsMirror(pose);
+ let minX=MASK_SIDE,maxX=-1,minY=MASK_SIDE,maxY=-1;
+ for(let row=0;row<14;row++)for(let col=0;col<MASK_SIDE;col++){
+  if(!mask[row*MASK_SIDE+col])continue;
+  const displayCol=flip?MASK_SIDE-1-col:col;
+  minX=Math.min(minX,displayCol);maxX=Math.max(maxX,displayCol);
+  minY=Math.min(minY,row);maxY=Math.max(maxY,row);
+ }
+ if(maxX<0)return null;
+ return {x:place.x+(minX*MASK_CELL-SNAKE_A2_GRID.anchorX)*place.factor,
+  y:place.y+(minY*MASK_CELL-SNAKE_A2_GRID.anchorY)*place.factor,
+  w:(maxX-minX+1)*MASK_CELL*place.factor,h:(maxY-minY+1)*MASK_CELL*place.factor};
 }

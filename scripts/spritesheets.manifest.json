@@ -30,20 +30,6 @@
       "height": 512
     },
     {
-      "path": "Chaua-Educa-main/public/snake/animations/strike.webp",
-      "bytes": 50342,
-      "sha256": "4a72ed14efbfe0a0ad76c8b4ed7a37bfbdd1d7ac232ade43a21926b017ba8727",
-      "width": 960,
-      "height": 640
-    },
-    {
-      "path": "Chaua-Educa-main/public/snake/animations/stunned.webp",
-      "bytes": 60560,
-      "sha256": "e29a47526ae1b9ea98d940649565cc6e58bb7fa58cbc3526de119f51ce3693b7",
-      "width": 960,
-      "height": 640
-    },
-    {
       "path": "Chaua-Educa-main/public/snake/attack/attack.webp",
       "bytes": 164888,
       "sha256": "9981f76b27ab67845b2683a06b402e85c4386593fbad6b0bd45662c6e12d1b4e",

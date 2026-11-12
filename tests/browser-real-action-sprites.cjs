@@ -22,11 +22,11 @@ const cases=[
   ['desktop',{width:1200,height:720},cases],
   ['mobile',{width:390,height:844},cases.filter((_,i)=>[0,1,3,5,6,8,9].includes(i))]
  ]){
-  for(const mode of ['original','new']){
+  for(const mode of ['current']){
    const page=await browser.newPage({viewport:vp,deviceScaleFactor:1});
    const errs=[];
    page.on('pageerror',e=>errs.push(e.message));
-   await page.goto('http://127.0.0.1:5501/'+(mode==='new'?'?snakeA2=0':'?actionSprites=0&snakeA2=0'),{waitUntil:'domcontentloaded'});
+   await page.goto((process.env.GAME_URL||'http://127.0.0.1:5501/'),{waitUntil:'domcontentloaded'});
    await page.fill('#inputPlayer','Revisao visual');
    await page.waitForFunction(()=>!document.querySelector('#btnStart').disabled,{timeout:30000});
    await page.locator('#btnStart').evaluate(el=>el.click());
@@ -65,10 +65,10 @@ const cases=[
        game.snapshot();
        return {state:game.state,entities:game.entities.map(e=>e.kind),sceneTime:game.sceneTime};
      };
-     return {keys:loaded,flag:action.ACTION_SPRITES_ENABLED};
+     return {keys:loaded,flag:action.hasActionSheet('hawk-flight')&&action.hasActionSheet('parrot-flight')};
    });
-   const expected=mode==='new'?6:0;
-   assert.equal(loaded.flag,mode==='new');
+   const expected=4;
+   assert.equal(loaded.flag,true);
    assert.equal(loaded.keys.length,expected,'Missing real WebP sheets '+JSON.stringify(loaded));
    for(const [name,kind,t] of which){
     const state=await page.evaluate(([k,t])=>window.__QA_set(k,t),[kind,t]);

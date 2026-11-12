@@ -11,7 +11,6 @@ import { FRUITS } from './fruits.mjs';
 import DB from './database.js';
 import { Game, FlightClock, HEIGHT, STAGES, VICTORY_SCORE } from './engine.mjs';
 import { Renderer, drawBird } from './render.mjs';
-import { ACTION_SPRITES_ENABLED, preloadActionSheets } from './action-sheets.mjs';
 
 const $ = selector => document.querySelector(selector);
 const app = $('#app');
@@ -146,6 +145,12 @@ function home() {
     $('#hud').hidden = true; $('#countdown').hidden = true; $('#home').hidden = false;
     app.classList.remove('in-flight','training'); updateTrainingButton();
 
+    resize(); $('#inputPlayer').focus({ preventScroll: true });
+}
+
+// Install menu controls exactly ONCE per page load, not whenever home() runs.
+// Re-registering from home() caused a dead first-click and stacked listeners
+// after returning from gameplay.
 const WEATHER_MODES = [
     { id: 'auto', label: 'Automático 🍃', icon: '🌤️' },
     { id: 'summer', label: 'Sol de Verão ☀️', icon: '☀️' },
@@ -176,7 +181,7 @@ if (btnWeather) {
         const next = WEATHER_MODES[(idx + 1) % WEATHER_MODES.length];
         setWeatherMode(next.id);
         updateWeatherUI();
-        anunciar(`Clima: ${next.label}`);
+        toast(`Clima: ${next.label}`);
     });
 }
 
@@ -187,8 +192,8 @@ if (weatherSelect) {
     });
 }
 
-updateWeatherUI(); resize(); $('#inputPlayer').focus({ preventScroll: true });
-}
+
+updateWeatherUI();
 
 $('#inputPlayer').addEventListener('input', event => {
     const value = event.target.value;
@@ -247,16 +252,7 @@ function updateSoundButton() {
 }
 $('.sound-toggle').addEventListener('click', () => { soundOn = !soundOn; try { localStorage.setItem('chaua-sound', String(soundOn)); } catch { /* Optional. */ } updateSoundButton();
 
-const unlockAudio = () => {
-    if (soundOn) {
-        forestAudio.ensure();
-        if (forestAudio.context && forestAudio.context.state === 'suspended') {
-            forestAudio.context.resume().catch(() => {});
-        }
-    }
-};
-['pointerdown', 'keydown', 'touchstart'].forEach(evt => window.addEventListener(evt, unlockAudio, { passive: true, once: true }));
- sound('fruit'); });
+sound('fruit'); });
 updateSoundButton();
 
 const unlockAudio = () => {
@@ -420,8 +416,8 @@ function frame(time) {
     if(game.state!==previousState || time-lastHudTime>=80){syncUI();lastHudTime=time;}
     if(quality.sample(delta,!document.hidden&&document.hasFocus()&&game.state==='playing'))applyVisualQuality();
     forestAudio.update(game.state,!document.hidden&&document.hasFocus(),time/1000,game.stage,
-        journeyRain(game.distance, game.tutorial), journeyStorm(game.distance, game.mode, game.tutorial),
-        journeyWind(game.distance, game.mode, game.tutorial));
+        journeyRain(game, game.tutorial), journeyStorm(game, game.mode, game.tutorial),
+        journeyWind(game, game.mode, game.tutorial));
     if(document.hidden){requestAnimationFrame(frame);return;}
     if (game.state === 'menu') renderer.home(reducedMotion.matches ? 0 : time / 1000, reducedMotion.matches);
     else {
@@ -456,7 +452,6 @@ for(const id of ['journal-nature-tab','journal-food-tab'])$('#'+id).addEventList
 $('#open-collection').addEventListener('click', showCollection);
 
 renderer.ready.then(() => {
-    if(ACTION_SPRITES_ENABLED)void preloadActionSheets();
     assetsReady=true;
     updateTrainingButton();
     $('#asset-status').hidden=true;

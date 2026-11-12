@@ -12,16 +12,19 @@ const fadeDistance = 1400;
 
 let weatherOverride = 'auto';
 
-// Initialize from URL search parameters if provided (e.g. ?clima=storm, ?weather=snow, etc.)
-if (typeof location !== 'undefined' && location.search) {
-    const params = new URLSearchParams(location.search);
-    const param = params.get('clima') || params.get('weather');
-    if (param) weatherOverride = param.toLowerCase();
-} else if (typeof localStorage !== 'undefined') {
-    try {
-        const saved = localStorage.getItem('chaua-weather-mode');
-        if (saved) weatherOverride = saved;
-    } catch {}
+// Restore the saved user choice even if the URL contains unrelated query
+// parameters such as ?perf-test=1. A valid explicit ?clima= override wins.
+const VALID_WEATHER_MODES=new Set(['auto','spring','summer','autumn','winter','rain','storm']);
+if(typeof localStorage!=='undefined'){
+    try{
+        const saved=localStorage.getItem('chaua-weather-mode')?.toLowerCase();
+        if(VALID_WEATHER_MODES.has(saved))weatherOverride=saved;
+    }catch{/* Storage may be blocked; default to auto. */}
+}
+if(typeof location!=='undefined' && location.search){
+    const params=new URLSearchParams(location.search);
+    const requested=(params.get('clima')||params.get('weather')||'').toLowerCase();
+    if(VALID_WEATHER_MODES.has(requested))weatherOverride=requested;
 }
 
 export function getWeatherMode() {
@@ -29,7 +32,8 @@ export function getWeatherMode() {
 }
 
 export function setWeatherMode(mode) {
-    weatherOverride = mode || 'auto';
+    const selected=typeof mode==='string'?mode.toLowerCase():'auto';
+    weatherOverride=VALID_WEATHER_MODES.has(selected)?selected:'auto';
     if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem('chaua-weather-mode', weatherOverride); } catch {}
     }
@@ -40,7 +44,7 @@ export function journeyRain(distance, tutorial = false) {
     if (weatherOverride === 'rain') return 0.85;
     if (weatherOverride === 'summer' || weatherOverride === 'winter' || weatherOverride === 'autumn' || weatherOverride === 'spring') return 0;
     if (tutorial || distance?.tutorial) return 0;
-    if (distance && typeof distance==='object') return visualWeights(distance)[1]*.85;
+    if (distance && typeof distance==='object') return visualWeights(distance)[2]*.85;
     if (distance <= rainStart || distance >= rainEnd) return 0;
     return smoothstep(Math.min(distance - rainStart, rainEnd - distance) / fadeDistance);
 }
@@ -50,12 +54,27 @@ export function journeyStorm(distance, mode, tutorial = false) {
     if (weatherOverride !== 'auto') return 0;
     if (tutorial || distance?.tutorial || (mode ?? distance?.mode) !== 'aventura') return 0;
     if (distance && typeof distance==='object') {
-        const autumn=visualWeights(distance)[1];
+        const autumn=visualWeights(distance)[2];
         return smoothstep(Math.max(0,(autumn-.30)/.7))*.58;
     }
     const start = rainStart + 1100;
     const end = rainEnd - 1100;
     return smoothstep(Math.min(distance - start, end - distance) / 700);
+}
+
+// WORLD PHYSICS ONLY. Visual menu overrides (sun, storm, autumn, etc.)
+// must never modify moving hazards, encounters or deterministic replays.
+// This is exactly the old AUTO numeric-distance wind curve, including
+// its adventure-only storm term, independent of weatherOverride.
+export function physicsWind(distance,mode,tutorial=false){
+    if(tutorial || !Number.isFinite(distance))return 0;
+    const gustStart=JOURNEY[2].start+600;
+    const gustEnd=JOURNEY[2].start+3700;
+    const gust=smoothstep(Math.min(distance-gustStart,gustEnd-distance)/900);
+    if(mode!=='aventura')return gust;
+    const stormStart=rainStart+1100,stormEnd=rainEnd-1100;
+    const storm=smoothstep(Math.min(distance-stormStart,stormEnd-distance)/700);
+    return Math.max(gust,storm);
 }
 
 export function journeyWind(distance, mode, tutorial = false) {
@@ -68,12 +87,9 @@ export function journeyWind(distance, mode, tutorial = false) {
     if (tutorial || distance?.tutorial) return 0;
     if (distance && typeof distance==='object') {
         const w=visualWeights(distance);
-        return w[0]*.20+w[1]*.75+w[2]*.20+w[3]*.45;
+        return w[0]*.20+w[1]*.20+w[2]*.75+w[3]*.45;
     }
-    const start = JOURNEY[2].start + 600;
-    const end = JOURNEY[2].start + 3700;
-    const gust = smoothstep(Math.min(distance - start, end - distance) / 900);
-    return Math.max(gust, journeyStorm(distance, mode));
+    return physicsWind(distance,mode,tutorial);
 }
 
 export function journeyFog(distance, tutorial = false) {
@@ -83,17 +99,33 @@ export function journeyFog(distance, tutorial = false) {
     if (weatherOverride !== 'auto' || tutorial || distance?.tutorial) return 0;
     if (distance && typeof distance==='object') {
         const w=visualWeights(distance);
-        return w[0]*.52+w[1]*.32+w[2]*.10+w[3]*.55;
+        return w[0]*.52+w[1]*.10+w[2]*.32+w[3]*.55;
     }
     return 1 - smoothstep(distance / 2900);
 }
 
+// Context-bound reusable gradients: changing canvas size invalidates the
+// cache. Reusing a CanvasGradient across different contexts is unsafe.
+const weatherGradientCache=new WeakMap();
+function weatherGradients(c,w,h){
+    const previous=weatherGradientCache.get(c);
+    if(previous&&previous.w===w&&previous.h===h)return previous;
+    const fog=c.createLinearGradient(0,h*.25,0,h);
+    fog.addColorStop(0,'#d8eee700');
+    fog.addColorStop(.55,'#d8eee738');
+    fog.addColorStop(1,'#d8eee789');
+    const rain=c.createLinearGradient(0,0,0,h);
+    rain.addColorStop(0,'#324f61');
+    rain.addColorStop(.62,'#6d8790');
+    rain.addColorStop(1,'#92aaa8');
+    const record={w,h,fog,rain};
+    weatherGradientCache.set(c,record);
+    return record;
+}
+
 export function drawJourneyFog(context, width, height, fog) {
     if (!fog) return;
-    const mist = context.createLinearGradient(0, height * .25, 0, height);
-    mist.addColorStop(0, '#d8eee700');
-    mist.addColorStop(.55, '#d8eee738');
-    mist.addColorStop(1, '#d8eee789');
+    const mist=weatherGradients(context,width,height).fog;
     context.save();
     context.globalAlpha = fog;
     context.fillStyle = mist;
@@ -128,10 +160,9 @@ export function drawLightning(context, width, height, time, storm, reduced) {
     // 2. Visible jagged electric lightning bolt tearing through the sky
     if (!reduced && flash > 0.25) {
         context.globalAlpha = Math.min(1, flash * 1.1 * storm);
-        context.strokeStyle = '#ffffff';
-        context.lineWidth = 3.2;
-        context.shadowColor = '#93c5fd';
-        context.shadowBlur = 18;
+        // Two opaque/transparent strokes preserve the bolt's authored
+        // silhouette without an expensive Canvas shadowBlur gaussian pass.
+        context.shadowBlur=0;
 
         const startX = width * 0.62;
         const targetX = width * 0.46;
@@ -150,6 +181,13 @@ export function drawLightning(context, width, height, time, storm, reduced) {
             currY = targetY * progress;
             context.lineTo(currX, currY);
         }
+        context.globalAlpha=Math.min(.30,flash*.28*storm);
+        context.strokeStyle='#93c5fd';
+        context.lineWidth=9;
+        context.stroke();
+        context.globalAlpha=Math.min(1,flash*1.1*storm);
+        context.strokeStyle='#ffffff';
+        context.lineWidth=2.8;
         context.stroke();
 
         // Fork branch
@@ -258,9 +296,7 @@ export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail
  if(rain<=0||width<=0||height<=0)return;
  const c=context;
  c.save();
- const wash=c.createLinearGradient(0,0,0,height);
- wash.addColorStop(0,'#324f61');wash.addColorStop(.62,'#6d8790');
- wash.addColorStop(1,'#92aaa8');
+ const wash=weatherGradients(c,width,height).rain;
  c.globalAlpha=rainClamp(rain*(.12+storm*.145));
  c.fillStyle=wash;c.fillRect(0,0,width,height);
  c.restore();

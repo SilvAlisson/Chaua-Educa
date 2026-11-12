@@ -1,71 +1,59 @@
-// Pixel-perfect regression against the original snake triangle renderer.
-// The pinned baseline is routed under /js/ so its relative imports resolve.
+// Compare official A2 collision geometry with every real WebP pixel cell.
+// This replaces pixel-parity tests against the retired v7/v8 mesh renderer.
 const assert=require('node:assert/strict');
-const fs=require('node:fs');
 const {chromium}=require('playwright');
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
  try{
-  const results=[];
-  for(const viewport of [{width:960,height:640},{width:390,height:844}]){
-   const page=await browser.newPage({viewport,deviceScaleFactor:2});
-   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
-   await page.route('**/js/snake-render-baseline.mjs',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync('tests/fixtures/snake-render-original.mjs','utf8')}));
-   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
-   const result=await page.evaluate(async()=>{
-    const {loadAssets,images}=await import('/js/assets.mjs');
-    const {drawContinuousSnake:optimized}=await import('/js/snake-render.mjs');
-    const {drawContinuousSnake:baseline}=await import('/js/snake-render-baseline.mjs');
-    await loadAssets();
-    const image=images.get('snake-atlas');
-    if(!image)throw Error('Snake atlas missing');
-    const make=()=>{
-     const canvas=document.createElement('canvas');canvas.width=canvas.height=400;
-     return {canvas,c:canvas.getContext('2d',{willReadFrequently:true})};
-    };
-    const a=make(),b=make(),phases=[
-      {phase:'watching',age:0},{phase:'watching',age:8},
-      {phase:'warning',warningAge:0,age:3},
-      {phase:'warning',warningAge:.3,age:3.3},
-      {phase:'warning',warningAge:.65,age:3.65},
-      {phase:'windup',phaseAge:.1,age:4},
-      {phase:'windup',phaseAge:.35,age:4.25},
-      {phase:'striking',phaseAge:.03,age:4.5},
-      {phase:'striking',phaseAge:.14,age:4.6},
-      {phase:'recovering',phaseAge:.15,age:4.9},
-      {phase:'recovering',phaseAge:.4,age:5.2},
-      {phase:'spent',age:8},
-      {phase:'leaving',age:9},
-      {phase:'spent',age:10,retreat:true,retreatTime:.4,retreatPose:{x:-4,y:0,angle:0,mouth:0}}
-    ];
-    const positions=[{x:200,y:300,scale:1},{x:171.35,y:268.65,scale:1.2}];
-    let frames=0,totalChanged=0,maxChannelDelta=0,maxChangedPixels=0;
-    const cases=[];
-    for(const reduced of [false,true])for(const pos of positions)for(const s of phases){
-     for(const item of [a,b]){
-      const c=item.c;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,400,400);
-      c.translate(pos.x,pos.y);c.scale(pos.scale,pos.scale);
+  const page=await browser.newPage({viewport:{width:960,height:640}});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+  await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
+  const result=await page.evaluate(async()=>{
+   const {SNAKE_A2_MASKS}=await import('/js/snake-a2-masks.mjs');
+   const {preloadSnakeA2,isSnakeA2Ready}=await import('/js/snake-a2.mjs');
+   await preloadSnakeA2();
+   if(!isSnakeA2Ready())throw Error('Official A2 sprites unavailable');
+   const assets={idle:'/public/snake/base/idle.webp',attack:'/public/snake/attack/attack.webp',
+      stunned:'/public/snake/reactions/stunned.webp'};
+   const canvas=document.createElement('canvas');
+   canvas.width=canvas.height=384;
+   const c=canvas.getContext('2d',{willReadFrequently:true});
+   let tiles=0,pixels=0,filled=0,mismatches=0;
+   const examples=[];
+   for(const [key,url] of Object.entries(assets)){
+    const image=new Image();image.src=url;await image.decode();
+    if(image.naturalWidth!==1536||image.naturalHeight!==768)
+      throw Error('Invalid official A2 atlas: '+key);
+    for(let frame=0;frame<8;frame++){
+     c.clearRect(0,0,384,384);
+     c.drawImage(image,(frame%4)*384,Math.floor(frame/4)*384,384,384,0,0,384,384);
+     const rgba=c.getImageData(0,0,384,384).data;
+     let frameFilled=0;
+     for(let row=0;row<32;row++)for(let col=0;col<32;col++){
+      let visible=false;
+      for(let y=row*12;y<(row+1)*12&&!visible;y++)
+       for(let x=col*12;x<(col+1)*12;x++){
+        pixels++;
+        if(rgba[(y*384+x)*4+3]>=112){visible=true;break;}
+       }
+      const expected=Boolean(SNAKE_A2_MASKS[key][frame][row*32+col]);
+      if(expected!==visible){
+       mismatches++;
+       if(examples.length<6)examples.push({key,frame,row,col,expected,visible});
+      }
+      if(visible){filled++;frameFilled++;}
+      tiles++;
      }
-     baseline(a.c,image,s,.52,reduced);
-     optimized(b.c,image,s,.52,reduced);
-     const first=a.c.getImageData(0,0,400,400).data;
-     const next=b.c.getImageData(0,0,400,400).data;
-     let changed=0,max=0;
-     for(let i=0;i<first.length;i++){
-      const delta=Math.abs(first[i]-next[i]);
-      if(delta){changed++;max=Math.max(max,delta);}
-     }
-     frames++;totalChanged+=changed;maxChangedPixels=Math.max(maxChangedPixels,changed);maxChannelDelta=Math.max(maxChannelDelta,max);
-     if(changed)cases.push({phase:s.phase,reduced,position:pos,changedChannels:changed,maxChannelDelta:max});
+     if(frameFilled<70)throw Error('A2 empty pose '+key+'/'+frame);
     }
-    return {frames,totalChanged,maxChangedPixels,maxChannelDelta,changedCases:cases.slice(0,16)};
-   });
-   assert.deepEqual(errors,[]);
-   assert.equal(result.totalChanged,0,'optimized snake changed pixels; investigate before approval: '+JSON.stringify(result));
-   results.push({viewport,...result});
-   await page.close();
-  }
-  console.log('PASS snake 56-frame exact pixel parity against pinned baseline '+JSON.stringify(results));
+   }
+   return {tiles,filled,pixels,mismatches,examples};
+  });
+  assert.equal(result.tiles,3*8*32*32);
+  assert.equal(result.mismatches,0,'Collider does not match current A2 WebP: '+JSON.stringify(result.examples));
+  assert.ok(result.filled>1000);
+  assert.deepEqual(errors,[]);
+  console.log('PASS A2 mask-pixel parity '+JSON.stringify(result));
  }finally{await browser.close();}
-})().catch(error=>{console.error(error);process.exitCode=1;});
+})().catch(e=>{console.error(e);process.exitCode=1;});

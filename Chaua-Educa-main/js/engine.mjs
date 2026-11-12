@@ -1,8 +1,5 @@
-import {snakeMotion} from './snake-motion.mjs';
 import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect,roundedShape} from './collision.mjs';
-import { snakeHeadRect } from './geometry.mjs';
-import {spriteBodyRects} from './animation.mjs';
-import {isSnakeA2Ready,snakeA2HitsPlayer,snakeA2FruitHasClearance,placeA2Fruit} from './snake-a2.mjs';
+import {snakeA2HitsPlayer,snakeA2FruitHasClearance,placeA2Fruit,snakeA2CollisionRects,snakeA2HeadRect} from './snake-a2.mjs';
 import {livingWoodRects} from './forest-geometry.mjs';
 import { createTutorial, advanceTutorial } from './tutorial.mjs';
 import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
@@ -10,7 +7,7 @@ import { offerPower, POWER_BALANCE } from './powers.mjs';
 import { advanceHawk, advanceSnake } from './animals.mjs';
 import { planEncounter, seededRandom } from './encounters.mjs';
 import { FRUITS } from './fruits.mjs';
-import { journeyWind } from './weather.mjs';
+import { physicsWind } from './weather.mjs';
 import { QUESTIONS } from './questions.mjs';
 import { ACTION_TIMINGS } from './action-states.mjs';
 
@@ -163,6 +160,33 @@ export class Game {
             out[i] = entity;
         }
         view.entities = out;
+        // 120Hz simulation vs 180/240Hz monitors: interpolate VFX as well
+        // as obstacles, using reusable visual buffers (no per-frame allocation).
+        if(!this._visualParticles){
+            Object.defineProperty(this,'_visualParticles',{value:[],enumerable:false});
+            Object.defineProperty(this,'_visualPopups',{value:[],enumerable:false});
+        }
+        const effects=this._visualParticles;
+        effects.length=this.particles.length;
+        for(let i=0;i<this.particles.length;i++){
+            const src=this.particles[i],dst=effects[i]||{};
+            Object.assign(dst,src);
+            dst.x=lerp(src.prevX??src.x,src.x);
+            dst.y=lerp(src.prevY??src.y,src.y);
+            if(Number.isFinite(src.rotation))
+                dst.rotation=lerp(src.prevRotation??src.rotation,src.rotation);
+            effects[i]=dst;
+        }
+        const labels=this._visualPopups;
+        labels.length=this.popups.length;
+        for(let i=0;i<this.popups.length;i++){
+            const src=this.popups[i],dst=labels[i]||{};
+            Object.assign(dst,src);
+            dst.y=lerp(src.prevY??src.y,src.y);
+            labels[i]=dst;
+        }
+        view.particles=effects;
+        view.popups=labels;
         return view;
     }
 
@@ -188,7 +212,7 @@ export class Game {
     get speed() {
         const p = FLIGHT[this.mode];
         const gain = this.mode === 'aventura' ? Math.min(185, this.elapsed * 0.45 + Math.max(0, this.elapsed - 40) * 0.35) : Math.min(p.speedGain, this.elapsed * 0.45);
-        const wind = journeyWind(this.distance, this.mode, this.tutorial);
+        const wind = physicsWind(this.distance, this.mode, this.tutorial);
         return (p.speed + gain) * (this.pepper > 0 ? 1.35 : 1) * (1 + wind * .06);
     }
     start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
@@ -260,7 +284,8 @@ export class Game {
         this.scoreBreakdown[source] += value * multiplier;
         if(!this.medal && this.score>=VICTORY_SCORE){this.medal=true;this.onEvent({type:'medal'});}
         this.onEvent({ type: 'points', value: value * multiplier });
-        this.popups.push({x:this.x+28,y:this.y-30,text:`+${value*multiplier}`,gold:multiplier>=2,life:.85});
+        this.popups.push({x:this.x+28,y:this.y-30,prevY:this.y-30,
+            text:`+${value*multiplier}`,gold:multiplier>=2,life:.85});
         if(this.popups.length>6)this.popups.shift();
     }
 
@@ -312,7 +337,6 @@ export class Game {
             this.invincible = CONTACT.grace;
             if (host.kind === 'wood') host.contacted = true;
             if (animal) {
-                if(entity.kind==='snake'||host.snake===entity)entity.retreatPose=snakeMotion(entity,this.reducedMotion);
                 entity.phase = 'retreat';
                 entity.retreat = true;
                 entity.retreatTime = 0;
@@ -523,6 +547,8 @@ export class Game {
 
     particle(p) {
         if(this.particles.length>=96)this.particles.shift();
+        p.prevX=p.x;p.prevY=p.y;
+        if(Number.isFinite(p.rotation))p.prevRotation=p.rotation;
         this.particles.push(p);
     }
 
@@ -542,12 +568,19 @@ export class Game {
         this.flapImpulse=Math.max(0,this.flapImpulse-dt*5.0);
         if(this.shakeTime>0){this.shakeTime=Math.max(0,this.shakeTime-dt);if(this.shakeTime===0){this.shakeDuration=0;this.shakeIntensity=0;}}
         let deadPopups=false;
-        for(const p of this.popups){p.life-=dt;if(!this.reducedMotion)p.y-=24*dt;if(!(p.life>0))deadPopups=true;}
+        for(const p of this.popups){
+            p.prevY=p.y;
+            p.life-=dt;
+            if(!this.reducedMotion)p.y-=24*dt;
+            if(!(p.life>0))deadPopups=true;
+        }
         if(deadPopups)this.popups=this.popups.filter(p=>p.life>0);
         for(const e of this.entities)if(e.breakFx){e.breakFx.age+=dt;if(e.breakFx.age>=.36)delete e.breakFx;}
         if(this.hit) {this.hit.age+=dt;if(this.hit.age>=.3)this.hit=null;}
         let deadParticles=false;
         for(const p of this.particles) {
+            p.prevX=p.x;p.prevY=p.y;
+            if(Number.isFinite(p.rotation))p.prevRotation=p.rotation;
             p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;
             if(p.feather||p.chip||p.seed) {p.vy+=(p.chip?380:p.seed?320:210)*dt;p.rotation+=p.spin*dt;}
             if(!(p.life>0))deadParticles=true;
@@ -559,7 +592,8 @@ export class Game {
 
     snakeRects(entity) {
         if (!entity.snake || entity.snake.retreat) return [];
-        return [snakeHeadRect(entity,this.reducedMotion),...spriteBodyRects(entity,this.reducedMotion)];
+        const head=snakeA2HeadRect(entity,this.reducedMotion);
+        return head?[head,...snakeA2CollisionRects(entity,this.reducedMotion)]:[];
     }
 
     spawn() {
@@ -592,11 +626,18 @@ export class Game {
         const hawkAlone = soloHawk;
         let hasSnake = false, encounterGap = gap;
         if (hawkAlone) {
-            const dive = this.elapsed > profile.diveAt && n % 2 === 0;
+            const swoop=this.elapsed>profile.diveAt&&n%2===0;
             const lane=Math.max(160,Math.min(480,this.y+(this.encounterRandom()-.5)*70));
-            const y = dive ? (lane>=320?105:535) : lane;
-            this.entities.push({ id: this.nextId++, kind: 'hawk', solo: true, x, y, startX: x, targetX: this.x - 60, startY: y, targetY: dive ? lane : y,
-                warning: Math.max(profile.warning, travel * .25), phase:'warning', age: 0, dive, w: 66, h: 34 });
+            // Upper approach is a true dive with the authored angled pose.
+            // Lower approach remains in the encounter variety, but becomes
+            // an ASCENDING flight using the existing wingbeat sheet; a bird
+            // climbing from the ground must not display a "MERGULHO" warning.
+            const dive=swoop&&lane>=320,ascent=swoop&&!dive;
+            const y=dive?105:ascent?535:lane;
+            this.entities.push({ id:this.nextId++,kind:'hawk',solo:true,x,y,startX:x,
+                targetX:this.x-60,startY:y,targetY:swoop?lane:y,
+                warning:Math.max(profile.warning,travel*.25),phase:'warning',
+                age:0,dive,ascent,w:66,h:34 });
         } else {
             const variants = ['plain', 'branch', 'plain'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'branch':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
@@ -759,8 +800,7 @@ export class Game {
                 advanceSnake(e,dt,px);
                 if (e.snake && !e.snake.retreat && Math.abs(e.x-px)<230) {
                     const player=getPlayerBody();
-                    const hit=isSnakeA2Ready()?snakeA2HitsPlayer(e,player,this.reducedMotion)
-                        :this.snakeRects(e).some(rect => rect.x<px+35&&rect.x+rect.w>px-35&&rect.y<this.y+35&&rect.y+rect.h>this.y-35&&shapesIntersect(player,[roundedShape(rect)]));
+                    const hit=snakeA2HitsPlayer(e,player,this.reducedMotion);
                     if(hit)this.collide(e.snake,true,e);
                 }
                 // Broad-phase horizontal check: livingWoodRects span at most [e.x - 73, e.x + 108]

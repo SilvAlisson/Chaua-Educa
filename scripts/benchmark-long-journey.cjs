@@ -121,7 +121,8 @@ const pct=(xs,p)=>{if(!xs.length)return null;const ys=[...xs].sort((a,b)=>a-b);r
     if(!wood&&hawk){
      const t=Math.max(0,Math.min(1,(hawk.startX-g.x)/(hawk.startX-hawk.targetX)));
      const lane=hawk.startY+(hawk.targetY-hawk.startY)*t;
-     target=lane>=320?Math.max(145,lane-125):Math.min(495,lane+125);
+     // Match the current hawk action-sheet collision corridor used by the unit-test pilot.
+     target=lane>=320?Math.max(145,lane-140):Math.min(495,lane+140);
     }
     if(g.elapsed>=nextDecision){
      nextDecision=g.elapsed+1/30;

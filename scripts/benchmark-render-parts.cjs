@@ -15,7 +15,6 @@ fs.mkdirSync(out,{recursive:true});
   const results=await page.evaluate(async()=>{
    const {Renderer,drawBird}=await import('/js/render.mjs');
    const {Game}=await import('/js/engine.mjs');
-   const {flightViewport}=await import('/js/viewport.mjs');
    const {advanceSnake}=await import('/js/animals.mjs');
    const canvas=document.createElement('canvas');
    canvas.style.cssText='position:fixed;inset:0;width:100vw;height:100vh';
@@ -27,10 +26,9 @@ fs.mkdirSync(out,{recursive:true});
    const fruit={id:9003,kind:'fruit',x:420,y:310,variety:0,collected:false};
    const pepper={id:9004,kind:'pepper',x:880,y:320,collected:false};
    const feather={id:9005,kind:'feather',x:980,y:300,collected:false};
-   const view=flightViewport(r.w,r.h);
    const g=new Game({seed:104});g.state='playing';g.y=320;g.wing=.5;g.elapsed=35;g.sceneTime=35;
    g.distance=15000;g.stage=2;g.stageAge=10;g.entities=[wood,hawk,fruit,pepper];
-   const names=['forest','trunks','snake','hawk','pickups','bird','borders','complete-scene'];
+   const names=['forest','trunks','snake','hawk','pickups','bird','complete-scene'];
    const times=Object.fromEntries(names.map(x=>[x,[]]));
    const draw=(label,i)=>{
     const now=35+(i%120)/60,entity={...wood,snake:{...wood.snake,age:now,phase:'warning',warningAge:(i%35)/50}};
@@ -41,7 +39,6 @@ fs.mkdirSync(out,{recursive:true});
      case 'hawk':r.hawk(hawk,now,false);break;
      case 'pickups':r.pickup(fruit,now,false);r.pickup(pepper,now,false);r.pickup(feather,now,false);break;
      case 'bird':drawBird(c,{x:450,y:400,scale:.74,wing:.5,time:now,vy:0});break;
-     case 'borders':r.flightBorders(view);break;
      case 'complete-scene':g.elapsed=now;g.sceneTime=now;g.entities=[entity,hawk,fruit,pepper];r.game(g,false,now);break;
     }
    };

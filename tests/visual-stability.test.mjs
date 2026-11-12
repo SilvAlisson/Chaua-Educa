@@ -18,9 +18,15 @@ test('rotation follows the head and never stretches the body polygons',()=>{
 });
 test('predator head and chest collide while wing and tail tips remain forgiving',()=>{
  const h={x:300,y:300,dive:false},body=hawkShapes(h);
- assert.equal(shapesIntersect(playerShapes(270,294),body),true);
+ assert.equal(shapesIntersect(playerShapes(230,315),body),true);
  assert.equal(shapesIntersect(playerShapes(310,220),body),false);
  assert.equal(shapesIntersect(playerShapes(360,300),body),false);
+ // Body geometry follows the ACTUAL official pose, including when Image is undefined.
+ const before=JSON.stringify(hawkShapes(h));
+ assert.equal(JSON.stringify(hawkShapes({...h,dive:false})),before);
+ const dive=hawkShapes({...h,dive:true,warning:0});
+ assert.notDeepEqual(dive,body,'original inclined dive has its own constant authored geometry');
+ assert.deepEqual(hawkShapes({...h,dive:true,warning:1}),dive);
 });
 test('convex contact handles crossing, containment, separation and exact tangency',()=>{
  const a=rectShape({x:0,y:0,w:10,h:10});

@@ -55,9 +55,9 @@ export function warningPosition(view,worldY){
         y:clamp(view.y+yy-18,view.y+4,view.y+view.h-40)};
 }
 
-// The A2 snake rises farther above the perch than the legacy mesh.
-export function snakeWarningPosition(view,wood,a2Ready=false){
-    const clearance=a2Ready?245:155;
+// A2 is the only snake. Warning clearance follows its official silhouette.
+export function snakeWarningPosition(view,wood){
+    const clearance=245;
     return {x:view.x+(wood.x-view.worldLeft)*view.scale-30,
         y:view.y+(wood.bottom-clearance-(view.worldTop||0))*view.scale};
 }

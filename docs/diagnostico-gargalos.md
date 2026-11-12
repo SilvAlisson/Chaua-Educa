@@ -15,7 +15,7 @@ CHROMIUM_PATH=/usr/bin/chromium npm run benchmark:hotspots
 ## O que mede
 
 - Intervalos de `requestAnimationFrame`, FPS, p50/p95 e quadros acima de 33,3 e 50 ms.
-- Custos de chamada (CPU/JS) dos métodos `Renderer.background`, `Renderer.game`, `Renderer.obstacle`, `Renderer.hawk`, `Renderer.pickup`, `Renderer.snake`, `Renderer.flightBorders`, `Game.visual` e `FlightClock.advance`.
+- Custos de chamada (CPU/JS) dos métodos `Renderer.background`, `Renderer.game`, `Renderer.obstacle`, `Renderer.hawk`, `Renderer.pickup`, `Renderer.snake`, `Game.visual` e `FlightClock.advance`.
 - Três cenas: floresta inicial; Mata fragmentada; Mata fragmentada com atores adicionados **apenas à representação visual** (tronco/cobra, predador, fruta e poder).
 - Resolução efetiva do canvas e identificação do renderizador gráfico do navegador.
 

@@ -9,7 +9,7 @@ const scenes=[['watching',4],['warning',4.2],['windup',4.6],['striking',4.8],['s
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
  try{
   for(const viewport of [{width:1200,height:720},{width:390,height:844}]){
-   for(const [variant,urlQuery] of [['original','?actionSprites=0&snakeA2=0'],['A2','']]){
+   for(const [variant,urlQuery] of [['A2','']]){
     const page=await browser.newPage({viewport,deviceScaleFactor:1});
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.goto(URL+urlQuery,{waitUntil:'domcontentloaded'});

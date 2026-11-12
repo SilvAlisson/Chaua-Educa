@@ -1,7 +1,3 @@
-import {snakeMotion,deformSnakePoint,deformSnakeRect} from './snake-motion.mjs';
-import {SNAKE_WRAP} from './snake-wrap-data.mjs';
-import {SNAKE_TIMING} from './animals.mjs';
-import {SPRITES} from './sprite-data.mjs';
 const clamp=v=>Math.max(0,Math.min(1,v));
 const ease=v=>{const t=clamp(v);return t*t*(3-2*t);};
 export function sequence(frames,progress,loop=false){
@@ -15,7 +11,6 @@ function flightFrame(frames,progress){const clip=sequence(frames,progress,true);
 export const CLIPS=Object.freeze({
  chaua:{flight:[0,1,2,3,4,5,6,7],landing:[8,9,10,11,12],idle:[12,13],recoil:[14,15]},
  hawk:{flight:[0,1,2,3,4,5,6,7],glide:[8,9],dive:[10,11],recoil:[12,13,14,15]},
- snake:{idle:[0,1,2,3],alert:[4,5,6,7],attack:[7,8,9,10,11,7],withdraw:[11,12,13,14,15],emerge:[15,0]},
 });
 export function birdAnimation({wing=0,time=0,perched=false,landing=null,defeated=false,impactProgress=0,reduced=false}={}){
  const glidePose=reduced?.42:.42+(time>0?Math.sin(time*2.4)*0.025:0);
@@ -38,32 +33,6 @@ export function hawkAnimation(e,time=0,reduced=false){
  const cycle=(time*1.6+(e.id||0)*.37)%2.6;
  if(cycle>1.5)return flightFrame(CLIPS.hawk.glide,(cycle-1.5)*.5);
  return flightFrame(CLIPS.hawk.flight,cycle/1.5*2.2);
-}
-// Source-pose inspector for atlas QA. Gameplay deforms one registered pose; it
-// never switches these full-body frames (see snake-motion and snake-render).
-export function snakeAnimation(s={},reduced=false){
- if(reduced){const frame=s.retreat?15:0;return {frame,next:frame,blend:0};}
- if(s.retreat)return sequence(CLIPS.snake.withdraw,(s.retreatTime||0)/.85);
- if(s.phase==='windup')return sequence([7,8],(s.phaseAge||0)/SNAKE_TIMING.windup);
- if(s.phase==='striking')return sequence([8,9,10],(s.phaseAge||0)/SNAKE_TIMING.strike);
- if(s.phase==='recovering')return sequence([10,11,12,13,15],(s.phaseAge||0)/SNAKE_TIMING.recovery);
- if(['spent','leaving'].includes(s.phase))return {frame:15,next:15,blend:0};
- if(s.phase==='warning')return sequence([0,4,5,6,7],(s.warningAge||0)/SNAKE_TIMING.warning);
- return sequence(CLIPS.snake.idle,(s.age||0)*.45,true);
-}
-export function snakePlacement(wood){return {x:wood.x+29,y:wood.bottom+20,factor:.52,facing:1};}
-export function spriteBodyRects(wood,reduced=false){
- const p=snakePlacement(wood),pose=snakeMotion(wood.snake,reduced);
- // Forgiving ellipse inside the visible coil; the empty center is not treated
- // as an extra rectangular obstacle. Most of its lower half meets solid wood.
- return [{x:p.x-112*p.factor,y:p.y-66*p.factor,w:224*p.factor,h:62*p.factor},...SNAKE_WRAP.neckMasks[0].map(rect=>{const r=deformSnakeRect(rect,pose);return {x:p.x+(r.x-192)*p.factor,y:p.y+(r.y-328)*p.factor,w:r.w*p.factor,h:r.h*p.factor};}),...SNAKE_WRAP.colliders.map(([x,y,w,h])=>({x:p.x+x,y:p.y+y,w,h}))];
-}
-
-export function spriteHeadRect(wood,reduced=false){
- const {x,y,factor}=snakePlacement(wood),pose=snakeMotion(wood.snake,reduced),h=SPRITES.snake.frames[0].head;
- const center=deformSnakePoint(h[0],h[1],pose),cos=Math.cos(pose.angle),sin=Math.sin(pose.angle);
- const rx=Math.hypot(h[2]*cos,h[3]*sin),ry=Math.hypot(h[2]*sin,h[3]*cos);
- return {x:x+(center.x-192-rx)*factor,y:y+(center.y-328-ry)*factor,w:rx*2*factor,h:ry*2*factor};
 }
 export function placeWarnings(items,view){
  const result=[];

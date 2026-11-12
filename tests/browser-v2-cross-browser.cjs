@@ -11,8 +11,7 @@ fs.mkdirSync(OUTPUT,{recursive:true});
   try{
    for(const viewport of [{width:1200,height:720},{width:390,height:844}]){
     for(const [mode,query,expected] of [
-     ['legacy','?actionSprites=0&snakeA2=0',{a2:false,action:false}],
-     ['real-art','',{a2:true,action:true}]
+     ['official-a2','',{a2:true,action:true}]
     ]){
      const page=await browser.newPage({viewport,deviceScaleFactor:1});
      const errors=[];

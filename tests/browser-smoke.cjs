@@ -29,26 +29,22 @@ async function begin(page, name = 'Guardião da mata') {
     try {
         const context = await browser.newContext({ viewport: { width:1440, height:960 } });
         const page = await context.newPage(); await inspect(page);
-        // Weighted poses must preserve opaque bodies on a transparent canvas.
-        const legacy = await context.newPage();
-        const legacyURL = new URL(page.url());
-        legacyURL.searchParams.set('actionSprites','0');
-        await legacy.goto(legacyURL.href,{waitUntil:'networkidle'});
-        assert.equal(await legacy.evaluate(async()=>{
+        // Test actual authored art in BOTH flight and perched states; no fake
+        // sheet and no query-param bypass to an obsolete implementation.
+        assert.deepEqual(await page.evaluate(async()=>{
             const {drawBird}=await import('/js/render.mjs');
-            const {images}=await import('/js/assets.mjs');
-            const source=document.createElement('canvas');source.width=1536;source.height=1536;
-            source.getContext('2d').fillRect(0,0,1536,1536);
-            const image=new Image();image.src=source.toDataURL();await image.decode();
-            const original=images.get('chaua-atlas');
-            try {
-                images.set('chaua-atlas',image);
-                const canvas=document.createElement('canvas');canvas.width=300;canvas.height=300;
-                const context=canvas.getContext('2d');drawBird(context,{x:150,y:150,wing:.8});
-                return context.getImageData(150,150,1,1).data[3];
-            } finally {images.set('chaua-atlas',original);}
-        }),255);
-        await legacy.close();
+            const {hasActionSheet}=await import('/js/action-sheets.mjs');
+            const canvas=document.createElement('canvas');canvas.width=300;canvas.height=300;
+            const context=canvas.getContext('2d',{willReadFrequently:true});
+            const check=perched=>{
+                context.clearRect(0,0,300,300);
+                drawBird(context,{x:150,y:150,wing:.8,perched,time:1});
+                const data=context.getImageData(0,0,300,300).data;
+                let filled=0;for(let i=3;i<data.length;i+=4)if(data[i]>0)filled++;
+                return filled>100;
+            };
+            return [hasActionSheet('parrot-flight'),check(false),check(true)];
+        }),[true,true,true]);
         for (const viewport of [{width:1366,height:638},{width:1280,height:600},{width:1024,height:600},{width:768,height:600}]) {
             await page.setViewportSize(viewport);
             const layout = await page.evaluate(() => {
