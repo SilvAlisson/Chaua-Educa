@@ -1427,7 +1427,7 @@ export class Renderer {
             }
             if (broken) continue;
             const hit = game.hit;
-            const lean = treeBend(time, wind, e.id ?? 0, hit?.id === e.id && hit.side === side ? hit.age : null, reduced);
+            const lean = treeBend(time, wind, e.id ?? 0, hit && e.id !== undefined && hit.id === e.id && hit.side === side ? hit.age : null, reduced);
             if (lean) {
                 c.save();
                 c.transform(1, 0, lean, 1, -lean * y, 0);
