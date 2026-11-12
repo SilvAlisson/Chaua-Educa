@@ -1,0 +1,30 @@
+name: Climate V3 targeted regression
+on:
+  push:
+    branches:
+      - audit/climate-v3-final-polish-20261111
+  workflow_dispatch:
+jobs:
+  fixes-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate climate/animation regressions without a full 13-minute flight
+        run: |
+          node --test tests/climate-v3-verified-fixes.test.mjs tests/climate-four-seasons.test.mjs
+          node --test tests/animation-polish.test.mjs tests/action-states.test.mjs
+          node --test tests/climate-v3-approved-second-plan.test.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Validate actual atlas and menu controls in browser
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-smoke-http.log 2>&1 &
+          chaua_server_pid=$!
+          trap 'kill "$chaua_server_pid" 2>/dev/null' EXIT
+          node tests/browser-season-atlas-semantic.cjs
+          node tests/browser-weather-controls-v3.cjs

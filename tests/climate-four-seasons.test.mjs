@@ -15,9 +15,9 @@ const sample=(progress,mode='aventura',seed=104,extra={})=>({
 });
 
 test('the four seasons follow spring, summer, autumn and winter, matching authored atlas IDs',()=>{
- assert.deepEqual(SEASON_IDS,{spring:0,autumn:1,summer:2,winter:3});
- assert.deepEqual(CLIMATE_TRANSITIONS.map(s=>[s.from,s.to]),[[0,2],[2,1],[1,3]]);
- for(const [p,id] of [[0,0],[.10,0],[.30,2],[.52,1],[.78,3],[1,3]]){
+ assert.deepEqual(SEASON_IDS,{spring:0,summer:1,autumn:2,winter:3});
+ assert.deepEqual(CLIMATE_TRANSITIONS.map(s=>[s.from,s.to]),[[0,1],[1,2],[2,3]]);
+ for(const [p,id] of [[0,0],[.10,0],[.30,1],[.52,2],[.78,3],[1,3]]){
   assert.deepEqual(seasonAtProgress(p),{from:id,to:id,mix:1},'full season at '+p);
  }
  for(const {start,end,from,to} of CLIMATE_TRANSITIONS){
@@ -33,7 +33,7 @@ test('climate intensity is continuous and non-regressive while points and world 
   setWeatherMode('auto');
   for(const mode of ['aventura','tranquilo'])for(const seed of [104,217,451,999]){
    let last=-1,lastSeasonIndex=-1,lastWinter=0;
-   const order=[0,2,1,3];
+   const order=[0,1,2,3];
    for(let i=0;i<=1000;i++){
     const p=i/1000,game=sample(p,mode,seed);
     const state=journeySeason(game),weight=seasonWeights(state);
@@ -77,9 +77,9 @@ test('rain, cold, heat, wind and fog agree with the same active seasonal state',
   assert.ok(journeyFog(winter)>journeyFog(summer));
   const blend=sample(.69);
   const state=journeySeason(blend),w=seasonWeights(state);
-  assert.ok(w[1]>0 && w[3]>0,'winter must crossfade through autumn');
+  assert.ok(w[2]>0 && w[3]>0,'winter must crossfade through autumn');
   assert.ok(Math.abs(winterAmount(blend)-w[3])<1e-10);
-  assert.ok(Math.abs(journeyRain(blend)-w[1]*.85)<1e-10);
+  assert.ok(Math.abs(journeyRain(blend)-w[2]*.85)<1e-10);
   assert.equal(journeySeason({...winter,tutorial:true}).to,0);
  }finally{setWeatherMode(old)}
 });
@@ -87,7 +87,7 @@ test('rain, cold, heat, wind and fog agree with the same active seasonal state',
 test('manual season selection is preserved and cannot inherit incompatible rain',()=>{
  const old=getWeatherMode();try{
   const game=sample(.84);
-  for(const [mode,id] of [['spring',0],['summer',2],['autumn',1],['winter',3]]){
+  for(const [mode,id] of [['spring',0],['summer',1],['autumn',2],['winter',3]]){
    setWeatherMode(mode);
    assert.deepEqual(journeySeason(game),{from:id,to:id,mix:1});
    assert.equal(journeyRain(game),0);
@@ -121,9 +121,9 @@ test('season backdrop prewarms the upcoming authored atlas frame under the new c
  const cache=new SeasonalBackdrop(),atlas={naturalWidth:1672,naturalHeight:941};
  const before=sample(.193);
  for(let i=0;i<10;i++)cache.prepare(atlas,1366,638,1,{...before,elapsed:before.elapsed+i*.1});
- assert.ok(cache.frames.has(2),'summer should prewarm before spring-to-summer transition');
+ assert.ok(cache.frames.has(1),'summer should prewarm before spring-to-summer transition');
  assert.ok(cache.frames.size<=2,'no third simultaneous backdrop');
  const later=sample(.23);
  cache.prepare(atlas,1366,638,1,later);
- assert.ok(cache.frames.has(2),'prewarmed summer must be ready at transition');
+ assert.ok(cache.frames.has(1),'prewarmed summer must be ready at transition');
 });

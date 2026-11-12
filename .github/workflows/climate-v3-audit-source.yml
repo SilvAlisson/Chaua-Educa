@@ -1,0 +1,24 @@
+name: Climate V3 audit source snapshot
+on:
+  push:
+    branches:
+      - audit/climate-v3-final-polish-20261111
+  workflow_dispatch:
+jobs:
+  source-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Package exact audit checkout for independent checks
+        run: |
+          git archive --format=tar.gz --output="$RUNNER_TEMP/climate-v3-source.tar.gz" HEAD
+          ls -lh "$RUNNER_TEMP/climate-v3-source.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: climate-v3-source-snapshot
+          path: ${{ runner.temp }}/climate-v3-source.tar.gz
+          retention-days: 7
+          if-no-files-found: error

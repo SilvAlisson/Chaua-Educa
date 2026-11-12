@@ -24,4 +24,33 @@ export function intersects(a,b){
  return true;
 }
 export const shapesIntersect=(a,b)=>a.some(p=>b.some(q=>intersects(p,q)));
-export const shapesHitRect=(shapes,rect)=>shapes.some(p=>intersects(p,rectShape(rect)));
+// Shared scratch is safe: collision checks are synchronous and intersects()
+// is read-only. Keep exported rectShape() immutable for external callers.
+const rectScratch=[{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}];
+function polygonOverlapsRectBounds(poly,rect){
+ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+ for(const v of poly){
+  if(v.x<minX)minX=v.x;
+  if(v.x>maxX)maxX=v.x;
+  if(v.y<minY)minY=v.y;
+  if(v.y>maxY)maxY=v.y;
+ }
+ return maxX>rect.x&&minX<rect.x+rect.w&&
+        maxY>rect.y&&minY<rect.y+rect.h;
+}
+export function shapesHitRect(shapes,rect){
+ // Broad-phase rejects obvious misses before allocating or projecting
+ // anything; still perform the original precise SAT on close contacts.
+ let mayHit=false;
+ for(const poly of shapes){
+  if(polygonOverlapsRectBounds(poly,rect)){mayHit=true;break;}
+ }
+ if(!mayHit)return false;
+ const x=rect.x,y=rect.y,X=x+rect.w,Y=y+rect.h;
+ rectScratch[0].x=x;rectScratch[0].y=y;
+ rectScratch[1].x=X;rectScratch[1].y=y;
+ rectScratch[2].x=X;rectScratch[2].y=Y;
+ rectScratch[3].x=x;rectScratch[3].y=Y;
+ for(const poly of shapes)if(polygonOverlapsRectBounds(poly,rect)&&intersects(poly,rectScratch))return true;
+ return false;
+}

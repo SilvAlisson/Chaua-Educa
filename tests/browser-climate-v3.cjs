@@ -27,7 +27,7 @@ fs.mkdirSync(OUT,{recursive:true});
     game.entities=[{kind:'wood',id:111,x:500,top:155,bottom:490,variant:'plain'},
       {kind:'wood',id:112,x:830,top:155,bottom:490,variant:'plain'}];
    },mode);
-   for(const [name,progress,id] of [['spring',.10,0],['summer',.34,2],['autumn',.56,1],['winter',.84,3]]){
+   for(const [name,progress,id] of [['spring',.10,0],['summer',.34,1],['autumn',.56,2],['winter',.84,3]]){
     const data=await page.evaluate(async({progress,id})=>{
      const [{climateReferenceSeconds},{journeySeason},{journeyRain},{winterAmount}]=await Promise.all([
       import('/js/climate-progress.mjs'),import('/js/seasons.mjs'),

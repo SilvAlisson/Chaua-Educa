@@ -33,7 +33,7 @@ test('fatal contact with every obstacle holds the bird stunned until the Game Ov
   const progress=Math.min(1,(ACTION_TIMINGS.parrotImpact-game.impactRemaining)/ACTION_TIMINGS.parrotRecoil);
   assert.equal(progress,1);
   assert.equal(parrotAction({defeated:true,impactProgress:progress}).state,'stunned');
-  assert.equal(parrotAction({defeated:true,impactProgress:progress}).frame,5);
+  assert.equal(parrotAction({defeated:true,impactProgress:progress}).frame,3);
   assert.deepEqual(
    {y:game.y,vy:game.vy,score:game.score,elapsed:game.elapsed,distance:game.distance},
    frozen,

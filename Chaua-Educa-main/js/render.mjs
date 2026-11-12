@@ -107,12 +107,30 @@ function animatedBird(c,p){
     const clip=birdAnimation({wing:p.wing,time,perched:perched&&!surprise,landing,defeated:defeated||surprise,impactProgress:surprise?1:impactProgress,reduced});
     const factor=27.7027*scale/SPRITES.chaua.landmarkWidth,size=125*scale;
     c.save();c.translate(x,y);
-    if(defeated&&!reduced){const hit=impactPose(impactProgress);c.translate(hit.x,hit.y);c.rotate(angle+hit.angle);}
+    if(defeated&&!reduced){
+        const hit=impactPose(impactProgress);
+        c.translate(hit.x,hit.y);
+        // Keep the original spiral-eyed impact frame, with a tiny dizzy
+        // sway after recoil to avoid looking frozen for the remaining .88s.
+        // Do not switch to the recovery frames or invent new anatomy.
+        if(impactProgress>=1)c.translate(Math.sin(time*8)*.65*scale,Math.sin(time*11)*.55*scale);
+        c.rotate(angle+hit.angle+(impactProgress>=1?Math.sin(time*9)*.017:0));
+    }
     else {
         const heave=(!reduced&&!perched&&p.flapImpulse>0)?p.flapImpulse*Math.sin(p.flapImpulse*Math.PI)*3.5:0;
         const heaveAngle=(!reduced&&!perched&&p.flapImpulse>0)?-p.flapImpulse*0.04:0;
         if(heave!==0)c.translate(0,-heave);
         c.rotate(angle+heaveAngle);
+        if(!reduced&&!perched&&!surprise&&!defeated){
+            // Continuous sub-pixel lift and feather-line sway while gliding.
+            // Keep the same intact WebP pose: alternating full-body frames
+            // would make the beak and wings pop / temporarily double.
+            const glide=Math.max(0,1-Math.max(0,p.wing||0)*8);
+            if(glide>0){
+                c.translate(0,Math.sin(time*2.6)*.65*scale*glide);
+                c.rotate(Math.sin(time*1.9)*.006*glide);
+            }
+        }
     }
     if(turbo&&!perched&&!reduced)drawTurboFlames(c,size,time);
     const action=parrotAction({...p,time,wing:p.wing,reduced,perched,landing,defeated,surprise,impactProgress});
@@ -124,12 +142,13 @@ function animatedBird(c,p){
     const a=SPRITES.chaua.frames[clip.frame].eye,b=SPRITES.chaua.frames[clip.next].eye;
     const ex=(a[0]+(b[0]-a[0])*clip.blend-192)*factor,ey=(a[1]+(b[1]-a[1])*clip.blend-192)*factor;
     if(defeated||surprise){
-        // The action atlas already depicts the injured bird; never overlay a
-        // second eye or head. Orbiting stars remain visible throughout the
-        // fatal daze, including when the authored action spritesheet is active.
-        if(!newSprite)drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);
-        if(!reduced)drawOrbitingStars(c,newSprite?0:ex,
-            newSprite?-50*scale:ey-size*.35,size*.82,time);
+        // The original impact sheet's stunned frame 3 already paints the
+        // spiral eye AND its own star halo. Never stamp a second star ring or
+        // a second eye on top of that authored artwork.
+        if(!newSprite){
+            drawSpiralEye(c,ex,ey,size*.027,reduced?0:time);
+            if(!reduced)drawOrbitingStars(c,ex,ey-size*.35,size,time);
+        }
     }
     else if(reaction>0&&!reduced)drawFruitSparkles(c,size*.44,-size*.08,reaction,time);
     else if(stamina<.28&&!reduced&&!perched)drawSweatDrops(c,ex,ey,size,time);
@@ -990,21 +1009,28 @@ export class Renderer {
                 c.restore();
             }
         }
-        const transition=stageMix;
-        c.save();c.globalAlpha=.10;c.fillStyle=transition===1?TINT_PALETTE[stage]:mixColor(TINT_PALETTE[Math.max(0,stage-1)],TINT_PALETTE[stage],transition);c.fillRect(0,0,w,h);c.restore();
-        // Sunlight and shade breathe slowly with the same wind as leaves and vines.
-        c.fillStyle = '#ffffcb10';
-        c.save();c.globalAlpha = (1 - rain * .9)*(1-winterLight*.96);
-        c.translate(reduced?0:Math.sin(time*.22)*18,0);
-        c.beginPath();
-        for (let i = 0; i < 3; i++) {
-            c.moveTo(w * .65 + i * 95, 0);
-            c.lineTo(w * .65 + 45 + i * 95, 0);
-            c.lineTo(w * .13 + i * 110, h);
-            c.lineTo(w * .13 - 120 + i * 110, h);
+        // These legacy stage tints and gold shafts were authored for the
+        // original static forest. When the four-season atlas is active they
+        // fight the real autumn/winter palette and duplicate the living sun.
+        // Keep them ONLY for historical numeric-distance/menu backgrounds.
+        if(!seasonal){
+            const transition=stageMix;
+            c.save();c.globalAlpha=.10;
+            c.fillStyle=transition===1?TINT_PALETTE[stage]:
+                mixColor(TINT_PALETTE[Math.max(0,stage-1)],TINT_PALETTE[stage],transition);
+            c.fillRect(0,0,w,h);c.restore();
+            c.fillStyle='#ffffcb10';
+            c.save();c.globalAlpha=(1-rain*.9)*(1-winterLight*.96);
+            c.translate(reduced?0:Math.sin(time*.22)*18,0);
+            c.beginPath();
+            for(let i=0;i<3;i++){
+                c.moveTo(w*.65+i*95,0);
+                c.lineTo(w*.65+45+i*95,0);
+                c.lineTo(w*.13+i*110,h);
+                c.lineTo(w*.13-120+i*110,h);
+            }
+            c.fill();c.restore();
         }
-        c.fill();
-        c.restore();
         drawForestLife(c,w,h,time,seasonDistance??0,rain,wind,reduced,this.decoration==='low',storm);
         if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
         drawJourneyFog(c, w, h, fog);
@@ -1120,10 +1146,17 @@ export class Renderer {
         c.save(); c.beginPath(); c.rect(view.x, 0, view.w, this.h); c.clip();
         c.translate(view.x - view.worldLeft * s + shakeX, view.y - view.worldTop * s + shakeY);
         c.scale(s, s);
+        // Physical screen clip extends to y=0 and y=canvas height, not just
+        // the logical game viewport. Derive wood limits from the live camera,
+        // including shake and a 64px guard for transformed/leaning bark.
+        const renderBounds={
+            top:view.worldTop-(view.y+Math.abs(shakeY)+64)/s,
+            bottom:view.worldTop+(this.h-view.y+Math.abs(shakeY)+64)/s
+        };
         for (const e of game.entities) {
             if (e.kind === 'wood' && (this.drawOffscreenEntitiesForTest === true ||
                 !Number.isFinite(e.x) || (e.x >= view.worldLeft - 320 &&
-                e.x <= view.worldLeft + view.worldWidth + 320))) this.obstacle(e, game, reduced);
+                e.x <= view.worldLeft + view.worldWidth + 320))) this.obstacle(e, game, reduced, renderBounds);
         }
         c.restore();
         c.save(); c.beginPath(); c.rect(view.x, view.y, view.w, view.h); c.clip();
@@ -1276,7 +1309,7 @@ export class Renderer {
         const contact=woodContactPosition(game,impactProg,reduced);
         drawBird(c, {
             x: contact.x, y: contact.y, scale: 1.04, perched: game.state === 'ended' && game.won,
-            angle: game.angle, wing: reduced ? .2 : game.wing, time: game.state==='ended'&&game.won?visualTime:sceneTime,
+            angle: game.angle, wing: reduced ? .2 : game.wing, time: (game.state==='impact'||game.state==='ended'&&game.won)?visualTime:sceneTime,
             landing: game.arrival&&!game.won?Math.min(1,game.arrival.age/1.6):null,
             reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
             shieldHitAge:game.hit&&game.invincible>0?game.hit.age:null,
@@ -1285,7 +1318,7 @@ export class Renderer {
             snow, rain, low:this.decoration==='low'
         });
         if (!reduced) {
-            const pList = this.decoration==='low'?game.particles:game.particles;
+            const pList = game.particles;
             const pLimit = this.decoration==='low'?Math.min(32,pList.length):pList.length;
             for (let i = 0; i < pLimit; i++) {
                 const p = pList[i];
@@ -1393,7 +1426,7 @@ export class Renderer {
                 c.beginPath();c.roundRect(box.x,box.y,box.w,box.h,8);c.fill();c.stroke();
                 c.fillStyle='#49372c';c.textAlign='center';c.font='800 12px Nunito';
                 if(box.type==='snake')c.fillText(box.entity.snake.phase==='striking'?'Bote!':box.entity.snake.phase==='windup'?'Cobra vai atacar':'Cobra à frente',box.x+box.w/2,box.y+18);
-                else {const e=box.entity;c.fillText(e.dive?'↙ MERGULHO':'← TRAVESSIA',box.x+box.w/2,box.y+15);c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:'Em aproximação',box.x+box.w/2,box.y+30);}
+                else {const e=box.entity;c.fillText(e.dive?'↙ MERGULHO':e.ascent?'↖ SUBIDA':'← TRAVESSIA',box.x+box.w/2,box.y+15);c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:'Em aproximação',box.x+box.w/2,box.y+30);}
                 c.restore();
             }
         }
@@ -1406,7 +1439,7 @@ export class Renderer {
         }
     }
 
-    obstacle(e, game, reduced=false) {
+    obstacle(e, game, reduced=false, renderBounds=null) {
         const c = this.c;
         const time = game.sceneTime ?? game.elapsed;
         const variant = (e.id ?? 0) % 3;
@@ -1417,11 +1450,12 @@ export class Renderer {
         for (const side of ['top', 'bottom']) {
             const upper = side === 'top';
             const y = e[side];
+            const visibleReach=renderBounds?Math.max(0,upper?y-renderBounds.top:renderBounds.bottom-y):1000;
             const broken = e.broken && e.brokenSide === side;
             if (broken && (reduced || !e.breakFx)) continue;
             if (e.fragileSide === side) {
-                drawTreeVariant(c, x, y, upper, e.fragileKind, broken ? e.breakFx.age : undefined, snow, rain, time);
-                if(!broken&&snow>.15)drawSnowContact(c,x,upper?y-18:y-18,snow,time,e.id||0,reduced,this.decoration==='low');
+                drawTreeVariant(c, x, y, upper, e.fragileKind, broken ? e.breakFx.age : undefined, snow, rain, time, visibleReach);
+                if(!broken&&snow>.15)drawSnowContact(c,x,upper?y+4:y-18,snow,time,e.id||0,reduced,this.decoration==='low',upper);
                 continue;
             }
             if (broken) continue;
@@ -1431,11 +1465,11 @@ export class Renderer {
                 c.save();
                 c.transform(1, 0, lean, 1, -lean * y, 0);
             }
-            if (e.decorSide === side) drawTreeVariant(c, x, y, upper, e.decorKind, undefined, snow, rain, time);
+            if (e.decorSide === side) drawTreeVariant(c, x, y, upper, e.decorKind, undefined, snow, rain, time, visibleReach);
             else this.trunk(`trunk-${variant}`, null, x, y, upper, time,
                 !upper && e.variant === 'branch' ? 3 : variant, snow, rain);
             if (lean) c.restore();
-            if(snow>.15)drawSnowContact(c,x,y-18,snow,time,e.id||0,reduced,this.decoration==='low');
+            if(snow>.15)drawSnowContact(c,x,upper?y+4:y-18,snow,time,e.id||0,reduced,this.decoration==='low',upper);
             if(rain>.03&&!reduced)
                 drawSurfaceRainImpacts(c,x,upper?y+3:y-3,rain,time,e.id||0,
                     this.decoration==='low',reduced);

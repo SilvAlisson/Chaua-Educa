@@ -1,6 +1,18 @@
 name: Validate game
 on: [push, pull_request]
 jobs:
+  audit-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Archive exact checkout for independent end-to-end audit
+        run: git archive --format=tar.gz --output="$RUNNER_TEMP/climate-v3-source.tar.gz" HEAD
+      - uses: actions/upload-artifact@v6
+        with:
+          name: climate-v3-source-snapshot
+          path: ${{ runner.temp }}/climate-v3-source.tar.gz
+          retention-days: 7
+          if-no-files-found: error
   test:
     runs-on: ubuntu-24.04
     steps:
@@ -42,8 +54,12 @@ jobs:
           node tests/browser-weather-trees.cjs
           node tests/browser-season-parity.cjs
           node tests/browser-climate-v3.cjs
+          node tests/browser-season-atlas-semantic.cjs
+          node tests/browser-weather-controls-v3.cjs
           node tests/browser-climate-rain-wet.cjs
           node tests/browser-climate-winter-v3.cjs
+          node tests/browser-impact-v3.cjs
+          node tests/browser-winter-breath-v3.cjs
           node scripts/benchmark-seasonal-flight.cjs
           npm run test:journey
           npm run test:background
@@ -63,7 +79,12 @@ jobs:
             test-results/weather-trees/
             test-results/season-performance/
             test-results/climate-v3/
+            test-results/season-atlas-semantic/
             test-results/climate-rain-wet/
             test-results/climate-winter-v3/
+            test-results/climate-impact-v3/
+            test-results/climate-breath-v3/
+            test-results/responsive-camera/
+            test-results/v2-action-integration/
             test-results/climate-calibration/
           if-no-files-found: ignore

@@ -24,7 +24,7 @@ O módulo puro `js/climate-progress.mjs` converte `elapsed` em `[0,1]`, com as m
 ## Contrato de integração de PRs
 
 1. **PR 01 — Calibração**: telemetria determinística, baseline e função pura sem alterar gameplay ou render. Aguardar CI e dados adicionais; não supor que seeds de autopilot representem jogadores.
-2. **PR 02 — Estações**: integrar o relógio ao `seasons.mjs`, com a ordem *primavera → verão → outono → inverno*, preservando os índices de atlas (0,2,1,3). Proposta inicial de inícios em 0%, 23%, 47% e 71%; crossfades suaves ~6%. **Medir** cobertura de inverno, transições e comportamento de partidas curtas/longas, sem gatilhos de pontos.
+2. **PR 02 — Estações**: integrar o relógio ao `seasons.mjs`, com a ordem *primavera → verão → outono → inverno*, usando os índices **verificados diretamente na WebP** (0,1,2,3). Proposta inicial de inícios em 0%, 23%, 47% e 71%; crossfades suaves ~6%. **Medir** cobertura de inverno, transições e comportamento de partidas curtas/longas, sem gatilhos de pontos.
 3. **PR 03 — Chuva e superfície molhada**: reconciliar o PR #62 com PR 02, conectar chuva/vento/névoa à mesma fonte. Chuva principal procedural, pequenas ondulações/splash artísticos opcionais. Nada de traços brancos opacos. Referência de aparência = assets existentes.
 4. **PR 04 — Inverno**: neve procedural, transição sincronizada de fundo/árvores/Chauá/cobra/gavião, sem pétalas no inverno. Respeitar máscaras/silhuetas; não redesenhar anatomia. Derretimento gradual.
 5. **PR 05 — VFX de baforada**: baforada **apenas** em inverno, usando `assets/v10/clay-breath.webp` como referência absoluta. Não aceitar VFX do PR #63 antes de inspeção artística; PR #63 está em draft.

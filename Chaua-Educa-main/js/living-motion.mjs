@@ -37,7 +37,7 @@ export function summerSunAmount(distance = 0, rain = 0, storm = 0) {
     if (wm === 'spring') return 0.55;
     if (distance && typeof distance==='object') {
         const w=seasonWeights(seasonFromFlight(distance));
-        return clamp((w[0]*.50+w[2]*1.0+w[1]*.15)*(1-rain*.8-storm*.7));
+        return clamp((w[0]*.50+w[1]*1.0+w[2]*.15)*(1-rain*.8-storm*.7));
     }
     if (rain > 0.1 || storm > 0.1) return Math.max(0, 1 - (rain * 0.8 + storm * 0.9));
     // Legacy distance-only fallback.

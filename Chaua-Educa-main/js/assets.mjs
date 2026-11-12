@@ -6,8 +6,10 @@ export const ASSET_PATHS = Object.fromEntries([
  ['snake-atlas','../assets/v7/snake-atlas.webp'],
  ['snake-wrap','../assets/v8/snake-wrap.webp'],
  ...['lower','upper'].map(k=>[`trees-${k}`,`../assets/v7/trees-${k}.webp`]),
- ...['lower','upper'].map(k=>[`trees-${k}-snow`,`../assets/v10/trees-${k}-snow.webp`]),
- ...['lower','upper'].flatMap(k=>[1,2,3,4].map(s=>[`trees-${k}-snow-0${s}`,`../assets/Seasons/Winter/trees-${k}-snow-0${s}.webp`])),
+ // Keep only the authored full-winter atlas plus transparent transition
+ // overlays. Remove 2 identical legacy copies and 6 unused intermediate
+ // full-size frames from BOOT, while keeping their on-disk originals intact.
+ ...['lower','upper'].map(k=>[`trees-${k}-snow-04`,`../assets/Seasons/Winter/trees-${k}-snow-04.webp`]),
  ...['lower','upper'].flatMap(k=>[1,2,3,4].map(s=>[`trees-${k}-overlay-0${s}`,`../assets/Seasons/Winter/trees-${k}-overlay-0${s}.webp`])),
  ...[0,1,2,3,4,5].map(s=>[`trees-upper-shedding-0${s}`,`../assets/Seasons/Winter/trees-upper-shedding-0${s}.webp`]),
  ...FRUITS.map(f=>[`fruit-${f.id}`,`../assets/v3/fruit-${f.id}.webp`]),

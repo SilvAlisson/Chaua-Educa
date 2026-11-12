@@ -6,6 +6,31 @@ import {breeze, winterAmount, summerSunAmount} from './living-motion.mjs';
 // 3. Atlantic Forest rising ground mist responding to rain and wind
 // 4. Ambient airborne drift
 // All particle motion is deterministic based on simulation time so pausing is 100% frozen.
+// CanvasGradients belong to the canvas context. Cache them per context
+// and viewport size, never globally by height alone (retina/resize safe).
+const atmosphereCache=new WeakMap();
+function atmosphereGradients(c,w,h){
+    const old=atmosphereCache.get(c);
+    if(old&&old.w===w&&old.h===h)return old;
+    const sunX=w*.78,sunY=h*.14,sunR=Math.min(w,h)*.18;
+    const sun=c.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR);
+    sun.addColorStop(0,'#ffffff');
+    sun.addColorStop(.25,'#fffbeb');
+    sun.addColorStop(.55,'#fde68a66');
+    sun.addColorStop(1,'#f59e0b00');
+    const beam=c.createLinearGradient(sunX,sunY,sunX-w*.7,h);
+    beam.addColorStop(0,'#fffbeb88');
+    beam.addColorStop(.4,'#fef08a33');
+    beam.addColorStop(1,'#fef08a00');
+    const mist=c.createLinearGradient(0,h*.7,0,h);
+    mist.addColorStop(0,'#d8e9df00');
+    mist.addColorStop(.45,'#d8e9df18');
+    mist.addColorStop(1,'#d8e9df35');
+    const result={w,h,sun,beam,mist};
+    atmosphereCache.set(c,result);
+    return result;
+}
+
 export function drawForestLife(c, w, h, time, distance, rain, wind, reduced = false, low = false, storm = 0) {
     const t = reduced ? 0 : time;
     const air = breeze(t, wind, reduced);
@@ -20,11 +45,8 @@ export function drawForestLife(c, w, h, time, distance, rain, wind, reduced = fa
         const sunR = Math.min(w, h) * 0.18;
 
         // Radiant sun core and corona
-        const sunGrad = c.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR);
-        sunGrad.addColorStop(0, '#ffffff');
-        sunGrad.addColorStop(0.25, '#fffbeb');
-        sunGrad.addColorStop(0.55, '#fde68a66');
-        sunGrad.addColorStop(1, '#f59e0b00');
+        const gradients=atmosphereGradients(c,w,h);
+        const sunGrad=gradients.sun;
 
         c.save();
         c.globalAlpha = Math.min(0.9, sun * 0.85);
@@ -37,22 +59,21 @@ export function drawForestLife(c, w, h, time, distance, rain, wind, reduced = fa
         if (!reduced && !low) {
             const beamAlpha = sun * (0.16 + 0.04 * Math.sin(t * 0.8));
             c.globalAlpha = beamAlpha;
-            const beamGrad = c.createLinearGradient(sunX, sunY, sunX - w * 0.7, h);
-            beamGrad.addColorStop(0, '#fffbeb88');
-            beamGrad.addColorStop(0.4, '#fef08a33');
-            beamGrad.addColorStop(1, '#fef08a00');
-            c.fillStyle = beamGrad;
-
-            for (let b = 0; b < 5; b++) {
-                const angle = 0.68 + b * 0.15 + Math.sin(t * 0.2 + b) * 0.018;
-                const beamWidth = 32 + b * 18;
-                c.beginPath();
-                c.moveTo(sunX, sunY);
-                c.lineTo(sunX - Math.cos(angle) * (w * 1.5) - beamWidth, sunY + Math.sin(angle) * (h * 1.5));
-                c.lineTo(sunX - Math.cos(angle) * (w * 1.5) + beamWidth, sunY + Math.sin(angle) * (h * 1.5));
+            c.fillStyle=gradients.beam;
+            // The five authored rays share a paint/alpha. One compound
+            // path avoids five separate rasterization passes per frame.
+            c.beginPath();
+            for(let b=0;b<5;b++){
+                const angle=.68+b*.15+Math.sin(t*.2+b)*.018;
+                const beamWidth=32+b*18;
+                c.moveTo(sunX,sunY);
+                c.lineTo(sunX-Math.cos(angle)*w*1.5-beamWidth,
+                         sunY+Math.sin(angle)*h*1.5);
+                c.lineTo(sunX-Math.cos(angle)*w*1.5+beamWidth,
+                         sunY+Math.sin(angle)*h*1.5);
                 c.closePath();
-                c.fill();
             }
+            c.fill();
         }
         c.restore();
     }
@@ -70,10 +91,7 @@ export function drawForestLife(c, w, h, time, distance, rain, wind, reduced = fa
     // 3. NÉVOA DA MATA (Humid ground mist rising from Atlantic Forest)
     if (!low) {
         const mistTop = h * 0.70;
-        const mist = c.createLinearGradient(0, mistTop, 0, h);
-        mist.addColorStop(0, '#d8e9df00');
-        mist.addColorStop(0.45, '#d8e9df18');
-        mist.addColorStop(1, '#d8e9df35');
+        const mist=atmosphereGradients(c,w,h).mist;
 
         const mistAlpha = 0.35 + rain * 0.45 + (snow > 0 ? snow * 0.25 : 0);
         c.globalAlpha = Math.min(0.85, mistAlpha);

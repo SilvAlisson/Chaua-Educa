@@ -4,7 +4,7 @@ import {hasActionSheet} from './action-sheets.mjs';
 export const HAWK_ART = Object.freeze({size:280,legacyScale:.78});
 export function hawkUsesActionArt(e){
  return e.retreat?!!e.dazed&&hasActionSheet('hawk-stunned'):
-  !e.dive&&e.phase!=='leaving'&&hasActionSheet('hawk-flight');
+  !e.dive&&hasActionSheet('hawk-flight');
 }
 export function hawkBodyParts(e){
  return hawkUsesActionArt(e)?[[-12,35,31,22],[-68,16,22,20]]:

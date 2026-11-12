@@ -36,7 +36,7 @@ export class ForestAudio {
                 this.wind.connect(thunderFilter).connect(this.thunder).connect(this.ambient);
                 this.wind.start();
             }
-            if(this.context.state==='suspended')this.context.resume().catch(()=>{});
+            if(this.context.state==='suspended'&&this.visible)this.context.resume().catch(()=>{});
             this.master.gain.setTargetAtTime(this.visible?this.volume:0,this.context.currentTime,.04);
             return true;
         } catch { this.context=null;return false; }
@@ -79,6 +79,18 @@ export class ForestAudio {
         if(this.visible!==visible){
             this.visible=visible;
             this.master.gain.setTargetAtTime(this.enabled&&visible?this.volume:0,this.context.currentTime,.025);
+            // Muting a gain node does NOT stop Biquad processing. Suspend the
+            // audio graph when hidden and resume it on focus restoration.
+            const context=this.context;
+            if(!visible&&context.state==='running'){
+                context.suspend().then(()=>{
+                    // Focus may have returned before suspension completed.
+                    if(this.visible&&this.enabled&&context.state==='suspended')
+                        return context.resume();
+                }).catch(()=>{});
+            }else if(visible&&this.enabled&&context.state==='suspended'){
+                context.resume().catch(()=>{});
+            }
         }
         const active=this.enabled&&visible&&['menu','playing','countdown','arrival'].includes(state);
         const c=this.context;

@@ -85,3 +85,18 @@ test('rain occupies autumn, but not snow; no point value controls it',()=>{
   assert.equal(journeyStorm(game,'aventura'),0);
  }finally{setWeatherMode(old);}
 });
+
+
+test('rain is visibly present without overloading low-detail or mobile scenes',()=>{
+ const low=recordingContext(),high=recordingContext(),portrait=recordingContext();
+ drawJourneyRain(low.c,1366,638,24,.9,false,true,.55,.4);
+ drawJourneyRain(high.c,1366,638,24,.9,false,false,.55,.4);
+ drawJourneyRain(portrait.c,390,844,24,.9,false,false,.55,.4);
+ const curves=t=>t.trace.filter(c=>c[0]==='curve').length;
+ const strokes=t=>t.trace.filter(c=>c[0]==='stroke'&&typeof c[2]==='number').map(c=>c[2]);
+ assert.ok(curves(high)>80,'high-quality rain must remain recognizable on desktop');
+ assert.ok(curves(high)>curves(low)*1.7,'low detail must actually shed rain draw cost');
+ assert.ok(curves(portrait)>35&&curves(portrait)<curves(high),'viewport must scale rain density');
+ assert.ok(strokes(high).some(alpha=>alpha>.38),'rain is too faint against the bright forest');
+ assert.ok(strokes(high).every(alpha=>alpha<=1),'invalid opacity');
+});

@@ -56,6 +56,10 @@ const {chromium}=require('playwright');
     let commands=[];const context=r.c;
     const serial=value=>value&&typeof value==='object'?value.constructor.name:value;
     const record=(key,args)=>{
+     // Context-bound gradients are now cached. Their constructor frequency
+     // is an allocation detail, not logical geometry; compare their actual
+     // fillStyle/draw commands instead (and still compare all preset pixels).
+     if(key==='createLinearGradient'||key==='createRadialGradient')return;
      // Seasonal surfaces are blitted in physical pixels under the identity
      // transform. Check their pixel snapping, then compare logical placement.
      if(key==='drawImage' && [...r.seasonalBackdrop.frames.values()].includes(args[0])){
