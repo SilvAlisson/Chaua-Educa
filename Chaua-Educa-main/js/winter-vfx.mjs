@@ -12,8 +12,8 @@ export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0
   [{depth:.32,count:low?16:48},{depth:.68,count:low?16:56}];
  c.save();c.beginPath();c.rect(0,0,w,h);c.clip();
  for(const {depth,count} of layers){
-  c.fillStyle=depth>.8?'#f7fdff':'#e8f6fa';
-  c.globalAlpha=Math.min(.88,amount*(foreground?.78:.56+depth*.30));
+  c.fillStyle='#ffffff';
+  c.globalAlpha=Math.min(.96,amount*(foreground?.90:.70+depth*.25));
   c.beginPath();
   for(let i=0;i<count;i++){
    const seed=(i+1)*137.71+depth*191.43;
@@ -25,7 +25,6 @@ export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0
    c.moveTo(x+radius,y);
    c.arc(x,y,radius,0,Math.PI*2);
   }
-  c.strokeStyle='#527585';c.lineWidth=.8;c.stroke();
   c.fill();
  }
  if(foreground&&!low){
@@ -33,7 +32,7 @@ export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0
   // No sprite/atlas: four short strokes are batched into one path.
   c.globalAlpha=amount*.6;c.strokeStyle='#f5fcff';c.lineWidth=.8;c.lineCap='round';
   c.beginPath();
-  for(let i=0;i<3;i++){
+  for(let i=0;i<6;i++){
    const seed=(i+1)*241.73;
    const x=wrap(seed*2.17+time*(wind*19+6)+Math.sin(time*.6+i)*7,w+48)-24;
    const y=wrap(seed*3.41+time*(95+i*13),h+48)-24;

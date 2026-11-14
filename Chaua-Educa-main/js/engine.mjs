@@ -25,8 +25,8 @@ export const QUIZ_INTERVAL = 30;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
     holdLift: 230, staminaLift: 50, flapInterval: .22, inputBuffer: .12,
-    aventura: {speed:275,gap:150,minGap:115,interval:1.48,minInterval:1.16,ramp:.0038,speedGain:65,snakeAt:16,hawkAt:30,diveAt:42,warning:1.5,snakeClearance:170,fruitMargin:34,clearance:210,actualSpeed:true,turnaround:.3,shiftRate:160,shiftLimit:60},
-    tranquilo: {speed:205,gap:220,minGap:185,interval:2.1,minInterval:1.8,ramp:.0017,speedGain:30,snakeAt:32,hawkAt:55,diveAt:78,warning:2.2},
+    aventura: {speed:275,gap:150,minGap:115,interval:1.48,minInterval:1.16,ramp:.0038,speedGain:65,snakeAt:16,hawkAt:30,warning:1.5,snakeClearance:170,fruitMargin:34,clearance:210,actualSpeed:true,turnaround:.3,shiftRate:160,shiftLimit:60},
+    tranquilo: {speed:205,gap:220,minGap:185,interval:2.1,minInterval:1.8,ramp:.0017,speedGain:30,snakeAt:32,hawkAt:55,warning:2.2},
 });
 export const STAGES = JOURNEY.map(s=>s.name);
 export const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;

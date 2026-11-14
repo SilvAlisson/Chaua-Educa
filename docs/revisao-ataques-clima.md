@@ -45,7 +45,7 @@ Os encontros permanecem isolados de troncos simultâneos. Após ultrapassar o jo
 ## Clima
 
 - Chuva: gotas curtas curvas com borda escura e núcleo claro em lotes, três profundidades, mais contraste, volume e contato com superfícies. Não foram recriadas as antigas linhas brancas opacas e longas.
-- Neve: mais flocos visíveis, tamanhos variados, contorno discreto contra montanhas claras e cristais esparsos em primeiro plano. O acúmulo continua gradual; quantidade de flocos não significa cobertura instantânea das árvores.
+- Neve: mais flocos visíveis, tamanhos variados, núcleo branco sem aro de bolha contra montanhas claras e cristais esparsos em primeiro plano. O acúmulo continua gradual; quantidade de flocos não significa cobertura instantânea das árvores.
 - Vento: poucas rajadas longas e curvas com contraste duplo, além das folhas sazonais e balanço existentes. Não foram reintroduzidas as bolinhas duplicadas no fundo.
 - Os orçamentos Baixo/Alto continuam limitados. Pausa congela o relógio visual; movimento reduzido suprime as partículas móveis. As escolhas visuais de clima não alteram a física da partida.
 

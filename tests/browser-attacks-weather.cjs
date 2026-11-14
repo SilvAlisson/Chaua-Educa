@@ -50,10 +50,11 @@ const browserName=process.env.WEATHER_BROWSER||'chromium';
      game.elapsed=climateReferenceSeconds(game.mode,game.seed)*progress;game.sceneTime=42;game.distance=16000;game.stage=2;
      game.surfaceWeather={snow:weatherMode==='snow'?.55:0,wet:weatherMode==='rain'?1:0,drip:weatherMode==='rain'?.7:0};
      game.entities=[{id:7,kind:'wood',x:485,top:190,bottom:540,variant:'branch',snake:{kind:'snake',attackType,phase:'striking',phaseAge:snakeAttack({attackType}).strike*.2,age:3}}];
-     HAWK_ATTACK_ORDER.forEach((attackKind,i)=>{
-      const x=660+i*92,h={id:20+i,kind:'hawk',attackKind,startX:1040,targetX:160,attackX:220,startY:attackKind==='rasante'?535:105,targetY:330,x,warning:0,targetLocked:true,age:3,dive:attackKind==='mergulho',ascent:attackKind==='rasante',phase:'crossing'};
-      h.y=predictedHawkY(h,x);game.entities.push(h);
-     });
+     // A real encounter contains one predator. Compare each attack in its
+     // own scene instead of creating overlapping birds and warning labels.
+     const attackKind=HAWK_ATTACK_ORDER[attackType==='frontal'?0:attackType==='alto'?1:2];
+     const x=730,h={id:20,kind:'hawk',attackKind,startX:1040,targetX:160,attackX:220,startY:attackKind==='rasante'?535:105,targetY:330,x,warning:0,targetLocked:true,age:3,dive:attackKind==='mergulho',ascent:attackKind==='rasante',phase:'crossing'};
+     h.y=predictedHawkY(h,x);game.entities.push(h);
      renderer.game(game,false);
     },{attackType,weatherMode,progress,low});
     await page.screenshot({path:`test-results/attacks-weather/${browserName}-${width}x${height}-${name}.png`});

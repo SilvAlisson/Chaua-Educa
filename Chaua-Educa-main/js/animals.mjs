@@ -9,7 +9,7 @@ export function predictedHawkY(e,x){
  const p=hawkFlightProgress(e,x);
  if(!e.attackKind)return e.startY+(e.targetY-e.startY)*p;
  const hit=hawkFlightProgress(e,e.attackX??220),q=Math.max(0,Math.min(1,p/Math.max(.01,hit)));
- let approach=e.attackKind==='rasante'?q*q:q*q*(3-2*q);
+ const approach=e.attackKind==='rasante'?q*q:q*q*(3-2*q);
  const bend=e.attackKind==='gancho'?Math.sin(q*Math.PI)*(1-q)*(e.startY<320?90:-90):0;
  if(p<=hit)return e.startY+(e.targetY-e.startY)*approach+bend;
  const exit=(p-hit)/Math.max(.01,1-hit),direction=e.attackKind==='rasante'?-1:1;
