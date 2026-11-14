@@ -104,7 +104,7 @@ test('generation introduces snakes and hawks gradually and preserves open routes
             if (game.elapsed < FLIGHT.aventura.hawkAt) assert.equal(hawks.length, 0);
             if (obstacle) {
                 assert.ok(obstacle.bottom-obstacle.top>=FLIGHT.aventura.minGap);
-                const center = (obstacle.top+obstacle.bottom)/2;
+                const center = obstacle.snake?obstacle.top+85:(obstacle.top+obstacle.bottom)/2;
                 assert.ok(Math.abs(center-lastCenter)<=55.01); lastCenter=center;
                 for (const hawk of hawks) {
                     assert.ok(hawk.warning>=FLIGHT.aventura.warning);

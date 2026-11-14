@@ -20,7 +20,7 @@ test('all required textures finish asynchronous decoding before the game is read
  }finally{globalThis.Image=old;}
 });
 
-test('all three A2 textures finish decoding before the renderer reports ready',async()=>{
+test('all five A2 textures finish decoding before the renderer reports ready',async()=>{
  const old=globalThis.Image;let count=0;
  class Img{
   naturalWidth=1536;naturalHeight=768;
@@ -30,7 +30,7 @@ test('all three A2 textures finish decoding before the renderer reports ready',a
  globalThis.Image=Img;
  try{
   await preloadSnakeA2();
-  assert.equal(count,3);
+  assert.equal(count,5);
   assert.equal(isSnakeA2Ready(),true);
  }finally{globalThis.Image=old;}
 });

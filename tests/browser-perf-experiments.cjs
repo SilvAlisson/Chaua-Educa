@@ -45,7 +45,7 @@ const root=base.endsWith('/')?base:base+'/';
    if(enabled){
     assert.deepEqual(warmups.map(e=>e.sheet),['idle','attack','stunned'],'warm each sheet once, in order');
     assert.equal(report.experiments.snakeSheetsWarmed,3);
-    assert.equal(report.forensics.measuredOperations['snake.warmupMs']?.count,3);
+    assert.equal(report.forensics.measuredOperations['snake.warmupMs']?.count,5);
    }else{
     assert.equal(warmups.length,0,'no hidden warmup in the baseline');
     assert.equal(report.experiments.snakeSheetsWarmed,0);

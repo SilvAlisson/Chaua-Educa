@@ -2,6 +2,7 @@
 // scoring, encounters, quizzes, power pickups and victory/refuge rules.
 // Reports successful runs and failed pilot attempts separately.
 // A pilot is NOT a substitute for real-player telemetry.
+import {predictedHawkY} from '../Chaua-Educa-main/js/animals.mjs';
 import {Game,STEP,VICTORY_SCORE} from '../Chaua-Educa-main/js/engine.mjs';
 import {mkdirSync,writeFileSync} from 'node:fs';
 
@@ -41,11 +42,10 @@ export function simulateFlight(mode,seed,maxSeconds=MAX_SECONDS){
   if(game.state==='playing'){
    const wood=game.entities.find(e=>e.kind==='wood'&&e.x+100>game.x&&e.x<=(game.visibleRight??Infinity));
    const hawk=game.entities.find(e=>e.kind==='hawk'&&!e.harmless&&!e.retreat&&e.x+60>game.x);
-   let target=wood?(wood.snake?(wood.top+55+wood.bottom-200)/2:(wood.top+wood.bottom)/2):320;
+   let target=wood?(wood.snake?wood.top+Math.min(85,(wood.bottom-wood.top)*.35):(wood.top+wood.bottom)/2):320;
    if(!wood&&hawk){
-    const t=Math.max(0,Math.min(1,(hawk.startX-game.x)/(hawk.startX-hawk.targetX)));
-    const lane=hawk.startY+(hawk.targetY-hawk.startY)*t;
-    target=lane>=320?Math.max(145,lane-125):Math.min(495,lane+125);
+    const lane=predictedHawkY(hawk,game.x);
+    target=hawk.attackKind&&!hawk.targetLocked?320:lane>=320?Math.max(145,lane-140):Math.min(495,lane+140);
    }
    if(game.elapsed>=nextDecision){
     nextDecision=game.elapsed+1/30;

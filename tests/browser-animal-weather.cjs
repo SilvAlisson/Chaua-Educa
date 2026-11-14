@@ -20,7 +20,8 @@ const fs=require('node:fs/promises');
     'parrot-flight':['public/parrot/fly/flight.webp',256], 'hawk-flight':['public/hawk/fly/flight.webp',320],
     chaua:['assets/v6/chaua-atlas.webp',384],hawk:['assets/v6/hawk-atlas.webp',384],
     'snake-idle':['public/snake/base/idle.webp',384],'snake-attack':['public/snake/attack/attack.webp',384],
-    'snake-stunned':['public/snake/reactions/stunned.webp',384]};
+    'snake-stunned':['public/snake/reactions/stunned.webp',384],
+    'snake-high':['public/snake/attack/high.webp',384],'snake-sweep':['public/snake/attack/sweep.webp',384]};
    let anchors=0;
    const loaded={};
    for(const [key,[path,cell]] of Object.entries(paths)){
@@ -62,7 +63,7 @@ const fs=require('node:fs/promises');
    return {anchors,seen:seen.map(x=>({id:x.id,sheet:x.pose.sheet,frame:x.pose.frame,mirror:x.pose.mirror})),particles:r.animalWeather.particles.length};
   });
   console.log('Animal contact measurements',measured);
-  assert.equal(measured.anchors,216);
+  assert.equal(measured.anchors,264);
   assert.ok(measured.seen.some(x=>x.id==='chaua'&&x.sheet==='parrot-flight'));
   assert.ok(measured.seen.some(x=>x.id==='snake:91'&&x.sheet==='snake-attack'&&x.mirror));
   assert.ok(measured.seen.some(x=>x.id==='hawk:92'));

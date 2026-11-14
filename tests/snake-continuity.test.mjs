@@ -36,10 +36,10 @@ test('Amigavel encounter trace is bit-for-bit unchanged from v8',()=>{
  for(let n=0;n<50;n++){const p=planEncounter({sequence:n,elapsed:n*3,lastCenter:center,lastPattern,profile:FLIGHT.tranquilo,speed:250,stage:n%4,random});trace.push(p);center=p.center;lastPattern=p.id;}
  assert.equal(createHash('sha256').update(JSON.stringify(trace)).digest('hex'),'8c5359f876b52cbd040ccc36f16a453edab72c7ef18280eef0d49246faf90b11');
 });
-test('unchanged Amigavel keeps current scores; old Aventura remains archived and v8 saves remain untouched',()=>{
+test('new attacks archive both modes while v8 saves remain untouched',()=>{
  const original=JSON.stringify([{playerName:'Ana',score_val:400,mode:'tranquilo'},{playerName:'Ana',score_val:500,mode:'aventura'}]),data=new Map([['db-chaua-floresta-v8',original]]);
  globalThis.localStorage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};DB.memory=new Map();DB.storageAvailable=true;
- assert.deepEqual(DB.get(),[{playerName:'Ana',score_val:400,mode:'tranquilo'}]);DB.upsertPlayerScore('Ana',30,'aventura');DB.upsertPlayerScore('Ana',350,'tranquilo');assert.equal(DB.get().find(p=>p.mode==='tranquilo').score_val,400);assert.equal(data.get('db-chaua-floresta-v8'),original);assert.ok(DB.previousScores().some(p=>p.ruleset==='floresta-v8'&&p.mode==='aventura'&&p.score_val===500));
+ assert.deepEqual(DB.get(),[]);DB.upsertPlayerScore('Ana',30,'aventura');DB.upsertPlayerScore('Ana',350,'tranquilo');assert.equal(DB.get().find(p=>p.mode==='tranquilo').score_val,350);assert.equal(data.get('db-chaua-floresta-v8'),original);assert.ok(DB.previousScores().some(p=>p.ruleset==='floresta-v8'&&p.mode==='aventura'&&p.score_val===500));
 });
 
 test('Aventura has narrower gaps, denser encounters and more vertical travel than the v8 reference route',()=>{

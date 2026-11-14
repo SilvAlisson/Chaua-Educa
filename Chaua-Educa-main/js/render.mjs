@@ -1,10 +1,11 @@
+import {snakeAttack,HAWK_ATTACKS} from './attack-patterns.mjs';
 import {breeze,treeBend,winterAmount} from './living-motion.mjs';
 import {drawForestLife} from './forest-life.mjs';
 import {HAWK_ART,hawkUsesActionArt} from './hawk-geometry.mjs';
 import {SeasonalBackdrop,drawSeasonParticles} from './seasons.mjs';
 import {activeProbe} from './perf-hooks.mjs';
 import {drawSnowfall,drawSnowContact,winterBreathSettings} from './winter-vfx.mjs';
-import {drawSnakeA2,snakeA2Pose,snakeA2NeedsMirror,preloadSnakeA2,warmupSnakeA2,snakeA2HeadRect,snakePlacement} from './snake-a2.mjs';
+import {drawSnakeA2,snakeA2ArtScale,SNAKE_SHEET_KEYS,snakeA2Pose,snakeA2NeedsMirror,preloadSnakeA2,warmupSnakeA2,snakeA2HeadRect,snakePlacement} from './snake-a2.mjs';
 import {parrotAction,hawkAction,ACTION_TIMINGS} from './action-states.mjs';
 import {drawActionSheet,preloadActionSheets} from './action-sheets.mjs';
 import {drawLivingTrunk,drawTreeVariant,drawRefugeTree,prepareTreeWeather} from './tree-art.mjs';
@@ -17,7 +18,7 @@ import { canvasResolution,identicalCanvasBudgets } from './quality.mjs';
 import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
-import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawForegroundRain, drawSurfaceRainImpacts, drawJourneyFog, drawLightning } from './weather.mjs';
+import { journeyRain, journeyStorm, journeyWind, journeyFog, drawWindGusts, drawJourneyRain, drawForegroundRain, drawSurfaceRainImpacts, drawJourneyFog, drawLightning } from './weather.mjs';
 import {drawFood} from './food-art.mjs';
 import {surfaceSnow} from './surface-weather.mjs';
 import {TreeDrips} from './weather-art.mjs';
@@ -1016,21 +1017,7 @@ export class Renderer {
         drawJourneyFog(c, w, h, fog);
         drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind, rainSpeed);
         drawLightning(c, w, h, time, storm, reduced);
-        if (wind > 0 && !reduced) {
-            c.save();
-            c.globalAlpha = wind * (winterLight>.15?.09:.24);
-            c.strokeStyle = winterLight>.15?'#bfd9e2':'#e2edcb';
-            c.beginPath();
-            const streaks = winterLight>.15?(this.decoration==='low'?4:9):(this.decoration === 'low' ? 8 : 18);
-            for (let i = 0; i < streaks; i++) {
-                const x = w + 32 - ((i * 137.7 + time * 250) % (w + 64));
-                const y = (i * 93.4) % h;
-                c.moveTo(x, y);
-                c.quadraticCurveTo(x - 12, y - 4, x - 26, y + 1);
-            }
-            c.stroke();
-            c.restore();
-        }
+        drawWindGusts(c,w,h,time,wind,this.decoration==='low',reduced);
         // Golden pollen belongs to warm seasons; it must not mix with snow.
         c.save();c.globalAlpha = (1-rain)*(1-winterLight);
         c.fillStyle = '#ffedb275';
@@ -1074,10 +1061,10 @@ export class Renderer {
 
     game(game, reduced, visualTime = 0) {
         this.base(false);
-        if(game.state==='countdown' && this.snakeWarmupEnabled && this.snakeWarmupIndex<3){
+        if(game.state==='countdown' && this.snakeWarmupEnabled && this.snakeWarmupIndex<SNAKE_SHEET_KEYS.length){
             // One sheet per countdown frame; the opaque backdrop immediately
             // covers this tiny translucent draw inside the visible main canvas.
-            const sheet=['idle','attack','stunned'][this.snakeWarmupIndex];
+            const sheet=SNAKE_SHEET_KEYS[this.snakeWarmupIndex];
             const warmProbe=activeProbe, warmAt=warmProbe?warmProbe.begin('snake.warmupMs'):0;
             const warmed=warmupSnakeA2(this.c,sheet);
             if(warmProbe)warmProbe.end('snake.warmupMs',warmAt,{sheet,success:warmed});
@@ -1247,7 +1234,11 @@ export class Renderer {
             if (e.kind === 'hawk') {
                 if (e.warning > 0 || (!e.harmless && e.x>game.x+180)) {
                     c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
-                    c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
+                    c.strokeStyle=e.targetLocked?'#a85b34aa':'#755a45aa';c.lineWidth=2;
+                    c.beginPath();
+                    if(e.attackKind){for(let i=0;i<=20;i++){const xx=e.startX+(e.targetX-e.startX)*i/20,yy=predictedHawkY(e,xx);if(i===0)c.moveTo(xx,yy);else c.lineTo(xx,yy);}}
+                    else {c.moveTo(e.targetX,e.targetY);c.lineTo(e.startX,e.startY);}
+                    c.stroke(); c.restore();
                 }
                 if(e.warning<=0&&drawSprite)this.hawk(e, reduced ? 0 : sceneTime, reduced, false, 0, false, snow, rain, this.decoration==='low',winterAmount(game));
             } else if (!e.collected&&drawSprite) this.pickup(e, game.elapsed, reduced, snow, wet);
@@ -1423,15 +1414,15 @@ export class Renderer {
                 ?predictedHawkY(e,game.x):e.y;
             const p=warningPosition(view,predictedY);notices.push({...p,w:116,h:38,type:'hawk',entity:e});
         }else if(e.kind==='wood'&&['warning','windup','striking'].includes(e.snake?.phase)){
-            notices.push({...snakeWarningPosition(view,e),w:136,h:26,type:'snake',entity:e});
+            notices.push({...snakeWarningPosition(view,e),w:160,h:26,type:'snake',entity:e});
         }
         if(notices.length){
             for(const box of placeWarnings(notices,view)){
                 c.save();c.fillStyle='#fff4dbee';c.strokeStyle='#70513d';c.lineWidth=1.2;
                 c.beginPath();c.roundRect(box.x,box.y,box.w,box.h,8);c.fill();c.stroke();
                 c.fillStyle='#49372c';c.textAlign='center';c.font='800 12px Nunito';
-                if(box.type==='snake')c.fillText(box.entity.snake.phase==='striking'?'Bote!':box.entity.snake.phase==='windup'?'Cobra vai atacar':'Cobra à frente',box.x+box.w/2,box.y+18);
-                else {const e=box.entity;c.fillText(e.dive?'↙ MERGULHO':e.ascent?'↖ SUBIDA':'← TRAVESSIA',box.x+box.w/2,box.y+15);c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:'Em aproximação',box.x+box.w/2,box.y+30);}
+                if(box.type==='snake')c.fillText(box.entity.snake.phase==='striking'?snakeAttack(box.entity.snake).label:box.entity.snake.phase==='windup'?snakeAttack(box.entity.snake).label+'…':'Cobra à frente',box.x+box.w/2,box.y+18);
+                else {const e=box.entity;c.fillText(e.attackKind?HAWK_ATTACKS[e.attackKind].label.toUpperCase():e.dive?'↙ MERGULHO':e.ascent?'↖ SUBIDA':'← TRAVESSIA',box.x+box.w/2,box.y+15);c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:e.attackKind?'Ataque anunciado':'Em aproximação',box.x+box.w/2,box.y+30);}
                 c.restore();
             }
         }
@@ -1491,11 +1482,11 @@ export class Renderer {
         // A2 stunned sprites already contain their authored stars; no duplicate overlay.
         const activePhase=s.phase==='striking'?1:s.phase==='windup'?.70:
             s.phase==='recovering'?.48:(s.retreat?.90:0);
-        const pose=snakeA2Pose(s,reduced);
+        const pose=snakeA2Pose(s,reduced),artFactor=place.factor*snakeA2ArtScale(pose);
         this.animalWeather?.actor(c,{id:`snake:${wood.id}`,pose:{sheet:`snake-${pose.key}`,frame:pose.frame,
-            rect:[-192*place.factor,-352*place.factor,384*place.factor,384*place.factor],mirror:snakeA2NeedsMirror(pose)},
+            rect:[-192*artFactor,-352*artFactor,384*artFactor,384*artFactor],mirror:snakeA2NeedsMirror(pose)},
             moving:s.phase==='striking'||!!s.retreat,hidden:!!s.dazed});
-        if(cold>.18&&!s.retreat){
+        if(cold>.18&&!s.retreat&&!['windup','striking','recovering'].includes(s.phase)){
             const breath=winterBreathSettings('snake',cold,time,
                 {low,reduced,activity:activePhase,seed:wood.id||0});
             if(breath){
