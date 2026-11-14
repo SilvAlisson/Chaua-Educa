@@ -60,6 +60,8 @@ test('three predator curves aim at a marked lane, collide there and cannot track
   const contact={...e,x:220,y:predictedHawkY(e,220)};
   assert.ok(shapesIntersect(playerShapes(220,320),hawkShapes(contact)));
   assert.ok(Math.abs(hawkAngle(contact))<=.65);
+  const before={...contact,x:221},after={...contact,x:219};
+  assert.ok(Math.abs(hawkAngle(before)-hawkAngle(after))<.05,'rotation must remain smooth through the intercept');
   for(let i=0;i<240;i++)advanceHawk(e,STEP,400,220,480);
   assert.equal(e.targetY,320);assert.equal(e.harmless,true);
  }

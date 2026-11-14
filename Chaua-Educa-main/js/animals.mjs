@@ -13,7 +13,10 @@ export function predictedHawkY(e,x){
  const bend=e.attackKind==='gancho'?Math.sin(q*Math.PI)*(1-q)*(e.startY<320?90:-90):0;
  if(p<=hit)return e.startY+(e.targetY-e.startY)*approach+bend;
  const exit=(p-hit)/Math.max(.01,1-hit),direction=e.attackKind==='rasante'?-1:1;
- return Math.max(85,Math.min(555,e.targetY+direction*exit*65));
+ // Match the approach tangent at the marked lane. A linear exit introduced
+ // an instantaneous body rotation exactly beside the player.
+ const tangent=e.attackKind==='rasante'?2*(e.targetY-e.startY)/Math.max(.01,hit):0;
+ return Math.max(85,Math.min(555,e.targetY+tangent*(p-hit)+direction*30*exit*exit));
 }
 export function advanceHawk(e, dt, speed, playerX, playerY=320) {
     e.age = (e.age || 0) + dt;
