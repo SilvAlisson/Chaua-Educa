@@ -1,3 +1,4 @@
+import {SNAKE_ATTACK_ORDER,HAWK_ATTACK_ORDER,snakeAttack} from './attack-patterns.mjs';
 import {challengeAt,challengeSpeedGain} from './challenge.mjs';
 import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect,roundedShape} from './collision.mjs';
 import {snakeA2HitsPlayer,snakeA2FruitHasClearance,placeA2Fruit,snakeA2CollisionRects,snakeA2HeadRect} from './snake-a2.mjs';
@@ -24,8 +25,8 @@ export const QUIZ_INTERVAL = 30;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
     holdLift: 230, staminaLift: 50, flapInterval: .22, inputBuffer: .12,
-    aventura: {speed:275,gap:150,minGap:115,interval:1.48,minInterval:1.16,ramp:.0038,speedGain:65,snakeAt:16,hawkAt:30,diveAt:42,warning:1.5,snakeClearance:170,fruitMargin:34,clearance:210,actualSpeed:true,turnaround:.3,shiftRate:160,shiftLimit:60},
-    tranquilo: {speed:205,gap:220,minGap:185,interval:2.1,minInterval:1.8,ramp:.0017,speedGain:30,snakeAt:32,hawkAt:55,diveAt:78,warning:2.2},
+    aventura: {speed:275,gap:150,minGap:115,interval:1.48,minInterval:1.16,ramp:.0038,speedGain:65,snakeAt:16,hawkAt:30,warning:1.5,snakeClearance:170,fruitMargin:34,clearance:210,actualSpeed:true,turnaround:.3,shiftRate:160,shiftLimit:60},
+    tranquilo: {speed:205,gap:220,minGap:185,interval:2.1,minInterval:1.8,ramp:.0017,speedGain:30,snakeAt:32,hawkAt:55,warning:2.2},
 });
 export const STAGES = JOURNEY.map(s=>s.name);
 export const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -208,7 +209,7 @@ export class Game {
             shield: false, feather: 0, pepper: 0, invincible: 0, held: false, holdAge: 0,
             flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, flapImpulse: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
-            sequence: 0, foodSequence:0, lastGap: 320, lastPattern: null, encounterHistory: [], question: null, questionPool: [],
+            sequence: 0, snakeSequence:0, hawkSequence:0, foodSequence:0, lastGap: 320, lastPattern: null, encounterHistory: [], question: null, questionPool: [],
             answerResult: null, quizPending: false, nextQuizAt: QUIZ_INTERVAL, reviewIds: [], reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0, shakeTime: 0, shakeDuration: 0, shakeIntensity: 0,
         });
         this.snapshot();
@@ -627,7 +628,7 @@ export class Game {
         const x = spawnWidth + margin;
         const travel = (x - this.x) / this.speed;
         const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,stage:this.stage,random:this.encounterRandom});
-        const {gap,center}=plan;
+        let {gap,center}=plan;
         if(this.stage===2)plan.interval+=.15;
         if(this.stage===3)plan.interval+=.1;
         this.lastGap = center;
@@ -637,25 +638,33 @@ export class Game {
         const hawkAlone = soloHawk;
         let hasSnake = false, encounterGap = gap;
         if (hawkAlone) {
-            const swoop=this.elapsed>profile.diveAt&&n%2===0;
             const lane=Math.max(160,Math.min(480,this.y+(this.encounterRandom()-.5)*70));
-            // Upper approach is a true dive with the authored angled pose.
-            // Lower approach remains in the encounter variety, but becomes
-            // an ASCENDING flight using the existing wingbeat sheet; a bird
-            // climbing from the ground must not display a "MERGULHO" warning.
-            const dive=swoop&&lane>=320,ascent=swoop&&!dive;
-            const y=dive?105:ascent?535:lane;
+            // Each encounter alternates a complete curved attack. The target
+            // is marked once during warning; it never homes during the charge.
+            const attackKind=HAWK_ATTACK_ORDER[this.hawkSequence++%HAWK_ATTACK_ORDER.length];
+            const dive=attackKind==='mergulho',ascent=attackKind==='rasante';
+            const y=ascent?535:105;
             this.entities.push({ id:this.nextId++,kind:'hawk',solo:true,x,y,startX:x,
-                targetX:this.x-60,startY:y,targetY:swoop?lane:y,
+                targetX:this.x-60,startY:y,targetY:lane,
                 warning:Math.max(profile.warning,travel*.25),phase:'warning',
-                age:0,dive,ascent,boost:challenge?.hawkBoost??50,w:66,h:34 });
+                age:0,dive,ascent,attackKind,attackX:this.x,targetLocked:false,gentle:this.mode==='tranquilo',lockWarning:this.mode==='tranquilo'?1.5:1.1,boost:challenge?.hawkBoost??50,w:66,h:34 });
         } else {
             const variants = ['plain', 'branch', 'plain'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'branch':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
             hasSnake=this.elapsed>profile.snakeAt&&(n%2===0||variant==='branch');
-            encounterGap=gap+(hasSnake?(profile.snakeClearance??180):0);
+            const attackType=hasSnake?SNAKE_ATTACK_ORDER[this.snakeSequence%SNAKE_ATTACK_ORDER.length]:null;
+            const gentle=this.mode==='tranquilo';
+            encounterGap=gap+(hasSnake?Math.max(profile.snakeClearance??180,snakeAttack({attackType}).clearance)+(gentle&&attackType!=='frontal'?25:0):0);
+            // Widen below the planned safe flight line. Changing the gap must
+            // not pull that line up by half the snake's extra clearance.
+            // When the lower trunk cannot fit, keep a normal passage and offer
+            // this attack at the next encounter with sufficient vertical room.
+            if(hasSnake && center-85+encounterGap>HEIGHT-35){hasSnake=false;encounterGap=gap;}
+            const top=hasSnake?center-85:center-gap/2;
+            const bottom=top+encounterGap;
+            if(hasSnake)this.snakeSequence++;
             this.encounterHistory.at(-1).gap=encounterGap;
-            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - encounterGap / 2, bottom: center + encounterGap / 2, variant, scored: false, route:n, encounter:plan.id };
+            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top, bottom, variant, scored: false, route:n, encounter:plan.id };
             if (this.stage >= 1 && !hasSnake && variant === 'plain') {
                 wood.fragileSide = Math.floor(n / 2) % 2 ? 'top' : 'bottom';
                 wood.fragileKind = Math.floor(n / 4) % 2 ? 'hollow' : 'rot';
@@ -665,7 +674,7 @@ export class Game {
                 wood.decorKind = Math.floor(n / 3) % 2 ? 'moss' : 'vine';
             }
             if (hasSnake) {
-                wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
+                wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false,attackType,gentle};
                 if(activeProbe)activeProbe.event('snake:spawn',{
                     gameSeconds:Math.round(this.elapsed*100)/100,id:wood.id,positionX:Math.round(x),
                     branch:variant==='branch'});
@@ -675,8 +684,8 @@ export class Game {
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
         const nearbySnakes = this.entities.filter(entity => entity.kind === 'wood' && entity.snake);
         const placedFruits=[];
-        const corridorTop = center - encounterGap / 2 + 55;
-        const corridorBottom = center + encounterGap / 2 - (hasSnake ? 218 : 55);
+        const corridorTop = (hasSnake?center-85:center-gap/2) + 55;
+        const corridorBottom = (hasSnake?center-85:center-gap/2) + encounterGap - (hasSnake ? 218 : 55);
         for(const [index,point] of fruits.entries()) {
             let fy = point.y, fx=x+point.x;
             if (hasSnake) {
@@ -814,13 +823,13 @@ export class Game {
             if (this.state !== 'playing') break;
             const px = this.x;
             if (e.kind === 'hawk') {
-                advanceHawk(e,dt,speed,px);
+                advanceHawk(e,dt,speed,px,this.y);
                 if (e.phase !== 'warning' && !e.harmless && Math.abs(e.x - px) < 140 && Math.abs(e.y - this.y) < 110 && shapesIntersect(getPlayerBody(),hawkShapes(e))) this.collide(e, true);
                 continue;
             }
             e.x -= speed * dt;
             if (e.kind === 'wood') {
-                advanceSnake(e,dt,px);
+                advanceSnake(e,dt,px,speed);
                 if (e.snake && !e.snake.retreat && Math.abs(e.x-px)<230) {
                     const player=getPlayerBody();
                     const hit=snakeA2HitsPlayer(e,player,this.reducedMotion);

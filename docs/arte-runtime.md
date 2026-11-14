@@ -16,7 +16,7 @@ Esta especificação substitui a documentação **experimental** sobre `?actionS
 
 ## Cobra A2
 
-- Único renderer físico e visual; três atlases oficiais em `public/snake/{base,attack,reactions}`.
+- Único renderer físico e visual; cinco atlases oficiais em `public/snake/{base,attack,reactions}`.
 - Máscaras geradas deterministicamente por `scripts/generate-snake-a2-masks.py`, verificadas por SHA-256 e contra pixels reais no navegador.
 - Aviso usa sempre a geometria A2, sem opção de reaparecer aviso da cobra antiga.
 
@@ -53,3 +53,7 @@ As estações, a neve, o sol e os cenários usam o estado atual de voo (tempo de
 ## Superfícies e alimentos atuais
 
 Veja [a integração de umidade, acúmulo e alimentos](surface-weather-foods.md). Os sete WebP de alimentos e seis WebP individuais de desprendimento foram substituídos pelos atlas registrados de runtime e removidos. A coleção usa a mesma fonte de quadros do jogo.
+
+## Revisão de ataques e legibilidade climática
+
+A auditoria visual e as substituições atuais estão em [revisao-ataques-clima.md](revisao-ataques-clima.md). Os dois novos atlas A2 compartilham o chão da pose original e possuem escala registrada em `snake-attack-art.mjs`. Máscaras, contato climático e renderização usam esse mesmo registro. Os nove atlas oficiais de ação são obrigatórios. As fontes ativas dos cinco desenhos novos estão fora do diretório público, em `art-source/animal-weather/`, com prompts e empacotador reproduzível; não são cópias de segurança.

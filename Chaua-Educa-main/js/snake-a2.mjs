@@ -1,3 +1,5 @@
+import {SNAKE_ATTACK_ART} from './snake-attack-art.mjs';
+import {snakeAttack} from './attack-patterns.mjs';
 import {SNAKE_TIMING} from './animals.mjs';
 import { activeProbe } from './perf-hooks.mjs';
 import {shapesHitRect} from './collision.mjs';
@@ -8,8 +10,12 @@ export const SNAKE_A2_GRID=Object.freeze({columns:4,rows:2,cell:384,anchorX:192,
 const PATHS=Object.freeze({
  idle:'../public/snake/base/idle.webp',
  attack:'../public/snake/attack/attack.webp',
- stunned:'../public/snake/reactions/stunned.webp'
+ stunned:'../public/snake/reactions/stunned.webp',
+ high:'../public/snake/attack/high.webp',
+ sweep:'../public/snake/attack/sweep.webp'
 });
+export const SNAKE_SHEET_KEYS=Object.freeze(Object.keys(PATHS));
+export const snakeA2ArtScale=pose=>SNAKE_ATTACK_ART[pose?.key]?.scale??1;
 export function snakePlacement(wood){return {x:wood.x+29,y:wood.bottom+20,factor:.52,facing:1};}
 const images=new Map();
 // Generated offline from the official A2 artwork: deterministic physics at 120 Hz
@@ -41,7 +47,7 @@ export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
  if(!wood?.snake||wood.snake.retreat)return false;
  const pose=snakeA2Pose(wood.snake,reduced),mask=collisionMasks[pose.key]?.[pose.frame];
  if(!mask)throw new Error(`A2 collision mask is missing: ${pose.key} frame ${pose.frame}`);
- const place=snakePlacement(wood),flip=snakeA2NeedsMirror(pose);
+ const place=snakePlacement(wood),flip=snakeA2NeedsMirror(pose);place.factor*=snakeA2ArtScale(pose);
  for(const polygon of playerPolygons){
   if(!polygon?.length)continue;
   let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
@@ -60,6 +66,8 @@ export function snakeA2HitsPlayer(wood,playerPolygons,reduced=false){
 // a visible air gap around the snake.
 export function snakeA2FruitHasClearance(wood,x,y,radius=62){
  const place=snakePlacement(wood);
+ const kind=snakeAttack(wood.snake).key;
+ if(kind!=='attack')return scaledFruitClearance(kind,place,x,y,radius);
  const [colStart,colEnd]=candidateRange(x,radius,place.x,SNAKE_A2_GRID.anchorX,place.factor);
  const [rowStart,rowEnd]=candidateRange(y,radius,place.y,SNAKE_A2_GRID.anchorY,place.factor);
  const r2=radius*radius;
@@ -68,6 +76,38 @@ export function snakeA2FruitHasClearance(wood,x,y,radius=62){
   const box=spriteCellRect(place,col,row);
   const dx=Math.max(box.x-x,0,x-(box.x+box.w)),dy=Math.max(box.y-y,0,y-(box.y+box.h));
   if(dx*dx+dy*dy<r2)return false;
+ }
+ return true;
+}
+
+const scaledFootprints=new Map();
+function prepareScaledFootprint(kind){
+ let footprint=scaledFootprints.get(kind);
+ const side=48,ox=-288,oy=-448;
+ if(!footprint){
+  footprint=new Uint8Array(side*side);
+  for(const key of ['idle','stunned',kind])for(let frame=0;frame<8;frame++){
+   const mask=collisionMasks[key][frame],flip=snakeA2NeedsMirror({key,frame}),scale=snakeA2ArtScale({key});
+   for(let row=0;row<32;row++)for(let col=0;col<32;col++)if(mask[row*32+col]){
+    const xx=(flip?192-(col+1)*12:col*12-192)*scale,yy=(row*12-352)*scale;
+    const x0=Math.max(0,Math.floor((xx-ox)/12)),x1=Math.min(side-1,Math.ceil((xx+12*scale-ox)/12)-1);
+    const y0=Math.max(0,Math.floor((yy-oy)/12)),y1=Math.min(side-1,Math.ceil((yy+12*scale-oy)/12)-1);
+    for(let r=y0;r<=y1;r++)for(let c=x0;c<=x1;c++)footprint[r*side+c]=1;
+   }
+  }
+  scaledFootprints.set(kind,footprint);
+ }
+ return footprint;
+}
+function scaledFruitClearance(kind,place,x,y,radius){
+ const footprint=prepareScaledFootprint(kind),side=48,ox=-288,oy=-448;
+ const x0=Math.max(0,Math.floor(((x-radius-place.x)/place.factor-ox)/12)),x1=Math.min(side-1,Math.floor(((x+radius-place.x)/place.factor-ox)/12));
+ const y0=Math.max(0,Math.floor(((y-radius-place.y)/place.factor-oy)/12)),y1=Math.min(side-1,Math.floor(((y+radius-place.y)/place.factor-oy)/12));
+ const size=12*place.factor;
+ for(let row=y0;row<=y1;row++)for(let col=x0;col<=x1;col++)if(footprint[row*side+col]){
+  const xx=place.x+(ox+col*12)*place.factor,yy=place.y+(oy+row*12)*place.factor;
+  const dx=Math.max(xx-x,0,x-xx-size),dy=Math.max(yy-y,0,y-yy-size);
+  if(dx*dx+dy*dy<radius*radius)return false;
  }
  return true;
 }
@@ -130,11 +170,12 @@ export function snakeA2Pose(s={},reduced=false){
   return {key:'stunned',frame:reduced?3:f,state:'shield-stunned'};
  }
  if(reduced)return {key:'idle',frame:0,state:'idle'};
+ const timing=snakeAttack(s);
  switch(s.phase){
   case 'warning':return {key:'idle',frame:Math.min(5,3+frame(validTime(s.warningAge)/SNAKE_TIMING.warning,3)),state:'alert'};
-  case 'windup':return {key:'attack',frame:frame(validTime(s.phaseAge)/SNAKE_TIMING.windup,4),state:'windup'};
-  case 'striking':return {key:'attack',frame:4+frame(validTime(s.phaseAge)/SNAKE_TIMING.strike,2),state:'strike'};
-  case 'recovering':return {key:'attack',frame:6+frame(validTime(s.phaseAge)/SNAKE_TIMING.recovery,2),state:'recover'};
+  case 'windup':return {key:timing.key,frame:frame(validTime(s.phaseAge)/timing.windup,4),state:'windup'};
+  case 'striking':return {key:timing.key,frame:4+frame(validTime(s.phaseAge)/timing.strike,2),state:'strike'};
+  case 'recovering':return {key:timing.key,frame:6+frame(validTime(s.phaseAge)/timing.recovery,2),state:'recover'};
   case 'spent':case 'leaving':return {key:'idle',frame:7,state:s.phase};
   default:return {key:'idle',frame:[0,1,2,1,0,6,7,0][Math.floor(validTime(s.age)*2.3)%8],state:'watching'};
  }
@@ -143,6 +184,7 @@ export function preloadSnakeA2(){
  // Offline collision masks do not require an Image in headless tests.
  if(typeof Image==='undefined')return Promise.resolve();
  if(loading)return loading;
+ prepareScaledFootprint('high');prepareScaledFootprint('sweep');
  loading=Promise.all(Object.entries(PATHS).map(async([key,path])=>{
   const image=new Image(),url=new URL(path,import.meta.url).href;
   await new Promise((resolve,reject)=>{
@@ -159,11 +201,11 @@ export function preloadSnakeA2(){
   }
   images.set(key,image);
  })).then(()=>{
-  if(images.size!==3)throw new Error('A cobra A2 não está pronta.');
+  if(images.size!==SNAKE_SHEET_KEYS.length)throw new Error('A cobra A2 não está pronta.');
  }).catch(error=>{images.clear();loading=null;throw error;});
  return loading;
 }
-export function isSnakeA2Ready(){return images.size===3;}
+export function isSnakeA2Ready(){return images.size===SNAKE_SHEET_KEYS.length;}
 // Experimental main-canvas first-use prewarm. Called only during countdown,
 // before the opaque scene is painted, and never counted as a gameplay first-draw.
 // This is NOT proof that the browser has uploaded the texture to the GPU.
@@ -185,6 +227,7 @@ export function drawSnakeA2(c,s,factor,reduced=false){
  if(!isSnakeA2Ready())throw new Error('Cobra A2 ainda não carregada.');
  const pose=snakeA2Pose(s,reduced);
  if(!pose)return false;
+ factor*=snakeA2ArtScale(pose);
  const image=images.get(pose.key);
  if(!image)throw new Error(`Sprite A2 ausente: ${pose.key}`);
  const {columns,cell,anchorX,anchorY}=SNAKE_A2_GRID;
@@ -213,7 +256,7 @@ export function drawSnakeA2(c,s,factor,reduced=false){
 // Geometric diagnostics use the SAME pixel masks as the production collision.
 export function snakeA2CollisionRects(wood,reduced=false){
  if(!wood?.snake||wood.snake.retreat)return [];
- const place=snakePlacement(wood),pose=snakeA2Pose(wood.snake,reduced);
+ const place=snakePlacement(wood),pose=snakeA2Pose(wood.snake,reduced);place.factor*=snakeA2ArtScale(pose);
  const mask=collisionMasks[pose.key][pose.frame],flip=snakeA2NeedsMirror(pose),rects=[];
  for(let row=0;row<MASK_SIDE;row++){
   let start=-1;
@@ -236,10 +279,10 @@ export function snakeA2CollisionRects(wood,reduced=false){
 // The collision remains the complete mask, not this illustrative bounding box.
 export function snakeA2HeadRect(wood,reduced=false){
  if(!wood?.snake||wood.snake.retreat)return null;
- const place=snakePlacement(wood),pose=snakeA2Pose(wood.snake,reduced);
+ const place=snakePlacement(wood),pose=snakeA2Pose(wood.snake,reduced);place.factor*=snakeA2ArtScale(pose);
  const mask=collisionMasks[pose.key][pose.frame],flip=snakeA2NeedsMirror(pose);
  let minX=MASK_SIDE,maxX=-1,minY=MASK_SIDE,maxY=-1;
- for(let row=0;row<14;row++)for(let col=0;col<MASK_SIDE;col++){
+ for(let row=0;row<(pose.key==='sweep'?22:14);row++)for(let col=0;col<MASK_SIDE;col++){
   if(!mask[row*MASK_SIDE+col])continue;
   const displayCol=flip?MASK_SIDE-1-col:col;
   minX=Math.min(minX,displayCol);maxX=Math.max(maxX,displayCol);

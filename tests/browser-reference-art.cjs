@@ -25,14 +25,16 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    return {ready:isSnakeA2Ready(),poses};
   });
   assert.equal(setup.ready,true);
-  assert.equal(setup.poses.length,24);
+  assert.equal(setup.poses.length,40);
   for(const f of setup.poses)assert.ok(f.filled>70&&f.filled<1024,
    'Official A2 sheet has blank or clipped pose: '+JSON.stringify(f));
   for(const [name,state] of [
    ['cobra-tronco',{phase:'watching',age:1.7}],
    ['cobra-alerta',{phase:'warning',age:2,warningAge:.7}],
    ['cobra-bote',{phase:'striking',age:2.7,phaseAge:.14}],
-   ['cobra-atordoada',{phase:'retreat',age:3,retreat:true,dazed:true,retreatTime:.4}]
+   ['cobra-atordoada',{phase:'retreat',age:3,retreat:true,dazed:true,retreatTime:.4}],
+   ['cobra-bote-alto',{phase:'striking',attackType:'alto',age:2.7,phaseAge:.12}],
+   ['cobra-varredura',{phase:'striking',attackType:'varredura',age:2.7,phaseAge:.14}]
   ]){
    const result=await page.evaluate(state=>{
     const {r,Game}=window.art,g=new Game();
@@ -48,6 +50,6 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    await page.screenshot({path:path.join(out,name+'.png')});
   }
   assert.deepEqual(errors,[]);
-  console.log('PASS 24 official A2 poses, original forest art and four in-game scenes');
+  console.log('PASS 40 official A2 poses, original forest art and six in-game scenes');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -46,6 +46,7 @@ jobs:
           chaua_server_pid=$!
           trap 'kill "$chaua_server_pid" 2>/dev/null' EXIT
           # Fail fast on full real-browser flight before lengthy visual benchmarks.
+          node tests/browser-attacks-weather.cjs
           node tests/browser-editorial-ui.cjs
           npm run test:journey
           node tests/browser-mobile-home-layout.cjs
@@ -108,6 +109,7 @@ jobs:
             test-results/auto-visual/
             test-results/surface-foods/
             test-results/animal-weather/
+            test-results/attacks-weather/
             test-results/mobile-home/
             test-results/editorial-ui/
             test-results/weather-trees/

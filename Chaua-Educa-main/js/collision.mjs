@@ -1,3 +1,4 @@
+import {predictedHawkY} from './animals.mjs';
 import {hawkBodyParts} from './hawk-geometry.mjs';
 // Convex body shapes exclude decorative feathers, beaks and feet.
 // Twenty vertices keep ellipse error below a fraction of a logical pixel.
@@ -10,6 +11,7 @@ function bodyPart(x,y,dx,dy,rx,ry,angle){
 }
 export function playerShapes(x,y,angle=0){return [bodyPart(x,y,-3,2,16,14,angle),bodyPart(x,y,15,-7,9,10,angle)];}
 export function hawkAngle(e){
+ if(e.attackKind)return Math.max(-.65,Math.min(.65,Math.atan((predictedHawkY(e,e.x+1)-predictedHawkY(e,e.x-1))/2)));
  if(e.dive)return -Math.atan2(e.targetY-e.startY,e.startX-e.targetX);
  if(e.ascent){
   const angle=-Math.atan2(e.targetY-e.startY,e.startX-e.targetX)*.65;

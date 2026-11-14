@@ -1,13 +1,13 @@
-// Portable, reproducible integrity check for the seven active WebP atlases.
+// Portable, reproducible integrity check for the nine active WebP atlases.
 // Browser visual checks are run independently by browser-real-action-sprites.cjs.
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'spritesheets.manifest.json'),'utf8'));
-const expected=7;
+const expected=9;
 if(manifest.version!==1||manifest.spritesheets?.length!==expected){
- throw new Error('Sprite manifest must register exactly seven active assets');
+ throw new Error('Sprite manifest must register exactly nine active assets');
 }
 let failures=0;
 for(const entry of manifest.spritesheets){
@@ -25,4 +25,4 @@ for(const entry of manifest.spritesheets){
  else console.log('PASS',entry.path,width+'x'+height,bytes.length+' bytes');
 }
 if(failures)throw new Error(failures+' invalid, missing or changed sprite sheets');
-console.log('PASS: all seven current WebP atlases have expected dimensions, transparency and SHA-256');
+console.log('PASS: all nine current WebP atlases have expected dimensions, transparency and SHA-256');

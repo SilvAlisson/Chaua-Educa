@@ -37,7 +37,7 @@ test('snowfall is procedural, layered, deterministic and respects reduced motion
  assert.equal(a.calls.filter(x=>x.type==='image').length,0,'snow may not depend on unrelated sprite sheets');
  const front=mock();drawSnowfall(front.c,390,844,26,.88,false,false,.45,true);
  assert.ok(front.calls.filter(x=>x.type==='arc').length>=3);
- assert.ok(front.calls.filter(x=>x.type==='arc').length<=10,'foreground flakes must be sparse');
+ assert.ok(front.calls.filter(x=>x.type==='arc').length<=18,'foreground flakes must stay within the visibility budget');
  const low=mock();drawSnowfall(low.c,390,844,26,.88,false,true,.45,false);
  assert.ok(low.calls.filter(x=>x.type==='arc').length<a.calls.filter(x=>x.type==='arc').length);
  const reduced=mock();drawSnowfall(reduced.c,390,844,26,.88,true,false,.45,false);

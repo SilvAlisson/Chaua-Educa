@@ -41,7 +41,7 @@ test('branch encounter really spawns branch art, a branch collider and its snake
     const g=new Game({seed:104});g.elapsed=40;g.sequence=2;
     let found=false;
     for(let i=0;i<70;i++){
-        g.entities=[];g.spawn();const wood=g.entities.find(e=>e.kind==='wood'&&e.variant==='branch');
+        g.entities=[];g.spawn();const wood=g.entities.find(e=>e.kind==='wood'&&e.variant==='branch'&&e.snake);
         if(wood){found=true;assert.ok(wood.snake?.branch);assert.ok(g.woodRects(wood).some(r=>r.x<wood.x));}
     }
     assert.ok(found,'previous branch pattern never set variant=branch');
@@ -57,12 +57,14 @@ test('friendly mode has measurably wider gaps and slower encounter cadence throu
     assert.ok(FLIGHT.tranquilo.warning>FLIGHT.aventura.warning);
     assert.ok(FLIGHT.tranquilo.hawkAt>FLIGHT.aventura.hawkAt);
 });
-test('announced hawk lanes are real hazards and never retarget after spawning',()=>{
+test('announced hawk snapshots the lane once with time to evade and never homes after lock',()=>{
     const g=new Game({random:()=>.5});g.state='playing';g.y=320;g.elapsed=60;g.sequence=13;g.spawn();
-    const hawk=g.entities.find(e=>e.kind==='hawk');assert.equal(hawk.startY,320);
-    const lane=[hawk.startY,hawk.targetY,hawk.targetX];g.y=190;
-    for(let i=0;i<60;i++) {g.y=190;g.vy=0;g.nextSpawn=Infinity;g.tick(STEP);}
-    assert.deepEqual([hawk.startY,hawk.targetY,hawk.targetX],lane);
+    const hawk=g.entities.find(e=>e.kind==='hawk');assert.equal(hawk.startY,105);
+    g.nextSpawn=Infinity;
+    while(!hawk.targetLocked){g.y=190;g.vy=0;g.tick(STEP);}
+    assert.ok(hawk.warning>=1.08);assert.ok(Math.abs(hawk.targetY-190)<.1);
+    for(let i=0;i<120;i++){g.y=450;g.vy=0;g.tick(STEP);}
+    assert.ok(Math.abs(hawk.targetY-190)<.1);assert.equal(hawk.attackX,220);
 });
 test('both difficulties remain playable with 120ms reaction and 30Hz decisions, without powers',()=>{
     for(const mode of ['aventura','tranquilo'])for(let seed=0;seed<12;seed++){

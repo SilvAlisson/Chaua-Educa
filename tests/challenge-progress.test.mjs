@@ -35,11 +35,12 @@ test('an active pilot can navigate a late challenge corridor without powers or q
  assert.equal(g.shield,false);assert.equal(g.fruits,0);
  const pressure=challengeAt(g.elapsed);g.pause();for(let i=0;i<120;i++)g.tick(STEP);assert.deepEqual(challengeAt(g.elapsed),pressure);
 });
-test('unchanged friendly scores survive while old challenge records move to history',()=>{
+test('new animal encounters archive both previous modes',()=>{
  const previous=new Map(DB.memory);DB.memory.clear();
  try{
   DB.memory.set('db-chaua-floresta-v9',[{playerName:'Ana',mode:'aventura',score_val:942},{playerName:'Ana',mode:'tranquilo',score_val:600}]);
-  assert.equal(DB.get().find(r=>r.mode==='tranquilo').score_val,600);
+  assert.equal(DB.get().length,0);
+  assert.ok(DB.previousScores().some(r=>r.mode==='tranquilo'&&r.score_val===600));
   assert.ok(!DB.get().some(r=>r.mode==='aventura'));
   assert.ok(DB.previousScores().some(r=>r.ruleset==='floresta-v9'&&r.score_val===942));
  }finally{DB.memory.clear();for(const [k,v]of previous)DB.memory.set(k,v);}

@@ -4,6 +4,8 @@
 
 Abra `Chaua-Educa-main/index.html` por um servidor HTTP. Para testar localmente, rode `npm start` na raiz e abra `http://127.0.0.1:5501/`. A Cobra A2 e as spritesheets oficiais de ação são obrigatórias. Arquivos faltando impedem o início e exibem um erro explícito; os antigos parâmetros de seleção de sprites foram removidos. Consulte [a documentação da arte atual](docs/arte-runtime.md).
 
+A revisão atual acrescenta três ataques da cobra, três investidas curvas do gavião e chuva, neve e rajadas mais legíveis. [Relatório da revisão](docs/revisao-ataques-clima.md). Regras `floresta-v11`: os resultados anteriores dos dois modos ficam no Histórico; coleção e missões permanecem salvas.
+
 > **Nota de manutenção:** as seções históricas abaixo registram a evolução do projeto; para arte e hitboxes atuais, use `docs/arte-runtime.md`, o código e os testes da versão 2.5.0.
 
 "Chauá-educa" is a compelling game with a noble purpose – raising awareness and making an effort to save an endangered species known as the Chauá parrot. In this engaging gaming experience, you step into the wings of a delightful parrot named Chauá. Your mission goes beyond entertainment; it's about making a difference.

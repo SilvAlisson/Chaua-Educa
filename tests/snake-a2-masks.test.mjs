@@ -6,7 +6,7 @@ import {SNAKE_A2_MASKS,SNAKE_A2_MASK_SOURCES} from '../Chaua-Educa-main/js/snake
 import {snakeA2HitsPlayer,snakeA2FruitHasClearance,snakeA2CollisionRects} from '../Chaua-Educa-main/js/snake-a2.mjs';
 import {playerShapes} from '../Chaua-Educa-main/js/collision.mjs';
 
-const files={idle:'base/idle.webp',attack:'attack/attack.webp',stunned:'reactions/stunned.webp'};
+const files={idle:'base/idle.webp',attack:'attack/attack.webp',stunned:'reactions/stunned.webp',high:'attack/high.webp',sweep:'attack/sweep.webp'};
 test('every A2 collision mask is tied to the exact official art SHA-256',()=>{
  for(const [key,filename] of Object.entries(files)){
   const bytes=readFileSync(new URL('../Chaua-Educa-main/public/snake/'+filename,import.meta.url));

@@ -14,7 +14,7 @@ const {chromium}=require('playwright');
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    await page.locator('#inputPlayer').fill('Voo completo');await page.locator(`input[value=${mode}]`).check();await page.locator('#btnStart:not([disabled])').click();
    const summary=await page.evaluate(async(seed)=>{
-    const {game:g}=await import('/js/script.js');const {isSnakeA2Ready}=await import('/js/snake-a2.mjs');
+    const {predictedHawkY}=await import('/js/animals.mjs');const {game:g}=await import('/js/script.js');const {isSnakeA2Ready}=await import('/js/snake-a2.mjs');
     if(!isSnakeA2Ready())throw Error('A2 must load on the default game URL');const {flightViewport}=await import('/js/viewport.mjs');
     g.start(g.mode,[],seed);let hits=new Set(),stages=new Set();
     for(let frame=0;frame<40000;frame++){
@@ -23,7 +23,7 @@ const {chromium}=require('playwright');
       const wood=g.entities.find(e=>e.kind==='wood'&&e.x+100>g.x&&e.x<=right);
       const hawk=g.entities.find(e=>e.kind==='hawk'&&!e.harmless&&!e.retreat&&e.x+60>g.x);
       let target=wood?(wood.snake?wood.top+Math.min(85,(wood.bottom-wood.top)*.35):(wood.top+wood.bottom)/2):320;
-      if(!wood&&hawk){const t=Math.max(0,Math.min(1,(hawk.startX-g.x)/(hawk.startX-hawk.targetX)));const lane=hawk.startY+(hawk.targetY-hawk.startY)*t;target=lane>=320?Math.max(145,lane-140):Math.min(495,lane+140);}
+      if(!wood&&hawk){const lane=predictedHawkY(hawk,g.x);target=hawk.attackKind&&!hawk.targetLocked?320:lane>=320?Math.max(145,lane-140):Math.min(495,lane+140);}
       // Expert navigation gate, not a human win-rate estimate: time a tap at
       // the lower part of the clear corridor, leaving room for its 50px ascent.
       if(g.y>target+26&&g.vy>0&&g.flapCooldown<=0){window.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space',bubbles:true}));window.dispatchEvent(new KeyboardEvent('keyup',{key:' ',code:'Space',bubbles:true}));}

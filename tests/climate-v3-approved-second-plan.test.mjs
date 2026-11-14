@@ -84,7 +84,7 @@ test('ascending hawk preserves the wingbeat action instead of inverted dive art'
  for(const [y,up] of [[175,true],[425,false]]){
   const g=new Game({seed:104});
   g.state='playing';g.elapsed=100;g.sequence=4;g.mode='aventura';
-  g.y=y;g.entities=[];g.spawn();
+  g.y=y;g.hawkSequence=up?1:0;g.entities=[];g.spawn();
   const hawk=g.entities.find(e=>e.kind==='hawk');
   assert.ok(hawk,'solo hawk did not spawn');
   assert.equal(hawk.ascent,up);

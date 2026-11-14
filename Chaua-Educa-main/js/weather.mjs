@@ -208,8 +208,8 @@ const rainWrap=(value,span)=>((value%span)+span)%span;
 const rainClamp=x=>Math.min(1,Math.max(0,Number.isFinite(x)?x:0));
 function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=250){
  if(w<=0||h<=0)return;
- const bands=foreground?[{depth:1,count:low?6:22}]:
-  [{depth:.40,count:low?12:56},{depth:.73,count:low?18:88}];
+ const bands=foreground?[{depth:1,count:low?10:38}]:
+  [{depth:.40,count:low?18:68},{depth:.73,count:low?28:104}];
  // Similar density on laptop and portrait viewports, without letting a huge
  // canvas spawn an unbounded number of raindrops.
  const areaScale=Math.max(.65,Math.min(1.45,Math.sqrt(w*h/(960*640))));
@@ -218,11 +218,11 @@ function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=2
  c.lineCap='round';
  for(const {depth,count} of bands){
   const visibleCount=Math.max(1,Math.round(count*areaScale*(1+storm*.55)));
-  const opacity=rainClamp(rain*(foreground?.43:.24+depth*.28)+storm*.10);
+  const opacity=rainClamp(rain*(foreground?.68:.37+depth*.32)+storm*.10);
   c.globalAlpha=opacity;
-  c.strokeStyle=foreground?'#a3ccda':'#6f9daa';
-  c.fillStyle=foreground?'#bde0e8':'#97b9c7';
-  c.lineWidth=foreground?1.15:.64+depth*.51;
+  c.strokeStyle='#305768';
+  c.fillStyle=foreground?'#e5f8ff':'#c4e4f0';
+  c.lineWidth=foreground?2.1:1.1+depth*.75;
   // Soft, short curves: visibility comes from layering, not brightness.
   c.beginPath();
   for(let i=0;i<visibleCount;i++){
@@ -230,11 +230,14 @@ function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=2
    const fallSpeed=230+depth*270+storm*120+(i%4)*27+speed*.1;
    const y=rainWrap(seed*11.17+time*fallSpeed,h+64)-32;
    const x=rainWrap(seed*23.79-time*(14+wind*48+storm*14)*depth,w+64)-32;
-   const length=(foreground?7:4)+depth*6+(i%3)*1.5;
+   const length=(foreground?10:6)+depth*8+(i%3)*1.5;
    const sideways=-(wind*.55+storm*.26+speed*.0016)*length;
    c.moveTo(x,y);
    c.quadraticCurveTo(x+sideways*.22,y+length*.5,x+sideways*.42,y+length);
   }
+  c.stroke();
+  c.strokeStyle=foreground?'#e5f8ff':'#c4e4f0';
+  c.lineWidth=foreground?1.15:.65+depth*.4;
   c.stroke();
   // Heads of droplets have volume and different focus instead of straight
   // horizontal screen-space streaks. One batch fill per depth band.
@@ -244,8 +247,8 @@ function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=2
    const fallSpeed=230+depth*270+storm*120+(i%4)*27+speed*.1;
    const y=rainWrap(seed*11.17+time*fallSpeed,h+64)-32;
    const x=rainWrap(seed*23.79-time*(14+wind*48+storm*14)*depth,w+64)-32;
-   const radius=(foreground?.72:.32)+depth*.52+(i%3)*.08;
-   const length=(foreground?7:4)+depth*6+(i%3)*1.5;
+   const radius=(foreground?.95:.48)+depth*.52+(i%3)*.08;
+   const length=(foreground?10:6)+depth*8+(i%3)*1.5;
    c.moveTo(x+radius,y+length);
    c.ellipse(x,y+length,radius,radius*1.28,-.1,0,Math.PI*2);
   }
@@ -265,7 +268,7 @@ export function drawRainRipples(c,w,h,time,rain,storm,low,reduced=false){
   const phase=rainWrap(time*(1.2+storm*.37)+i*.417,1);
   const x=rainWrap(i*173.6+24,w);
   const y=h-20-(i*17.1)%33;
-  c.globalAlpha=rain*(1-phase)*.18;
+  c.globalAlpha=rain*(1-phase)*.30;
   c.beginPath();c.ellipse(x,y,1.7+phase*6,.6+phase*2.3,0,0,Math.PI*2);
   c.stroke();
  }
@@ -282,7 +285,7 @@ export function drawSurfaceRainImpacts(c,x,y,wet,time,seed=0,low=false,reduced=f
   const phase=rainWrap(time*(1.5+(i%3)*.19)+seed*.37+i*.28,1);
   const sx=x+(i-(count-1)*.5)*12;
   const sy=y-(1-phase)*6;
-  c.globalAlpha=wet*(1-phase)*.42;
+  c.globalAlpha=wet*(1-phase)*.58;
   c.beginPath();
   c.ellipse(sx,sy,1.15+phase*2,.55+phase*1.1,0,0,Math.PI*2);
   c.fill();
@@ -297,7 +300,7 @@ export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail
  const c=context;
  c.save();
  const wash=weatherGradients(c,width,height).rain;
- c.globalAlpha=rainClamp(rain*(.12+storm*.145));
+ c.globalAlpha=rainClamp(rain*(.18+storm*.16));
  c.fillStyle=wash;c.fillRect(0,0,width,height);
  c.restore();
  if(reduced)return;
@@ -310,4 +313,22 @@ export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail
 export function drawForegroundRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250){
  if(reduced||rain<=0)return;
  renderRainBands(context,width,height,time,rain,storm,wind,lowDetail,true,speed);
+}
+
+// A few long gusts remain legible against both green foliage and white winter
+// mountains. Two batched strokes, bounded particle count, active scene clock.
+export function drawWindGusts(c,w,h,time,wind,low=false,reduced=false){
+ if(wind<=.01||reduced||w<=0||h<=0)return;
+ c.save();c.lineCap='round';c.beginPath();
+ const count=low?3:7;
+ for(let i=0;i<count;i++){
+  const x=w+180-rainWrap(i*173.7+time*(180+wind*90),w+360);
+  const y=45+rainWrap(i*97.1+Math.sin(time*.6+i)*12,Math.max(1,h-90));
+  const length=80+wind*65+(i%3)*16;
+  c.moveTo(x,y);c.bezierCurveTo(x-length*.3,y-13,x-length*.7,y+15,x-length,y+3);
+ }
+ c.globalAlpha=wind*(.25+.09*Math.sin(time*1.7)**2);
+ c.strokeStyle='#315965';c.lineWidth=3.3;c.stroke();
+ c.globalAlpha=wind*(.49+.12*Math.sin(time*1.7)**2);
+ c.strokeStyle='#eaf5e4';c.lineWidth=1.45;c.stroke();c.restore();
 }

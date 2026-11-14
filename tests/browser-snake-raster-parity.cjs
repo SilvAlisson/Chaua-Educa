@@ -15,7 +15,7 @@ const {chromium}=require('playwright');
    await preloadSnakeA2();
    if(!isSnakeA2Ready())throw Error('Official A2 sprites unavailable');
    const assets={idle:'/public/snake/base/idle.webp',attack:'/public/snake/attack/attack.webp',
-      stunned:'/public/snake/reactions/stunned.webp'};
+      stunned:'/public/snake/reactions/stunned.webp',high:'/public/snake/attack/high.webp',sweep:'/public/snake/attack/sweep.webp'};
    const canvas=document.createElement('canvas');
    canvas.width=canvas.height=384;
    const c=canvas.getContext('2d',{willReadFrequently:true});
@@ -50,7 +50,7 @@ const {chromium}=require('playwright');
    }
    return {tiles,filled,pixels,mismatches,examples};
   });
-  assert.equal(result.tiles,3*8*32*32);
+  assert.equal(result.tiles,5*8*32*32);
   assert.equal(result.mismatches,0,'Collider does not match current A2 WebP: '+JSON.stringify(result.examples));
   assert.ok(result.filled>1000);
   assert.deepEqual(errors,[]);
