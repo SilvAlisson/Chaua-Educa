@@ -28,6 +28,8 @@ jobs:
           python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-cross-browser.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node tests/browser-snake-lab.cjs
+          LAB_BROWSER=webkit node tests/browser-snake-lab.cjs
           LEARNING_BROWSER=firefox node tests/browser-learning-flow.cjs
           LEARNING_BROWSER=webkit node tests/browser-learning-flow.cjs
           WEATHER_BROWSER=webkit node tests/browser-attacks-weather.cjs
@@ -45,6 +47,7 @@ jobs:
         with:
           name: extended-browser-qa
           path: |
+            test-results/snake-lab/
             test-results/learning-flow/
             test-results/action-sprites/
             test-results/v2-cross-browser/

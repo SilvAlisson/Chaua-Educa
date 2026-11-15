@@ -1,11 +1,6 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="images/favicon.png">
-  <title>Laboratório A/B — Mesmo Modelo Real: Spritesheet A2 vs. Deformação Esquelética 2D</title>
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chauá Educa · Laboratório de cobra articulada</title>
   <style>
     :root {
       color-scheme: dark;
@@ -71,7 +66,7 @@
 
     .stage-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
     }
 
@@ -113,206 +108,31 @@
       background: linear-gradient(180deg, #cbe0a6 0%, #8eb37c 60%, #3d6647 100%);
       border-radius: 10px;
     }
+    .card { min-width: 0; }
+    p { margin: 0; line-height: 1.5; max-width: 100ch; }
+    input[type=range] { width: min(240px, 40vw); }
+    @media(max-width: 720px) { body { padding: 12px; } .stage-grid { grid-template-columns: 1fr; } .card-header { flex-wrap: wrap; gap: 6px; } }
   </style>
-</head>
-
-<body>
-  <header>
-    <h1>Comparador A/B com o Mesmo Modelo Real: Spritesheet (8 quadros) vs. Esqueleto/Malha 2D (60 FPS)</h1>
-    <div id="status">Extraindo anatomia real das WebPs da Cobra A2...</div>
-  </header>
-
-  <div class="controls">
-    <label>Modo Esquelético:
-      <select id="rigMode">
-        <option value="keyframe-warp" selected>Warp Contínuo 60 FPS das Poses Reais + Base Fixa</option>
-        <option value="rigged-3pose">Esqueleto Puro (Curva Bézier + Poses-Chave · Menos VRAM)</option>
-      </select>
-    </label>
-    <label>Ataque:
-      <select id="attackType">
-        <option value="frontal">Bote Frontal (attack)</option>
-        <option value="alto">Bote Alto (high)</option>
-        <option value="varredura">Varredura Baixa (sweep)</option>
-      </select>
-    </label>
-    <label>Fase:
-      <select id="phaseMode">
-        <option value="auto">Ciclo Automático (Simulação)</option>
-        <option value="watching">Watching (Idle)</option>
-        <option value="warning">Warning (Alerta)</option>
-        <option value="windup">Windup (Armando bote)</option>
-        <option value="striking">Striking (Bote)</option>
-        <option value="recovering">Recovering (Recuo)</option>
-        <option value="stunned">Stunned (Escudo / Atordoada)</option>
-      </select>
-    </label>
-    <label>Velocidade:
-      <select id="timeScale">
-        <option value="1">1.0x (Tempo real)</option>
-        <option value="0.5">0.5x (Câmera lenta)</option>
-        <option value="0.2">0.2x (Inspeção de fluido/pivô)</option>
-      </select>
-    </label>
-    <label><input type="checkbox" id="showWireframe"> Mostrar Malha de Faixas (Mesh)</label>
-    <label><input type="checkbox" id="showHitbox"> Mostrar Colisão (Hitbox)</label>
-    <label><input type="checkbox" id="showAnchor" checked> Linha de Âncora no Galho</label>
-    <button id="btnTrigger" type="button">Disparar Bote Agora</button>
-    <button id="btnBenchmark" type="button">Stress Test (50× Cobras)</button>
-  </div>
-
-  <div class="stage-grid">
-    <section class="card">
-      <div class="card-header">
-        <strong>1. Cobra A2 Atual (Troca de Quadros Inteiros · 8 FPS)</strong>
-        <span>VRAM: ~22,5 MiB (40 células 384×384)</span>
-      </div>
-      <canvas id="canvasA2" width="480" height="420"></canvas>
-      <div class="metrics" id="metricsA2">Aguardando medição...</div>
-    </section>
-
-    <section class="card">
-      <div class="card-header">
-        <strong>2. Mesmo Modelo Real (Deformado por Faixas Afins · 60 FPS)</strong>
-        <span id="vramLabel">Base Fixa no Galho + 24 Faixas Afins Contínuas</span>
-      </div>
-      <canvas id="canvasArt" width="480" height="420"></canvas>
-      <div class="metrics" id="metricsArt">Aguardando medição...</div>
-    </section>
-  </div>
-
-  <script type="module">
-    import { loadAssets } from './js/assets.mjs';
-    import { drawLivingTrunk } from './js/tree-art.mjs';
-    import { TREE_WIDTH } from './js/forest-geometry.mjs';
-    import { preloadSnakeA2, drawSnakeA2, snakeA2CollisionRects, snakePlacement, snakeA2Pose } from './js/snake-a2.mjs';
-    import { snakeAttack } from './js/attack-patterns.mjs';
-    import { preloadArticulatedSnakeProto, drawArticulatedSnakeProto, articulatedSnakeCircles } from './js/snake-articulated-proto.mjs';
-
-    const cA2 = document.getElementById('canvasA2').getContext('2d');
-    const cArt = document.getElementById('canvasArt').getContext('2d');
-    const status = document.getElementById('status');
-
-    await Promise.all([loadAssets(), preloadSnakeA2(), preloadArticulatedSnakeProto()]);
-    status.textContent = 'Modelo real carregado — ambos os lados usam exatamente a mesma arte pintada!';
-
-    const wood = {
-      id: 1, kind: 'wood', x: 230, top: 40, bottom: 295, variant: 'branch',
-      snake: { kind: 'snake', branch: true, phase: 'watching', attackType: 'frontal', age: 0, phaseAge: 0, warningAge: 0, retreat: false, dazed: false }
-    };
-
-    let autoCycleTime = 0;
-    function updateSnakeState(dt) {
-      const s = wood.snake;
-      s.attackType = document.getElementById('attackType').value;
-      const mode = document.getElementById('phaseMode').value;
-      const timing = snakeAttack(s);
-      s.age += dt;
-
-      if (mode !== 'auto') {
-        s.retreat = mode === 'stunned';
-        s.dazed = mode === 'stunned';
-        if (s.retreat) { s.retreatTime = (s.retreatTime || 0) + dt; return; }
-        s.phase = mode;
-        const duration = mode === 'windup' ? timing.windup : mode === 'striking' ? timing.strike : mode === 'recovering' ? timing.recovery : 0.8;
-        s.phaseAge = (s.phaseAge + dt) % Math.max(0.01, duration);
-        s.warningAge = s.phaseAge;
-        return;
-      }
-
-      s.retreat = false; s.dazed = false;
-      autoCycleTime = (autoCycleTime + dt) % 3.2;
-      if (autoCycleTime < 0.7) { s.phase = 'watching'; s.phaseAge = autoCycleTime; }
-      else if (autoCycleTime < 1.3) { s.phase = 'warning'; s.warningAge = autoCycleTime - 0.7; }
-      else if (autoCycleTime < 1.3 + timing.windup) { s.phase = 'windup'; s.phaseAge = autoCycleTime - 1.3; }
-      else if (autoCycleTime < 1.3 + timing.windup + timing.strike) { s.phase = 'striking'; s.phaseAge = autoCycleTime - 1.3 - timing.windup; }
-      else if (autoCycleTime < 1.3 + timing.windup + timing.strike + timing.recovery) { s.phase = 'recovering'; s.phaseAge = autoCycleTime - 1.3 - timing.windup - timing.strike; }
-      else { s.phase = 'spent'; s.phaseAge = autoCycleTime; }
-    }
-
-    document.getElementById('btnTrigger').addEventListener('click', () => {
-      document.getElementById('phaseMode').value = 'auto';
-      autoCycleTime = 1.28;
-    });
-
-    let benchA2 = null, benchArt = null;
-    document.getElementById('btnBenchmark').addEventListener('click', () => {
-      const N = 50;
-      const rigMode = document.getElementById('rigMode').value;
-      const t0 = performance.now();
-      for (let i = 0; i < N; i++) {
-        cA2.save(); cA2.translate(259, 315); drawSnakeA2(cA2, wood.snake, 0.52, false); cA2.restore();
-      }
-      benchA2 = (performance.now() - t0) / N;
-
-      const t1 = performance.now();
-      for (let i = 0; i < N; i++) {
-        cArt.save(); cArt.translate(259, 315); drawArticulatedSnakeProto(cArt, wood.snake, 0.52, false, rigMode, false); cArt.restore();
-      }
-      benchArt = (performance.now() - t1) / N;
-    });
-
-    let last = performance.now();
-    function loop(now) {
-      const scale = parseFloat(document.getElementById('timeScale').value) || 1;
-      const dt = Math.min(0.05, (now - last) / 1000) * scale;
-      last = now;
-      updateSnakeState(dt);
-
-      const rigMode = document.getElementById('rigMode').value;
-      const showWireframe = document.getElementById('showWireframe').checked;
-      const showHitbox = document.getElementById('showHitbox').checked;
-      const showAnchor = document.getElementById('showAnchor').checked;
-      const place = snakePlacement(wood);
-
-      // Lado A: Cobra A2 Oficial
-      cA2.clearRect(0, 0, 480, 420);
-      drawLivingTrunk(cA2, { x: wood.x + 29, y: wood.bottom, upper: false, width: TREE_WIDTH, length: 300, variant: 3, time: wood.snake.age });
-      const tA2 = performance.now();
-      cA2.save(); cA2.translate(place.x, place.y); drawSnakeA2(cA2, wood.snake, place.factor, false); cA2.restore();
-      const msA2 = performance.now() - tA2;
-
-      if (showHitbox) {
-        const rects = snakeA2CollisionRects(wood, false);
-        cA2.strokeStyle = '#ff3b30'; cA2.lineWidth = 1.3;
-        for (const r of rects) cA2.strokeRect(r.x, r.y, r.w, r.h);
-      }
-
-      // Lado B: Mesmo Modelo Real Articulado por Faixas Afins
-      cArt.clearRect(0, 0, 480, 420);
-      drawLivingTrunk(cArt, { x: wood.x + 29, y: wood.bottom, upper: false, width: TREE_WIDTH, length: 300, variant: 3, time: wood.snake.age });
-      const tArt = performance.now();
-      cArt.save(); cArt.translate(place.x, place.y);
-      drawArticulatedSnakeProto(cArt, wood.snake, place.factor, false, rigMode, showWireframe);
-      cArt.restore();
-      const msArt = performance.now() - tArt;
-
-      const circles = showHitbox ? articulatedSnakeCircles(wood, false, rigMode) : [];
-      if (showHitbox) {
-        cArt.strokeStyle = '#00f5d4'; cArt.lineWidth = 1.5;
-        for (const c of circles) { cArt.beginPath(); cArt.arc(c.x, c.y, c.r, 0, Math.PI * 2); cArt.stroke(); }
-      }
-
-      if (showAnchor) {
-        for (const ctx of [cA2, cArt]) {
-          ctx.save(); ctx.strokeStyle = '#ffe600cc'; ctx.setLineDash([4, 4]);
-          ctx.beginPath(); ctx.moveTo(place.x - 90, place.y - 12); ctx.lineTo(place.x + 90, place.y - 12); ctx.stroke();
-          ctx.restore();
-        }
-      }
-
-      const poseA2 = snakeA2Pose(wood.snake, false);
-      document.getElementById('metricsA2').textContent =
-        `Fase: ${wood.snake.phase} | Folha: ${poseA2.key}[${poseA2.frame}] | CPU: ${msA2.toFixed(3)} ms` +
-        (benchA2 !== null ? ` | Stress 50x: ${benchA2.toFixed(3)} ms/draw` : '');
-      document.getElementById('metricsArt').textContent =
-        `Fase: ${wood.snake.phase} | Modo: ${rigMode} | CPU: ${msArt.toFixed(3)} ms` +
-        (benchArt !== null ? ` | Stress 50x: ${benchArt.toFixed(3)} ms/draw` : '');
-
-      requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
-  </script>
-</body>
-
-</html>
+</head><body>
+<header><h1>Cobra: quadros inteiros × peças articuladas</h1><div id="status" role="status">Carregando as duas versões…</div></header>
+<p>Experimento da branch Fracasso. A cobra da direita usa uma arte nova de peças separadas: cabeça rígida, pescoço curvo e base apoiada. Compare a identidade visual e o movimento. Este laboratório não altera a cobra nem as colisões do jogo.</p>
+<div class="controls">
+<label>Ataque <select id="attackType"><option value="frontal">Frontal</option><option value="alto">Alto</option><option value="varredura">Varredura baixa</option></select></label>
+<label>Fase <select id="phaseMode"><option value="auto">Ciclo completo</option><option value="watching">Repouso</option><option value="warning">Alerta</option><option value="windup">Preparação</option><option value="striking">Bote</option><option value="recovering">Recuo</option><option value="stunned">Atordoada</option></select></label>
+<label>Velocidade <select id="timeScale"><option value="1">1×</option><option value="0.5">0,5×</option><option value="0.2">0,2×</option></select></label>
+<button id="btnPause" type="button">Pausar</button><button id="btnTrigger" type="button">Reiniciar bote</button>
+<label>Tempo <input id="seek" type="range" min="0" max="1000" value="0" step="1"><output id="position">0%</output></label>
+<label><input type="checkbox" id="showWireframe"> Curva e encaixes</label>
+<label><input type="checkbox" id="showHitbox"> Guias geométricas (não são colisões do jogo)</label>
+<label><input type="checkbox" id="showAnchor" checked> Âncora</label>
+<label><input type="checkbox" id="reduced"> Movimento reduzido</label>
+<label>Cobras <select id="actorCount"><option value="1">1 (inspeção)</option><option value="12">12 (carga visual)</option></select></label>
+</div>
+<div class="stage-grid">
+<section class="card"><div class="card-header"><strong>Atual · Spritesheets oficiais</strong><span>Arte e animação preservadas</span></div><canvas id="canvasA2" width="480" height="420" aria-label="Cobra atual"></canvas><div class="metrics" id="metricsA2">Aguardando amostras</div></section>
+<section class="card"><div class="card-header"><strong>Experimento · Peças articuladas</strong><span>Uma cabeça, sem dissolução entre poses</span></div><canvas id="canvasArt" width="480" height="420" aria-label="Cobra articulada experimental"></canvas><div class="metrics" id="metricsArt">Aguardando amostras</div></section>
+</div>
+<p id="frameStats" class="metrics"></p>
+<p>Os tempos CPU medem o envio dos desenhos ao Canvas, excluindo tronco e guias. O intervalo entre quadros pertence à página inteira, com as duas versões abertas. Esses números não medem VRAM, tempo de GPU ou FPS do jogo no seu aparelho. A boca tem duas expressões; a abertura de mandíbula ainda precisa de uma peça própria para uma transição contínua.</p>
+<script type="module" src="./js/lab-snake-compare.mjs"></script>
+</body></html>
