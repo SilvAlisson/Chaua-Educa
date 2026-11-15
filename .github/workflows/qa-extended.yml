@@ -1,5 +1,7 @@
 name: Extended browser and real-art QA
 on:
+  push:
+    branches: [Fracasso]
   pull_request:
   workflow_dispatch:
 
@@ -12,6 +14,7 @@ concurrency:
 
 jobs:
   cross-browser-and-art:
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 24
     steps:
@@ -57,3 +60,29 @@ jobs:
             test-results/editorial-ui/
           if-no-files-found: ignore
           retention-days: 7
+
+  snake-experiment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Inspect comparison and measurement export
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/snake-lab.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null' EXIT
+          node tests/browser-snake-lab.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: snake-lab-comparison
+          path: test-results/snake-lab/
+          if-no-files-found: ignore

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {resolveRealSnakeRig,rigNeckNodes,articulatedSnakeCircles,preloadArticulatedSnakeProto,drawArticulatedSnakeProto,disposeArticulatedSnakeProto,NECK_SEGMENTS} from '../Chaua-Educa-main/js/snake-articulated-proto.mjs';
-import {labPhases,labDuration,labState} from '../Chaua-Educa-main/js/snake-lab-timeline.mjs';
+import {labPhases,labDuration,labState,labCursor} from '../Chaua-Educa-main/js/snake-lab-timeline.mjs';
 import {snakeAttack} from '../Chaua-Educa-main/js/attack-patterns.mjs';
 const types=['frontal','alto','varredura'];
 test('all attack phase boundaries have the same head position and rotation on both sides',()=>{
@@ -71,4 +71,15 @@ test('preload is shared, draw submits one head and coil plus bounded neck, no ba
 test('experimental atlas integrity is pinned independently of production art',()=>{
  const data=readFileSync(new URL('../Chaua-Educa-main/public/snake/experimental/rig-parts.webp',import.meta.url));
  assert.equal(createHash('sha256').update(data).digest('hex'),'561aa070f5be2c7fb8f86c5f4ade99764a3e57bec665f1051099bb81498db0bd');
+});
+
+test('paused seek preserves the inclusive endpoint while playback wraps',()=>{
+ for(const type of types)for(const mode of ['auto','watching','warning','windup','striking','recovering','stunned']){
+  const end=labDuration(type,mode);
+  assert.equal(labCursor(type,mode,end,true),end);
+  assert.equal(labCursor(type,mode,end,false),0);
+  const state=labState(type,mode,end,true);
+  assert.equal(state.phase,mode==='auto'?'spent':mode);
+  assert.ok(Math.abs(state.phaseAge-(mode==='auto'?.5:end))<1e-9);
+ }
 });

@@ -32,6 +32,25 @@ const OUT='test-results/snake-lab';fs.mkdirSync(OUT,{recursive:true});
    await page.locator('#seek').fill('450');await page.locator('#seek').dispatchEvent('input');
    await page.waitForTimeout(50);
    assert.equal(await page.evaluate(()=>window.snakeLab.snapshot().paused),true);
+   // An endpoint inspection must not silently show the start pose.
+   await page.selectOption('#phaseMode','striking');
+   await page.locator('#seek').fill('1000');await page.locator('#seek').dispatchEvent('input');
+   await page.waitForTimeout(300);
+   assert.equal(await page.locator('#seek').inputValue(),'1000');
+   for(const [mode,active,inactive] of [['official',0,1],['rig',1,0]]){
+    await page.selectOption('#viewMode',mode);
+    await page.waitForFunction(([a,b])=>{const r=window.snakeLab.report();return [r.raw.officialCpuMs,r.raw.rigCpuMs][a].length>=8&&[r.raw.officialCpuMs,r.raw.rigCpuMs][b].length===0;},[active,inactive]);
+    const report=await page.evaluate(()=>window.snakeLab.report());
+    assert.equal(report.settings.viewMode,mode);
+    assert.ok(report.pageIntervalsMs.count>0);
+    assert.equal(await page.locator(active?'#canvasArt':'#canvasA2').isVisible(),true);
+    assert.equal(await page.locator(inactive?'#canvasArt':'#canvasA2').isVisible(),false);
+   }
+   const downloadEvent=page.waitForEvent('download');
+   await page.click('#btnExport');const download=await downloadEvent;
+   const exported=JSON.parse(fs.readFileSync(await download.path(),'utf8'));
+   assert.equal(exported.settings.viewMode,'rig');assert.ok(exported.raw.rigCpuMs.length>0);
+   assert.equal(exported.cpuMs.official.median,null);
    assert.deepEqual(errors,[]);
    await page.close();
   }

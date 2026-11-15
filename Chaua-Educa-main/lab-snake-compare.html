@@ -109,6 +109,8 @@
       border-radius: 10px;
     }
     .card { min-width: 0; }
+    [hidden] { display: none !important; }
+    .stage-grid.solo { grid-template-columns: minmax(0, 680px); justify-content: center; }
     p { margin: 0; line-height: 1.5; max-width: 100ch; }
     input[type=range] { width: min(240px, 40vw); }
     @media(max-width: 720px) { body { padding: 12px; } .stage-grid { grid-template-columns: 1fr; } .card-header { flex-wrap: wrap; gap: 6px; } }
@@ -117,6 +119,8 @@
 <header><h1>Cobra: quadros inteiros × peças articuladas</h1><div id="status" role="status">Carregando as duas versões…</div></header>
 <p>Experimento da branch Fracasso. A cobra da direita usa uma arte nova de peças separadas: cabeça rígida, pescoço curvo e base apoiada. Compare a identidade visual e o movimento. Este laboratório não altera a cobra nem as colisões do jogo.</p>
 <div class="controls">
+<label>Exibição <select id="viewMode"><option value="both">Lado a lado</option><option value="official">Somente oficial</option><option value="rig">Somente articulada</option></select></label>
+<button id="btnExport" type="button">Baixar medições JSON</button>
 <label>Ataque <select id="attackType"><option value="frontal">Frontal</option><option value="alto">Alto</option><option value="varredura">Varredura baixa</option></select></label>
 <label>Fase <select id="phaseMode"><option value="auto">Ciclo completo</option><option value="watching">Repouso</option><option value="warning">Alerta</option><option value="windup">Preparação</option><option value="striking">Bote</option><option value="recovering">Recuo</option><option value="stunned">Atordoada</option></select></label>
 <label>Velocidade <select id="timeScale"><option value="1">1×</option><option value="0.5">0,5×</option><option value="0.2">0,2×</option></select></label>
@@ -133,6 +137,6 @@
 <section class="card"><div class="card-header"><strong>Experimento · Peças articuladas</strong><span>Uma cabeça, sem dissolução entre poses</span></div><canvas id="canvasArt" width="480" height="420" aria-label="Cobra articulada experimental"></canvas><div class="metrics" id="metricsArt">Aguardando amostras</div></section>
 </div>
 <p id="frameStats" class="metrics"></p>
-<p>Os tempos CPU medem o envio dos desenhos ao Canvas, excluindo tronco e guias. O intervalo entre quadros pertence à página inteira, com as duas versões abertas. Esses números não medem VRAM, tempo de GPU ou FPS do jogo no seu aparelho. A boca tem duas expressões; a abertura de mandíbula ainda precisa de uma peça própria para uma transição contínua.</p>
+<p>Os tempos CPU medem o envio dos desenhos ao Canvas, excluindo tronco e guias. O intervalo entre quadros pertence à página inteira, com as duas versões abertas. Esses números não medem VRAM, tempo de GPU ou FPS do jogo no seu aparelho. Para medir cada versão isoladamente, selecione “Somente oficial” ou “Somente articulada”, mantenha os mesmos controles e aguarde as amostras. Baixe um JSON de cada execução para comparar no mesmo aparelho. A boca tem duas expressões; a abertura de mandíbula ainda precisa de uma peça própria para uma transição contínua.</p>
 <script type="module" src="./js/lab-snake-compare.mjs"></script>
 </body></html>

@@ -29,3 +29,11 @@ Prompt: atlas transparente 2×2 com quatro peças isoladas: base enrolada sem ca
 Aprovar apenas se o rosto mantiver identidade, as junções não incomodarem, os três ataques ficarem legíveis e o movimento agradar mais que a referência no aparelho real. Se o acabamento por peças perder para a arte intacta, a spritesheet continua sendo a escolha adequada. Este experimento não autoriza merge nem troca da arte pública.
 
 Verificação automatizada: continuidade das fases, alvos distintos, âncora, geometria finita, movimento reduzido, carga compartilhada, limite de comandos e hash do atlas em `tests/snake-articulated-proto.test.mjs`. `tests/browser-snake-lab.cjs` percorre os três ataques/fases em desktop e mobile, testa controles, redução de movimento e erro de imagem; integrado ao QA Chromium/WebKit, com capturas nos artefatos do PR.
+
+## Continuação: medição isolada e resultado exportável
+
+A comparação agora permite “Somente oficial” e “Somente articulada”: apenas o renderer selecionado desenha e recebe amostras. Trocar controles reinicia o aquecimento de 30 quadros. Pausar/reproduzir também limpa as medições para não misturar amostras de geometria parada e animada. A janela guarda até 600 amostras por métrica.
+
+“Baixar medições JSON” exporta os tempos brutos, mediana/p95/p99, intervalos acima de 33,33 e 50 ms, controles, navegador e viewport. Métricas sem amostras ficam nulas. Não mede VRAM/GPU nem promete ganho no jogo. Para comparação, use a mesma quantidade de cobras, ataque, velocidade e guias; espere cerca de 10 segundos em cada modo isolado e salve um JSON por modo.
+
+O controle de tempo pausado mantém 100% no fim da fase, em vez de retornar à primeira pose. O ciclo em reprodução continua repetindo. QA de navegador cobre esse limite, exclusão do renderer oculto e download/leitura do JSON. O job “snake-experiment” do workflow de QA estendido roda nos pushes da branch `Fracasso` e publica capturas da comparação.
