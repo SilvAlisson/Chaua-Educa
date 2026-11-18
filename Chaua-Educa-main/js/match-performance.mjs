@@ -4,7 +4,6 @@
 import {summarizeFrames} from './frame-summary.mjs';
 import {journeySeason} from './seasons.mjs';
 import {getWeatherMode} from './weather.mjs';
-import {GAME_VERSION} from './version.mjs';
 
 export const MATCH_PERF_KEY='chaua-performance-matches-v1';
 export const MATCH_PERF_SETTING='chaua-performance-auto-enabled';
@@ -160,12 +159,11 @@ export class MatchPerformance {
  finish(reason,game,quality,renderer){
   const c=this.current;
   if(!c)return null;
-  // Clear the active session before any storage work or UI callbacks.
+  this.snapshot(game,quality,renderer,'end:'+reason);
   this.current=null;
-  this.current=c;this.snapshot(game,quality,renderer,'end:'+reason);this.current=null;
   const report={
    schemaVersion:1,source:'Chaua Educa / desempenho automatico por partida',
-   provenance:{gameVersion:GAME_VERSION,host:typeof location!=='undefined'?location.host:null,
+   provenance:{gameVersion:typeof document==='undefined'?null:document.querySelector('meta[name="chaua-build"]')?.content||null,host:typeof location!=='undefined'?location.host:null,
     path:typeof location!=='undefined'?location.pathname:null},
    id:c.id,startedAt:c.start,collectedAt:new Date().toISOString(),
    device:viewportInfo(renderer),
