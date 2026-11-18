@@ -55,6 +55,7 @@ jobs:
           npm run test:render-profile
           npm run test:auto-visual
           npm run test:perf-probe
+          node tests/browser-match-performance.cjs
           npm run test:perf-forensics
           npm run test:perf-experiments
           npm run test:snake-continuity
