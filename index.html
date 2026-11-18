@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#163c2c">
+  <title>Chauá Educa · Iniciar jogo</title>
+  <!-- The project Pages root is only an entry point. Game assets and relative
+       module imports belong to the canonical Chaua-Educa-main/ directory. -->
+  <script>
+    (() => {
+      const target = new URL('./Chaua-Educa-main/', window.location.href);
+      // Preserve existing deep diagnostic URLs and direct share fragments.
+      target.search = window.location.search;
+      target.hash = window.location.hash;
+      window.location.replace(target.href);
+    })();
+  </script>
+  <!-- Native fallback if scripts are blocked; the link below also works. -->
+  <meta http-equiv="refresh" content="0; url=./Chaua-Educa-main/">
+</head>
+<body>
+  <main>
+    <p>Abrindo o Chauá Educa...</p>
+    <p><a href="./Chaua-Educa-main/">Entrar diretamente no jogo</a></p>
+  </main>
+</body>
+</html>
