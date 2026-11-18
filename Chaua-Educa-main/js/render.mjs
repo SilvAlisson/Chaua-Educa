@@ -1541,7 +1541,10 @@ export class Renderer {
         // illuminates the complete scene without whitening warning labels.
         drawLightningIllumination(c,this.w,this.h,sceneTime,storm,reduced);
         // Natural viewport flight boundary
+        const warningLayoutAt=probe?probe.begin('render.warningLayout'):0;
         const {boxes}=flightWarnings(game,view,reduced,shakeX,shakeY);
+        if(probe)probe.end('render.warningLayout',warningLayoutAt,{count:boxes.length});
+        const warningPaintAt=probe?probe.begin('render.warningPaint'):0;
         if(boxes.length){
             for(const box of boxes){
                 c.save();c.fillStyle='#fff4db';c.strokeStyle='#70513d';c.lineWidth=1.2;
@@ -1552,6 +1555,7 @@ export class Renderer {
                 c.restore();
             }
         }
+        if(probe)probe.end('render.warningPaint',warningPaintAt,{count:boxes.length});
         if (game.state === 'ended' && game.won) {
             for (let i = 0; i < (this.decoration==='low'?12:32); i++) {
                 const t = reduced ? 0 : visualTime * 25;

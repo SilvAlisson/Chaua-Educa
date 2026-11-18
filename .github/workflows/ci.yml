@@ -78,6 +78,7 @@ jobs:
           npm run test:render-profile
           npm run test:auto-visual
           npm run test:perf-probe
+          node scripts/benchmark-warning-bursts.mjs
           node tests/browser-match-performance.cjs
           npm run test:perf-forensics
           npm run test:perf-experiments

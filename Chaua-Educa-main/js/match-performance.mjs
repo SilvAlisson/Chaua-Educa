@@ -143,11 +143,18 @@ export class MatchPerformance {
      else position=smallest;
     }
     if(position>=0){
-     let wood=0,hawk=0,snake=0,fruit=0;
+     let wood=0,hawk=0,snake=0,fruit=0,snakeWarnings=0,hawkWarnings=0;
      for(const entity of game.entities||[]){
-      if(entity.kind==='wood'){wood++;if(entity.snake)snake++;}
-      else if(entity.kind==='hawk')hawk++;
-      else if(entity.kind==='fruit')fruit++;
+      if(entity.kind==='wood'){
+       wood++;
+       if(entity.snake){
+        snake++;
+        if(entity.snake.phase==='warning'||entity.snake.phase==='windup'||entity.snake.phase==='striking')snakeWarnings++;
+       }
+      }else if(entity.kind==='hawk'){
+       hawk++;
+       if(!entity.harmless&&entity.x>game.x+100)hawkWarnings++;
+      }else if(entity.kind==='fruit')fruit++;
      }
      c.stutters[position]={
       frame:c.samples.length,frameMs:round(dt),gameSeconds:round(game.elapsed||0),
@@ -155,7 +162,8 @@ export class MatchPerformance {
       previousCallbackCpuMs:c.previousCpuMs===null?null:round(c.previousCpuMs),
       currentCallbackCpuMs:round(callbackMs),
       pendingSeasonSurface:renderer.seasonalBackdrop?.pending?.id??null,
-      entities:{wood,hawk,snake,fruit,particles:game.particles?.length??0}
+      entities:{wood,hawk,snake,fruit,particles:game.particles?.length??0},
+      visibleWarnings:{snakes:snakeWarnings,hawks:hawkWarnings}
      };
     }
    }

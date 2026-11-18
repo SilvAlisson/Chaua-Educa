@@ -42,3 +42,20 @@ test('warning allocation optimization preserves all original screen placements',
  }
  assert.equal(checked,420);
 });
+
+test('three independent snake warnings do not move or cover one another',()=>{
+ const view={x:0,y:0,w:960,h:640};
+ const protectedRegions=[{x:415,y:250,w:180,h:130}];
+ const notices=[
+  {type:'snake',entity:{id:1},x:75,y:120,w:160,h:26},
+  {type:'snake',entity:{id:2},x:365,y:120,w:160,h:26},
+  {type:'snake',entity:{id:3},x:720,y:120,w:160,h:26}
+ ];
+ const actual=placeWarnings(notices,view,protectedRegions);
+ assert.deepEqual(actual,referenceWarnings(notices,view,protectedRegions));
+ for(let i=0;i<notices.length;i++)
+  assert.deepEqual([actual[i].x,actual[i].y],[notices[i].x,notices[i].y]);
+ // Retain full search and exact parity when three notices share one position.
+ const crowded=notices.map((item,i)=>({...item,x:170+i*2,y:260}));
+ assert.deepEqual(placeWarnings(crowded,view,protectedRegions),referenceWarnings(crowded,view,protectedRegions));
+});

@@ -634,9 +634,22 @@ function syncUI() {
         const number=Math.max(1,Math.ceil(game.countdown));hudText('#count-number',number);
         if(flightCues.countdown(number)) { $('#screen-reader-status').textContent=`Prepare as asas: ${number}`; sound('countdown'); }
     } else flightCues.countdown(null);
+    // Isolate the mobile warning burst: cue discovery, accessible DOM update
+    // and sound creation are all separate from Canvas warning badge painting.
+    // The normal game pays no instrumented timing cost.
+    const cueProbe=activeProbe;
+    const cueAt=cueProbe?cueProbe.begin('ui.warningCues'):0;
     const cues=flightCues.warnings(game);
-    if(cues.length) { hudText('#flight-alert',cues.map(cue=>cue.text).join(' ')); for(const cue of cues)if(warningSounds)sound(cue.sound); }
+    if(cueProbe)cueProbe.end('ui.warningCues',cueAt,{count:cues.length});
+    const noticeAt=cueProbe?cueProbe.begin('ui.warningAnnouncement'):0;
+    if(cues.length)hudText('#flight-alert',cues.map(cue=>cue.text).join(' '));
     else if(!flightCues.hasWarnings(game))hudText('#flight-alert','');
+    if(cueProbe)cueProbe.end('ui.warningAnnouncement',noticeAt,{count:cues.length});
+    if(cues.length&&warningSounds){
+        const soundAt=cueProbe?cueProbe.begin('ui.warningSounds'):0;
+        for(const cue of cues)sound(cue.sound);
+        if(cueProbe)cueProbe.end('ui.warningSounds',soundAt,{count:cues.length});
+    }
     hudText('#score',game.score);
     hudText('#stage-name',game.tutorial ? (LESSONS[game.tutorial.step]?.title || 'Treino concluído') : STAGES[game.stage]);
     const progress=game.tutorial ? game.tutorial.step/LESSONS.length*100 : Math.min(100,journeyProgress(game)*100);

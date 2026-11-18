@@ -54,8 +54,14 @@ export function placeWarnings(items,view,protectedRegions=[]){
   const right=Math.max(left,view.x+view.w-box.w-4),bottom=Math.max(top,view.y+view.h-box.h-4);
   box.x=Math.max(left,Math.min(right,item.x));box.y=Math.max(top,Math.min(bottom,item.y));
   const blockers=[...protectedRegions,...result];
-  // Preserve candidate ordering, deduplication and tie-break rules, but
-  // avoid flatMap pair arrays and a per-candidate reduce/candidate allocation.
+  // Zero overlap AND zero displacement is a global optimum: there cannot
+  // be a better position. Three separate snake notices should therefore not
+  // run the costly X×Y candidate search on every animation frame.
+  let initialOverlap=0;
+  for(const blocker of blockers)initialOverlap+=area(box,blocker);
+  if(initialOverlap===0){result.push(box);continue;}
+  // Only crowded placements need the full original candidate search.
+  // Preserve ordering, deduplication and tie-breaks for exact visual parity.
   const xs=[box.x,left,right],ys=[box.y,top,bottom];
   for(const b of blockers){
    xs.push(b.x-box.w-gap,b.x+b.w+gap);
