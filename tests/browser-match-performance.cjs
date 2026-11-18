@@ -41,7 +41,7 @@ const {chromium}=require('playwright');
   await page.locator('#result-dialog').waitFor({state:'visible'});
   const count=await page.evaluate(()=>JSON.parse(localStorage.getItem('chaua-performance-matches-v1')).length);
   assert.equal(count,2,'reports stored separately per match');
-  await page.locator('.back-home').first().click();
+  await page.locator('#result-dialog .back-home').click();
   await page.locator('#open-settings').click();
   await page.locator('#settings-dialog').waitFor({state:'visible'});
   assert.equal(await page.locator('#auto-match-performance').isChecked(),true);
