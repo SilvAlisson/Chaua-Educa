@@ -116,18 +116,21 @@ function polygonOverlapsRectBounds(poly,rect){
         maxY>rect.y&&minY<rect.y+rect.h;
 }
 export function shapesHitRect(shapes,rect){
- // Broad-phase rejects obvious misses before allocating or projecting
- // anything; still perform the original precise SAT on close contacts.
- let mayHit=false;
- for(const poly of shapes){
-  if(polygonOverlapsRectBounds(poly,rect)){mayHit=true;break;}
- }
- if(!mayHit)return false;
+ // One sweep per polygon: test AABB and exact SAT together. Previously
+ // close calls rescanned 20-point polygons twice before reaching SAT.
+ // RectScratch is initialized lazily so distant objects stay cheap.
  const x=rect.x,y=rect.y,X=x+rect.w,Y=y+rect.h;
- rectScratch[0].x=x;rectScratch[0].y=y;
- rectScratch[1].x=X;rectScratch[1].y=y;
- rectScratch[2].x=X;rectScratch[2].y=Y;
- rectScratch[3].x=x;rectScratch[3].y=Y;
- for(const poly of shapes)if(polygonOverlapsRectBounds(poly,rect)&&intersects(poly,rectScratch))return true;
+ let prepared=false;
+ for(const poly of shapes){
+  if(!polygonOverlapsRectBounds(poly,rect))continue;
+  if(!prepared){
+   rectScratch[0].x=x;rectScratch[0].y=y;
+   rectScratch[1].x=X;rectScratch[1].y=y;
+   rectScratch[2].x=X;rectScratch[2].y=Y;
+   rectScratch[3].x=x;rectScratch[3].y=Y;
+   prepared=true;
+  }
+  if(intersects(poly,rectScratch))return true;
+ }
  return false;
 }
