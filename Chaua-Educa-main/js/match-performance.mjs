@@ -110,15 +110,23 @@ export class MatchPerformance {
    this.finish('returned-to-menu',game,quality,renderer);return;
   }
   if(!eligible){c.previous=0;c.previousCpuMs=null;return;}
-  const profile=quality.mode+'/'+quality.level+'/'+renderer.resolution+'/'+renderer.decoration;
-  if(profile!==c.lastProfile){
+  // Quality is stable for nearly every frame. Avoid constructing a new
+  // four-part profile string at 60+ Hz; still record every real profile change.
+  const mode=quality.mode,level=quality.level,resolution=renderer.resolution,
+   decoration=renderer.decoration;
+  if(mode!==c.lastMode||level!==c.lastLevel||
+      resolution!==c.lastResolution||decoration!==c.lastDecoration){
+   const profile=mode+'/'+level+'/'+resolution+'/'+decoration;
    if(c.profileChanges.length<MAX_SNAPSHOTS)c.profileChanges.push({
     gameSeconds:round(game.elapsed||0),profile,canvas:[renderer.canvas.width,renderer.canvas.height]
    });
    c.lastProfile=profile;
+   c.lastMode=mode;c.lastLevel=level;
+   c.lastResolution=resolution;c.lastDecoration=decoration;
   }
+  const profile=c.lastProfile;
   if(c.previous>0&&timestamp>c.previous&&c.samples.length<MAX_FRAMES){
-   const dt=timestamp-c.previous,stage=String(game.stage),windowKey=String(Math.floor((game.elapsed||0)/10)*10);
+   const dt=timestamp-c.previous,stage=game.stage,windowKey=Math.floor((game.elapsed||0)/10)*10;
    c.samples.push(dt);
    (c.byStage[stage]??(c.byStage[stage]=[])).push(dt);
    (c.byWindow[windowKey]??(c.byWindow[windowKey]=[])).push(dt);
