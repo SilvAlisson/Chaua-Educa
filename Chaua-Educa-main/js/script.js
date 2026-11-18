@@ -13,6 +13,7 @@ import { FOODS } from './foods.mjs';
 import DB from './database.js';
 import { Game, FlightClock, HEIGHT, STAGES, VICTORY_SCORE } from './engine.mjs';
 import { Renderer, drawBird } from './render.mjs';
+import {MatchPerformance,exportMatchReports,MATCH_PERF_SETTING} from './match-performance.mjs';
 
 const $ = selector => document.querySelector(selector);
 const app = $('#app');
@@ -24,6 +25,8 @@ document.documentElement.classList.toggle('mobile-device', mobileDevice);
 if(mobileDevice) $('.home-links').append($('#open-credits'));
 const renderer = new Renderer($('#forest'));
 const quality=new VisualQuality(DB.readObject('chaua-visual-quality','auto'));
+const diagnosticLink=new URLSearchParams(location.search).get('perf-test')==='1';
+const matchPerformance=new MatchPerformance({enabled:!diagnosticLink&&DB.readObject(MATCH_PERF_SETTING,true)!==false});
 function applyVisualQuality() {
     if(quality.mode==='auto')renderer.setAutomaticQuality(quality.level);
     else renderer.setQuality(quality.level);
@@ -53,6 +56,7 @@ function toast(text) {
 }
 
 export const game = new Game({ onEvent(event) {
+    matchPerformance.event(event.type,game);
     const probe=activeProbe;
     if(probe)probe.event('game:'+event.type,{
       gameSeconds:Math.round(game.elapsed*100)/100,stage:game.stage,
@@ -173,6 +177,7 @@ function start(training = false) {
     // app/canvas ResizeObserver. A synchronous resize here forced style/layout
     // immediately after changing classes and hiding the home screen.
     if(training)game.startTutorial();else game.start(selectedMode, DB.reviewTopics(player));
+    matchPerformance.start(game,quality,renderer,training);
     app.classList.toggle('training',training);
     previousState = ''; clock.reset(); lastTime = 0;
     $('#score-bonus').textContent = ''; $('#toast').classList.remove('visible'); toastUntil = 0;
@@ -182,6 +187,7 @@ function start(training = false) {
     syncUI();
 }
 function home() {
+    if(matchPerformance.finish('returned-to-menu',game,quality,renderer))refreshPerformanceControls();
     closeDialogs(); clearInputs(); cancelAnimationFrame(resultAnimation);
     game.reset(); previousState = ''; clock.reset(); lastTime = 0;
     releaseFlightLandscape(app, document, screen);
@@ -425,6 +431,9 @@ function syncUI() {
             $('#answer-true').disabled = false; $('#answer-false').disabled = false;
             openDialog('#quiz-dialog');
         }
+        if(game.state==='ended'||game.state==='trained'){
+            if(matchPerformance.finish(game.state,game,quality,renderer))refreshPerformanceControls();
+        }
         if (game.state === 'ended') result();
         if (game.state === 'trained') {openDialog('#training-dialog');$('#training-home').focus();}
         previousState = game.state;
@@ -478,6 +487,7 @@ function frame(time) {
         journeyRain(game, game.tutorial), journeyStorm(game, game.mode, game.tutorial),
         journeyWind(game, game.mode, game.tutorial));
     if(document.hidden){
+        matchPerformance.frame(time,game,quality,renderer,0,false);
         quality.sample(delta,false);
         if(probe)probe.endFrame();
         requestAnimationFrame(frame);return;
@@ -499,7 +509,9 @@ function frame(time) {
     }
     if(probe)probe.endFrame();
     const activeFlight=document.hasFocus()&&game.state==='playing';
-    if(quality.sample(delta,activeFlight,performance.now()-frameWorkStart))applyVisualQuality();
+    const frameWorkMs=performance.now()-frameWorkStart;
+    if(quality.sample(delta,activeFlight,frameWorkMs))applyVisualQuality();
+    matchPerformance.frame(time,game,quality,renderer,frameWorkMs,activeFlight);
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -571,6 +583,11 @@ function showSettings(fromPause=false){
     settingsFromPause=fromPause;
     if(fromPause)$('#pause-dialog').close();
     $('#quality-mode').value=quality.mode;
+    if($('#auto-match-performance')){
+      $('#auto-match-performance').checked=matchPerformance.enabled;
+      $('#auto-match-performance').disabled=diagnosticLink;
+    }
+    refreshPerformanceControls();
     if($('#weather-mode')) $('#weather-mode').value=getWeatherMode();
     $('#audio-volume').value=Math.round(forestAudio.volume*100);
     $('#volume-value').textContent=`${Math.round(forestAudio.volume*100)}%`;
@@ -595,7 +612,36 @@ $('#audio-volume').addEventListener('input',event=>{
     saveSetting('chaua-volume',forestAudio.volume);
 });
 
-// Diagnostic tooling is opt-in and never loaded in normal gameplay.
+// Lightweight match telemetry never uploads data or opens a second RAF loop.
+function refreshPerformanceControls(){
+ const last=matchPerformance.latest(),count=matchPerformance.all().length;
+ for(const selector of ['#download-latest-match','#download-training-match']){
+  const node=$(selector);if(node)node.disabled=!last;
+ }
+ const history=$('#download-match-history');if(history)history.disabled=!count;
+ const status=$('#performance-history-status');
+ if(status)status.textContent=count?
+  `${count} partida(s) salvas. Última: ${last?.summary?.fps??'—'} FPS; ${last?.summary?.framesOver33Ms??0} quadros acima de 33 ms.`:
+  'Cada partida gera um registro automaticamente neste navegador.';
+}
+function downloadLatestMatch(){
+ const last=matchPerformance.latest();
+ if(last)exportMatchReports([last],`chaua-partida-${last.id}.json`);
+}
+$('#download-latest-match')?.addEventListener('click',downloadLatestMatch);
+$('#download-training-match')?.addEventListener('click',downloadLatestMatch);
+$('#download-match-history')?.addEventListener('click',()=>{
+ const reports=matchPerformance.all();
+ if(reports.length)exportMatchReports(reports,'chaua-desempenho-ultimas-partidas.json');
+});
+$('#auto-match-performance')?.addEventListener('change',event=>{
+ matchPerformance.setEnabled(event.target.checked&&!diagnosticLink);
+ refreshPerformanceControls();
+});
+window.addEventListener('pagehide',()=>matchPerformance.finish('pagehide',game,quality,renderer));
+refreshPerformanceControls();
+
+// Deep diagnostic tooling is opt-in and never loaded in normal gameplay.
 // All measurements remain in the device until the player downloads the JSON.
 if(new URLSearchParams(location.search).get('perf-test')==='1'){
     import('./perf-probe.mjs')
