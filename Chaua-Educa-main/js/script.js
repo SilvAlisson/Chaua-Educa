@@ -20,6 +20,7 @@ import { Game, FlightClock, HEIGHT, STAGES } from './engine.mjs';
 import {journeyProgress} from './journey.mjs';
 import {GAME_VERSION} from './version.mjs';
 import { Renderer, drawBird } from './render.mjs';
+import {MatchPerformance,exportMatchReports,MATCH_PERF_SETTING} from './match-performance.mjs';
 
 const $ = selector => document.querySelector(selector);
 const app = $('#app');
@@ -44,6 +45,9 @@ if(mobileDevice) $('.home-links').append($('#open-credits'));
 const renderer = new Renderer($('#forest'));
 renderer.homeMobileLayout=mobileDevice;
 const quality=new VisualQuality(DB.readObject('chaua-visual-quality','auto'));
+// Detailed forensic capture and automatic match summaries are exclusive.
+const diagnosticLink=new URLSearchParams(location.search).get('perf-test')==='1';
+const matchPerformance=new MatchPerformance({enabled:!diagnosticLink&&DB.readObject(MATCH_PERF_SETTING,true)!==false});
 function applyVisualQuality() {
     if(quality.mode==='auto')renderer.setAutomaticQuality(quality.level);
     else renderer.setQuality(quality.level);
@@ -78,6 +82,7 @@ function toast(text) {
 }
 
 export const game = new Game({ onEvent(event) {
+    matchPerformance.event(event.type,game);
     betaRuntime?.event(event.type);
     const probe=activeProbe;
     if(probe)probe.event('game:'+event.type,{
@@ -232,6 +237,7 @@ function start(training = false, checkpoint = null) {
     // immediately after changing classes and hiding the home screen.
     flightLearning=createFlightLearning(checkpoint?.stage??0);learningReturnFocus=null;
     if(training)game.startTutorial();else if(checkpoint){selectedMode='tranquilo';game.resumeChapter(checkpoint,DB.reviewTopics(player));}else game.start(selectedMode, DB.reviewTopics(player));
+    matchPerformance.start(game,quality,renderer,training);
     forestAudio.beginFlight();
     if(betaRuntime?.active)betaRuntime.attempt();
     renderer.resetFlightPresentation();
@@ -244,6 +250,7 @@ function start(training = false, checkpoint = null) {
     syncUI();
 }
 function home() {
+    if(matchPerformance.finish('returned-to-menu',game,quality,renderer))refreshPerformanceControls();
     closeDialogs(); clearInputs(); cancelAnimationFrame(resultAnimation);
     game.reset(); flightCues.reset(); previousState = ''; clock.reset(); lastTime = 0;
     releaseFlightLandscape(app, document, screen);
@@ -614,6 +621,9 @@ function syncUI() {
             $('#answer-true').disabled = false; $('#answer-false').disabled = false;
             openDialog('#quiz-dialog');
         }
+        if(game.state==='ended'||game.state==='trained'){
+            if(matchPerformance.finish(game.state,game,quality,renderer))refreshPerformanceControls();
+        }
         if (game.state === 'ended') result();
         if (game.state === 'trained') {openDialog('#training-dialog');$('#training-home').focus();}
         previousState = game.state;
@@ -676,6 +686,7 @@ function frame(time) {
         journeyWind(game, game.mode, game.tutorial));
     if(document.hidden){
         if(betaRuntime?.active)betaRuntime.frame(time,betaStateBefore);
+        matchPerformance.frame(time,game,quality,renderer,0,false);
         quality.sample(delta,false);
         if(probe)probe.endFrame();
         requestAnimationFrame(frame);return;
@@ -698,7 +709,9 @@ function frame(time) {
     if(probe)probe.endFrame();
     if(betaRuntime?.active)betaRuntime.frame(time,betaStateBefore);
     const activeFlight=document.hasFocus()&&game.state==='playing';
-    if(quality.sample(delta,activeFlight,performance.now()-frameWorkStart))applyVisualQuality();
+    const frameWorkMs=performance.now()-frameWorkStart;
+    if(quality.sample(delta,activeFlight,frameWorkMs))applyVisualQuality();
+    matchPerformance.frame(time,game,quality,renderer,frameWorkMs,activeFlight);
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -791,6 +804,11 @@ function showSettings(fromPause=false){
     settingsFromPause=fromPause;
     if(fromPause)$('#pause-dialog').close();
     $('#quality-mode').value=quality.mode;
+    if($('#auto-match-performance')){
+        $('#auto-match-performance').checked=matchPerformance.enabled;
+        $('#auto-match-performance').disabled=diagnosticLink;
+    }
+    refreshPerformanceControls();
     if($('#weather-mode')) $('#weather-mode').value=getWeatherMode();
     $('#controls-side').value=app.dataset.controlsSide;
     $('#warning-sounds').checked=warningSounds;
@@ -817,7 +835,36 @@ $('#audio-volume').addEventListener('input',event=>{
     saveSetting('chaua-volume',forestAudio.volume);
 });
 
-// Diagnostic tooling is opt-in and never loaded in normal gameplay.
+// Ordinary-play reports are local, bounded and exported only on user action.
+function refreshPerformanceControls(){
+    const report=matchPerformance.latest(),count=matchPerformance.all().length;
+    for(const id of ['#download-latest-match','#download-training-match']){
+        const button=$(id);if(button)button.disabled=!report;
+    }
+    const history=$('#download-match-history');if(history)history.disabled=!count;
+    const info=$('#performance-history-status');
+    if(info)info.textContent=count?
+        `${count} partida(s) neste navegador. Última: ${report?.summary?.fps??'—'} FPS; ${report?.summary?.framesOver33Ms??0} quadros acima de 33 ms.`:
+        'Ainda não há relatórios. Cada partida concluída gera um registro.';
+}
+function exportLatestMatch(){
+    const report=matchPerformance.latest();
+    if(report)exportMatchReports([report],`chaua-partida-${report.id}.json`);
+}
+$('#download-latest-match')?.addEventListener('click',exportLatestMatch);
+$('#download-training-match')?.addEventListener('click',exportLatestMatch);
+$('#download-match-history')?.addEventListener('click',()=>{
+    const reports=matchPerformance.all();
+    if(reports.length)exportMatchReports(reports,'chaua-desempenho-ultimas-partidas.json');
+});
+$('#auto-match-performance')?.addEventListener('change',event=>{
+    matchPerformance.setEnabled(event.target.checked&&!diagnosticLink);
+    refreshPerformanceControls();
+});
+window.addEventListener('pagehide',()=>matchPerformance.finish('pagehide',game,quality,renderer));
+refreshPerformanceControls();
+
+// Deep diagnostic tooling is opt-in and never loaded in normal gameplay.
 // All measurements remain in the device until the player downloads the JSON.
 if(new URLSearchParams(location.search).get('perf-test')==='1'){
     import('./perf-probe.mjs')

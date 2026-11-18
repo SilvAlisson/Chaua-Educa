@@ -7,7 +7,11 @@ const name=process.env.BETA_BROWSER||'chromium',version=require('../package.json
   page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(()=>{Element.prototype.requestFullscreen=async()=>{throw Error('not available');};Object.defineProperty(screen,'orientation',{configurable:true,value:{lock:async()=>{}}});});
   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});await page.locator('#start-training:not([disabled])').waitFor();
-  assert.equal(await page.evaluate(()=>performance.getEntriesByType('resource').some(r=>/\/(beta-ui|beta-session|frame-summary)\.mjs/.test(r.name))),false,'ordinary play must not import beta collectors');
+  // Ordinary play now intentionally loads the light match collector and its
+  // pure frame-summary helper. Only optional BETA modules must stay unloaded.
+  const loaded=await page.evaluate(()=>performance.getEntriesByType('resource').map(r=>r.name));
+  assert.equal(loaded.some(name=>/\/(beta-ui|beta-session)\.mjs/.test(name)),false,'ordinary play must not import optional beta collectors');
+  assert.equal(loaded.some(name=>/\/match-performance\.mjs/.test(name)),true,'ordinary play must load the lightweight match collector');
   const storage=await page.evaluate(()=>JSON.stringify(localStorage));
   await page.locator('#open-credits').click();await page.locator('#open-beta-about').click();await page.locator('#beta-dialog').waitFor({state:'visible'});
   await page.locator('#beta-group').selectOption('iniciante');await page.locator('#beta-family').selectOption('android');await page.locator('#beta-environment').selectOption('emulado');await page.locator('#beta-model').fill('Aparelho de teste');await page.locator('#beta-browser').fill(name);

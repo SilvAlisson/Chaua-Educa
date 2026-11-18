@@ -22,7 +22,7 @@ import { flightViewport, advanceFlightCamera } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
 import { journeyRain, journeyStorm, journeyWind, journeyFog, drawWindGusts, drawJourneyRain, drawForegroundRain, drawSurfaceRainImpacts, drawJourneyFog, drawLightning, drawLightningIllumination } from './weather.mjs';
-import {drawFood} from './food-art.mjs';
+import {drawFood,prewarmFoodArt} from './food-art.mjs';
 import {surfaceSnow} from './surface-weather.mjs';
 import {WeatherMotion} from './weather-motion.mjs';
 import {TreeDrips} from './weather-art.mjs';
@@ -368,21 +368,36 @@ function drawOrbitingStars(c, hx, hy, size, t) {
     c.restore();
 }
 
+// Keep exact vector edges; reuse the same Path2D instead of building eight
+// segments for each sparkle on each frame. No extra bitmap sampling or blur.
+const sparklePaths=new Map();
+function sparklePath(radius){
+    if(typeof Path2D==='undefined')return null;
+    let path=sparklePaths.get(radius);
+    if(path)return path;
+    path=new Path2D();
+    path.moveTo(0,-radius);path.lineTo(radius*.28,-radius*.28);
+    path.lineTo(radius,0);path.lineTo(radius*.28,radius*.28);
+    path.lineTo(0,radius);path.lineTo(-radius*.28,radius*.28);
+    path.lineTo(-radius,0);path.lineTo(-radius*.28,-radius*.28);
+    path.closePath();sparklePaths.set(radius,path);
+    return path;
+}
 function drawMiniSparkle(c, x, y, r, rot) {
-    c.save();
-    c.translate(x, y);
-    c.rotate(rot);
-    c.beginPath();
-    c.moveTo(0, -r); c.lineTo(r * 0.28, -r * 0.28);
-    c.lineTo(r, 0); c.lineTo(r * 0.28, r * 0.28);
-    c.lineTo(0, r); c.lineTo(-r * 0.28, r * 0.28);
-    c.lineTo(-r, 0); c.lineTo(-r * 0.28, -r * 0.28);
-    c.closePath();
-    c.fillStyle = '#fff4a8';
-    c.fill();
-    c.lineWidth = 1.2;
-    c.strokeStyle = '#8c6600';
-    c.stroke();
+    c.save();c.translate(x,y);c.rotate(rot);
+    const path=sparklePath(r);
+    if(!path){
+        c.beginPath();
+        c.moveTo(0,-r);c.lineTo(r*.28,-r*.28);
+        c.lineTo(r,0);c.lineTo(r*.28,r*.28);
+        c.lineTo(0,r);c.lineTo(-r*.28,r*.28);
+        c.lineTo(-r,0);c.lineTo(-r*.28,-r*.28);
+        c.closePath();
+    }
+    c.fillStyle='#fff4a8';
+    if(path)c.fill(path);else c.fill();
+    c.lineWidth=1.2;c.strokeStyle='#8c6600';
+    if(path)c.stroke(path);else c.stroke();
     c.restore();
 }
 
@@ -590,21 +605,34 @@ const PEPPER_AURA_STOPS = Object.freeze([[8, 0, '#ff523366'], [8, 0.5, '#ff88334
 const FEATHER_AURA_STOPS = Object.freeze([[16, 0, 'rgba(255, 235, 140, 0.45)'], [16, 0.65, 'rgba(255, 205, 60, 0.28)'], [16, 1, 'rgba(255, 216, 80, 0)']]);
 const SHIELD_AURA_STOPS = Object.freeze([[38, 0, 'rgba(46, 245, 195, 0.04)'], [38, 0.7, 'rgba(46, 245, 195, 0.28)'], [38, 1, 'rgba(46, 245, 195, 0)']]);
 const compareFruitX = (a, b) => a.x - b.x;
-const pickupCaches = new Map();
-function getPickupCache(key, radius, stops) {
-    let surface = pickupCaches.get(key);
-    if (surface) return surface;
-    const size = radius * 2;
-    surface = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(size, size) :
-        typeof document !== 'undefined' ? document.createElement('canvas') : null;
-    if (!surface) return null;
-    surface.width = size; surface.height = size;
-    const gc = surface.getContext('2d');
-    if (!gc) return null;
-    const g = gc.createRadialGradient(radius, radius, stops[0][0], radius, radius, radius);
-    for (const [, stop, color] of stops) g.addColorStop(stop, color);
-    oval(gc, radius, radius, radius, radius, g);
-    pickupCaches.set(key, surface);
+// A single declarative source for every glow. No temporary array literals
+// are built in the hot draw loop, and all effect textures are warmed preflight.
+const PICKUP_GLOW_SPECS=Object.freeze({
+    'fruit-glow':{radius:28,stops:[[4,0,'#ffffffaa'],[4,.5,'#f4d87c44'],[4,1,'#ffffff00']]},
+    'pepper-glow':{radius:36,stops:[[4,0,'#ff5233bb'],[4,.6,'#ff803355'],[4,1,'#ffffff00']]},
+    'feather-glow':{radius:42,stops:[[6,0,'#ffe399dd'],[6,.6,'#ffd55e66'],[6,1,'#ffffff00']]},
+    'shield-glow':{radius:42,stops:[[6,0,'#a8f5d0dd'],[6,.6,'#46e49e66'],[6,1,'#ffffff00']]},
+    'chaua-shield-aura':{radius:78,stops:SHIELD_AURA_STOPS},
+    'chaua-pepper-aura':{radius:60,stops:PEPPER_AURA_STOPS},
+    'chaua-feather-aura':{radius:84,stops:FEATHER_AURA_STOPS}
+});
+const pickupCaches=new Map();
+function getPickupCache(key) {
+    let surface=pickupCaches.get(key);
+    if(surface)return surface;
+    const spec=PICKUP_GLOW_SPECS[key];
+    if(!spec)return null;
+    const radius=spec.radius,stops=spec.stops,size=radius*2;
+    surface=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(size,size):
+        typeof document!=='undefined'?document.createElement('canvas'):null;
+    if(!surface)return null;
+    surface.width=size;surface.height=size;
+    const gc=surface.getContext('2d');
+    if(!gc)return null;
+    const g=gc.createRadialGradient(radius,radius,stops[0][0],radius,radius,radius);
+    for(const [,stop,color] of stops)g.addColorStop(stop,color);
+    oval(gc,radius,radius,radius,radius,g);
+    pickupCaches.set(key,surface);
     return surface;
 }
 
@@ -696,12 +724,11 @@ export class Renderer {
     initializeAssets() {
         this.ready = Promise.all([loadAssets(),preloadSnakeA2(),preloadActionSheets()]).then(() => {
             prepareTreeWeather(this.c);
-            // Warm up pickup radial caches during asset load so first spawn never stalls.
-            getPickupCache('fruit-glow', 28, [[4, 0, '#ffffffaa'], [4, 0.5, '#f4d87c44'], [4, 1, '#ffffff00']]);
-            getPickupCache('pepper-glow', 36, [[4, 0, '#ff5233bb'], [4, 0.6, '#ff803355'], [4, 1, '#ffffff00']]);
-            getPickupCache('feather-glow', 42, [[6, 0, '#ffe399dd'], [6, 0.6, '#ffd55e66'], [6, 1, '#ffffff00']]);
-            getPickupCache('shield-glow', 42, [[6, 0, '#a8f5d0dd'], [6, 0.6, '#46e49e66'], [6, 1, '#ffffff00']]);
-            getPickupCache('chaua-shield-aura', 78, [[38, 0, 'rgba(46, 245, 195, 0.04)'], [38, 0.7, 'rgba(46, 245, 195, 0.28)'], [38, 1, 'rgba(46, 245, 195, 0)']]);
+            // All cold-weather food artwork and visual caches are prepared
+            // before flight, not during the first pickup or winter transition.
+            prewarmFoodArt();
+            for(const key of Object.keys(PICKUP_GLOW_SPECS))getPickupCache(key);
+            for(const radius of [3,3.5,4.5,6])sparklePath(radius);
             getPepperSprite();
             const particlesImg = images.get('season-particles');
             if (particlesImg && !particlesImg._rasterized) {
@@ -1269,7 +1296,7 @@ export class Renderer {
             const remaining = Math.min(1, game.pepper / 2);
             c.globalAlpha = 0.5 + 0.5 * remaining;
             const turboRadius = (46 + 14 * remaining) * (reduced ? 1 : 1 + Math.sin(game.elapsed * 12) * 0.08);
-            const auraSurface = getPickupCache('chaua-pepper-aura', 60, PEPPER_AURA_STOPS);
+            const auraSurface = getPickupCache('chaua-pepper-aura');
             if (auraSurface) c.drawImage(auraSurface, game.x - turboRadius, game.y - turboRadius, turboRadius * 2, turboRadius * 2);
             else {
                 const aura = c.createRadialGradient(game.x, game.y, 8, game.x, game.y, turboRadius);
@@ -1301,7 +1328,7 @@ export class Renderer {
             const remaining = Math.min(1, game.feather / 3);
             c.globalAlpha = 0.5 + 0.5 * remaining;
             const radius = (66 + 18 * remaining) * (reduced ? 1 : 1 + Math.sin(game.elapsed * 3) * 0.06);
-            const auraSurface = getPickupCache('chaua-feather-aura', 84, FEATHER_AURA_STOPS);
+            const auraSurface = getPickupCache('chaua-feather-aura');
             if (auraSurface) c.drawImage(auraSurface, game.x - radius, game.y - radius, radius * 2, radius * 2);
             else {
                 const aura = c.createRadialGradient(game.x, game.y, 16, game.x, game.y, radius);
@@ -1378,7 +1405,7 @@ export class Renderer {
             c.save();
             c.globalAlpha = game.shield ? 0.95 : 0.45;
             const auraRadius = r + 10;
-            const auraSurface = getPickupCache('chaua-shield-aura', auraRadius, SHIELD_AURA_STOPS);
+            const auraSurface = getPickupCache('chaua-shield-aura');
             if (auraSurface) c.drawImage(auraSurface, game.x - auraRadius, game.y - auraRadius, auraRadius * 2, auraRadius * 2);
             else {
                 const aura = c.createRadialGradient(game.x, game.y, 38, game.x, game.y, auraRadius);
@@ -1657,7 +1684,7 @@ export class Renderer {
         c.save(); c.translate(e.x, e.y);
         c.scale(pulse, pulse);
         if (e.kind === 'fruit') {
-            const glowSurface = getPickupCache('fruit-glow', 28, [[4, 0, '#ffffffaa'], [4, 0.5, '#f4d87c44'], [4, 1, '#ffffff00']]);
+            const glowSurface = getPickupCache('fruit-glow');
             if (glowSurface) c.drawImage(glowSurface, -28, float - 28, 56, 56);
             else {
                 const glow = c.createRadialGradient(0, float, 4, 0, float, 28);
@@ -1670,7 +1697,7 @@ export class Renderer {
                 drawMiniSparkle(c, Math.cos(sa) * 22, Math.sin(sa) * 16 + float, 3, time * 5);
             }
         } else if (e.kind === 'pepper') {
-            const glowSurface = getPickupCache('pepper-glow', 36, [[4, 0, '#ff5233bb'], [4, 0.6, '#ff803355'], [4, 1, '#ffffff00']]);
+            const glowSurface = getPickupCache('pepper-glow');
             if (glowSurface) c.drawImage(glowSurface, -36, -36, 72, 72);
             else {
                 const glow = c.createRadialGradient(0, 0, 4, 0, 0, 36);
@@ -1712,8 +1739,8 @@ export class Renderer {
         } else {
             const gold = e.kind === 'feather';
             const glowSurface = gold ?
-                getPickupCache('feather-glow', 42, [[6, 0, '#ffe399dd'], [6, 0.6, '#ffd55e66'], [6, 1, '#ffffff00']]) :
-                getPickupCache('shield-glow', 42, [[6, 0, '#a8f5d0dd'], [6, 0.6, '#46e49e66'], [6, 1, '#ffffff00']]);
+                getPickupCache('feather-glow') :
+                getPickupCache('shield-glow');
             if (glowSurface) c.drawImage(glowSurface, -42, -42, 84, 84);
             else {
                 const glow = c.createRadialGradient(0, 0, 6, 0, 0, 42);

@@ -182,9 +182,11 @@ export class Game {
                 this._visualPool[i] = entity;
             }
             if (entity._lastId !== e.id) {
-                entity.tumbleAngle=undefined;entity.retreatTime=undefined;entity.snake=undefined;
-                entity.grazed=undefined;entity.hitRect=undefined;entity.hitPart=undefined;entity.hitSide=undefined;
-                entity.scored=undefined;entity.contacted=undefined;entity.broken=undefined;
+                // Slots are reused for unrelated entities. Clearing only a
+                // hand-picked list leaks optional artwork fields (fragileSide,
+                // decorKind, etc.) across trees and makes art diverge from hitboxes.
+                // This cleanup runs only when the occupant ID changes.
+                for (const key in entity) if (key !== '_lastId') delete entity[key];
                 entity._lastId = e.id;
             }
             Object.assign(entity, e);
@@ -199,7 +201,9 @@ export class Game {
                     this._visualSnakePool[i] = snake;
                 }
                 if (snake._lastId !== e.id) {
-                    snake.phaseAge=undefined;snake.warningAge=undefined;snake.age=undefined;snake.retreatTime=undefined;
+                    // The snake slot may belong to a different attack/phase.
+                    // Keep pooling but discard every field from its previous owner.
+                    for (const key in snake) if (key !== '_lastId') delete snake[key];
                     snake._lastId = e.id;
                 }
                 Object.assign(snake, e.snake);
