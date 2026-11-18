@@ -73,6 +73,7 @@ jobs:
           node tests/browser-mobile-home-layout.cjs
           node tests/browser-animal-weather.cjs
           npm run test:surface-foods
+          node tests/browser-pickup-weather-cache.cjs
           npm run test:quality
           npm run test:render-profile
           npm run test:auto-visual
@@ -112,6 +113,16 @@ jobs:
           npm run test:hud
           PERF_SECONDS=6 npm run benchmark:hotspots
           npm run benchmark:render-parts
+          # Controlled collectible A/B against the exact revision before this fix.
+          pickup_baseline_sha=fdade00c3e2faf9c94e86a410bcddf4b2e748004
+          git fetch --no-tags --depth=1 origin "$pickup_baseline_sha"
+          pickup_baseline_dir="$RUNNER_TEMP/pickup-before"
+          mkdir -p "$pickup_baseline_dir"
+          git archive "$pickup_baseline_sha" Chaua-Educa-main | tar -x -C "$pickup_baseline_dir"
+          python3 -m http.server 5504 --bind 127.0.0.1 --directory "$pickup_baseline_dir/Chaua-Educa-main" > /tmp/chaua-pickup-before.log 2>&1 &
+          pickup_pid=$!
+          trap 'kill "$chaua_server_pid" "$baseline_pid" "$pickup_pid" 2>/dev/null' EXIT
+          BASE_GAME_URL=http://127.0.0.1:5504/ GAME_URL=http://127.0.0.1:5501/ node scripts/benchmark-pickup-ab.cjs
       - name: Save automatic graphics visual comparisons
         if: always()
         uses: actions/upload-artifact@v6
@@ -140,6 +151,8 @@ jobs:
             test-results/v2-action-integration/
             test-results/reference-art/
             test-results/render-parts/
+            test-results/pickup-weather-cache/
+            test-results/pickup-ab/
             test-results/snake-strike/
             test-results/climate-calibration/
           if-no-files-found: ignore
