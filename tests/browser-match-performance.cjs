@@ -50,7 +50,7 @@ const {chromium}=require('playwright');
   const all=JSON.parse(await fs.readFile(await (await allDownload).path(),'utf8'));
   assert.equal(all.matches.length,2);
   await page.locator('#auto-match-performance').uncheck();
-  await page.locator('#settings-dialog .close-dialog').click();
+  await page.locator('#settings-dialog .primary.close-dialog').click();
   await page.locator('#inputPlayer').fill('Outra pessoa');
   await page.locator('#btnStart').click();
   await page.waitForFunction(()=>document.querySelector('#app').dataset.state==='playing');
