@@ -126,10 +126,15 @@ export class SeasonalBackdrop {
   const drift=reduced||PERF_AB_VARIANT==='static-season-bg'?0:Math.sin(time*.035)*24;
   c.save();c.setTransform(1,0,0,1,0,0);
   c.globalAlpha=1;
-  c.drawImage(this.frames.get(state.mix===1?state.to:state.from),Math.round((drift-margin)*dpr),0);
+  // Copy only the physical viewport; overscan pixels never need composition.
+  // Keep the exact integer destination offset to preserve raster alignment.
+  const offsetX=Math.round((drift-margin)*dpr);
+  const sourceX=-offsetX,viewW=Math.floor(w*dpr),viewH=Math.floor(h*dpr);
+  const blit=surface=>c.drawImage(surface,sourceX,0,viewW,viewH,0,0,viewW,viewH);
+  blit(this.frames.get(state.mix===1?state.to:state.from));
   if(state.mix<1 && state.mix>0){
    c.globalAlpha=state.mix;
-   c.drawImage(this.frames.get(state.to),Math.round((drift-margin)*dpr),0);
+   blit(this.frames.get(state.to));
   }
   c.restore();
   if(probe)probe.end('render.seasonalBlit',blitAt);
