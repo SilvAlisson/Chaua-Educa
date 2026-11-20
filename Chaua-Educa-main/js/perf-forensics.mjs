@@ -27,7 +27,7 @@ export class ForensicRecorder {
   this.stutterFrames=new Map();
   this.stutterOperations=new Map();
   this.stutterEvents=new Map();
-  this.firstDraws=new Set();this.currentFrame=null;this.observers=[];
+  this.firstDraws=new Set();this.currentFrame=null;this.observers=[];this.supportedTypes=[];this.observedTypes=[];
  }
  event(name,details={}){
   pushBounded(this.events,{atMs:round(this.now()),name,...details},MAX_EVENTS);
@@ -105,6 +105,7 @@ export class ForensicRecorder {
  startBrowserObservers(){
   if(typeof PerformanceObserver==='undefined')return [];
   const supported=PerformanceObserver.supportedEntryTypes||[];
+  this.supportedTypes=['long-animation-frame','longtask'].filter(type=>supported.includes(type));
   for(const type of ['long-animation-frame','longtask']){
    if(!supported.includes(type))continue;
    try{
@@ -115,10 +116,10 @@ export class ForensicRecorder {
      }
     });
     observer.observe({type,buffered:false});
-    this.observers.push(observer);
+    this.observers.push(observer);this.observedTypes.push(type);
    }catch{/* Browser may advertise a type but reject registration. */}
   }
-  return this.observers.map(o=>'active');
+  return [...this.observedTypes];
  }
  stopBrowserObservers(){for(const o of this.observers){try{o.takeRecords?.().forEach(e=>{if(e.entryType==='long-animation-frame')this.longFrame(e);else if(e.entryType==='longtask')this.longTask(e);});}catch{}o.disconnect();}this.observers=[];}
  correlate(stutters){
@@ -152,7 +153,12 @@ export class ForensicRecorder {
     'Neither GPU upload, garbage collection nor disk flush can be proven by this browser-only JSON.',
     'The reported GPU/heap availability varies by browser and device; absent fields are not zeros.'
    ],
-   capabilities:{longAnimationFrames:this.longFrames.length>0,longTasks:this.longTasks.length>0},
+   capabilities:{
+    supportedEntryTypes:this.supportedTypes,observerTypes:this.observedTypes,
+    longAnimationFramesObserved:this.longFrames.length,longTasksObserved:this.longTasks.length,
+    jsHeapReadout:typeof performance!=='undefined'&&
+     Number.isFinite(performance.memory?.usedJSHeapSize)
+   },
    // Aggregated counters include fast operations; the detailed sample list
    // intentionally retains only noteworthy calls to reduce probe overhead.
    measuredOperations:Object.fromEntries(Array.from(this.counters,([name,row])=>[name,{

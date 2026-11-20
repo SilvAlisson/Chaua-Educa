@@ -702,6 +702,11 @@ export class Renderer {
         // Both warmups can be disabled for controlled A/B on the same phone.
         const warmupParams=typeof location!=='undefined'?new URLSearchParams(location.search):null;
         this.snakeWarmupEnabled=warmupParams?.get('snakeWarmup')!=='0';
+        // Controlled A/B: real, onscreen atlas sampling during the countdown.
+        // The visible 8px sample is TEST-ONLY, never applied to normal play.
+        this.hawkWarmupMode=warmupParams?.get('match-forensics')==='1'&&
+            warmupParams?.get('hawk-warmup')==='visible'?'visible':'legacy';
+        this.hawkWarmupCount=0;
         this.snakeWarmupIndex=0;
         this.snowSpriteWarmupIndex=0;
         this.collectRenderTimings=false;
@@ -1062,6 +1067,7 @@ export class Renderer {
         this.treeDrips=new TreeDrips();this.animalWeather=new AnimalWeather();this.weatherMotion=new WeatherMotion();
         this.cameraTime=undefined;this.cameraTop=undefined;
         this.snowSpriteWarmupIndex=0;
+        this.hawkWarmupCount=0;
     }
 
     background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0, seasonDistance = null, rainSpeed = 250, weatherMotion = null) {
@@ -1609,6 +1615,24 @@ export class Renderer {
                 leaf(c, x, y, 5 + i % 4, i + (reduced ? 0 : visualTime * .3), i % 3 ? '#b8cc6d' : '#f4c967', i % 3 ? '#79a05b' : '#d49c47');
             }
         }
+        // The only intentional A/B visual change: a real 8x8 pixel dive
+        // sample during countdown, AFTER the forest, so Chrome cannot simply
+        // cull an off-viewport/fully covered warmup. No in-flight drawing.
+        if(game.state==='countdown'&&this.hawkWarmupMode==='visible'){
+            const atlas=images.get('hawk-atlas'),frame=SPRITES.hawk.frames[10];
+            if(atlas&&frame){
+                const at=probe?probe.begin('hawk.visibleWarmup'):0;
+                c.save();c.setTransform(1,0,0,1,0,0);
+                c.globalAlpha=1;
+                c.drawImage(atlas,...frame.rect,c.canvas.width-10,c.canvas.height-10,8,8);
+                c.restore();
+                if(probe){
+                    probe.end('hawk.visibleWarmup',at,{sample:8,sourceFrame:10});
+                    if(!this.hawkWarmupCount)probe.event('hawk-warmup-visible',{gameSeconds:game.elapsed,sourceFrame:10});
+                }
+                this.hawkWarmupCount++;
+            }
+        }
         if(frameParts)frameParts.foregroundMs=performance.now()-partAt;
     }
 
@@ -1706,13 +1730,21 @@ export class Renderer {
         const presentation=hawkPresentation(entity,time,reduced,this._hawkPresScratch),action=presentation.action;
         c.save();c.translate(x,y+presentation.offsetY);
         c.rotate(cAngle+presentation.angle);
+        const hawkProbe=activeProbe,hawkAt=hawkProbe?hawkProbe.begin('render.hawkArtwork'):0;
+        let observedArt;
         if(action){
             const activeFrame=(action.blend??0)<.5?action.frame:(action.next??action.frame);
+            observedArt=hawkProbe?`action:${action.sheet}:${activeFrame}`:null;
             // Required art missing? Throw explicitly; never switch to v6 mid-flight.
             drawActionSheet(c,action.sheet,activeFrame,-HAWK_ART.size/2,-HAWK_ART.size/2,HAWK_ART.size,HAWK_ART.size);
         }else{
+            observedArt=hawkProbe?`v6:${clip.frame}:${clip.next}`:null;
             // Deliberate original v6 poses: inclined dive, warning, unshielded retreat.
             atlasAnimation(c,'hawk',clip,HAWK_ART.atlasScale,180);
+        }
+        if(hawkProbe){
+            const ms=hawkProbe.end('render.hawkArtwork',hawkAt,{asset:observedArt,dive:!!entity.dive});
+            hawkProbe.firstDraw('hawk:'+observedArt,ms);
         }
         this.animalWeather?.actor(c,{id:`hawk:${entity.id}`,pose:action?
             {sheet:action.sheet,frame:(action.blend??0)<.5?action.frame:(action.next??action.frame),rect:[-HAWK_ART.size/2,-HAWK_ART.size/2,HAWK_ART.size,HAWK_ART.size]}:

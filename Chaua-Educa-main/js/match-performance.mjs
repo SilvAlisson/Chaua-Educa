@@ -6,11 +6,17 @@ import {journeySeason} from './seasons.mjs';
 import {getWeatherMode} from './weather.mjs';
 import {GAME_VERSION} from './version.mjs';
 import {snowMaskMetrics,SNOW_RENDER_MODE} from './tree-art.mjs';
+import {ForensicRecorder} from './perf-forensics.mjs';
+import {setActiveProbe} from './perf-hooks.mjs';
 
 export const MATCH_PERF_KEY='chaua-performance-matches-v1';
 export const MATCH_PERF_SETTING='chaua-performance-auto-enabled';
 const MAX_REPORTS=10,MAX_FRAMES=45000,MAX_STUTTERS=100,MAX_EVENTS=80,MAX_SNAPSHOTS=160;
 const MAX_LONG_CALLBACKS=50,LONG_CALLBACK_MS=18;
+const STUTTER_THRESHOLD_MS=28;
+const forensicParams=typeof location==='undefined'?null:new URLSearchParams(location.search);
+const MATCH_FORENSICS=forensicParams?.get('match-forensics')==='1';
+const SEASON_PREWARM_DISABLED=MATCH_FORENSICS&&forensicParams?.get('season-prewarm')==='off';
 const round=(n,d=2)=>Number(Number(n).toFixed(d));
 const empty=()=>Object.create(null);
 function storageOrNull(){
@@ -49,6 +55,7 @@ export function exportMatchReports(reports,filename='chaua-desempenho-partidas.j
 export class MatchPerformance {
  constructor({storage=storageOrNull(),enabled=true,maxReports=MAX_REPORTS}={}){
   this.storage=storage;this.enabled=enabled!==false;
+  this.forensicEnabled=MATCH_FORENSICS;this.forensic=null;this.forensicBackdrop=null;
   this.maxReports=Math.min(MAX_REPORTS,Math.max(1,Math.floor(maxReports)));
   this.current=null;this.records=[];this.lastReport=null;this.savedToDevice=false;
   try{
@@ -61,12 +68,38 @@ export class MatchPerformance {
  }
  setEnabled(enabled){
   this.enabled=enabled!==false;
-  if(!this.enabled)this.current=null; // Opting out discards unfinished data.
+  if(!this.enabled){
+   this.current=null; // Opting out discards unfinished data.
+   this.forensic?.stopBrowserObservers();
+   if(this.forensic)setActiveProbe(null);
+   if(this.forensicBackdrop){
+    this.forensicBackdrop.onTelemetry=null;
+    this.forensicBackdrop.prewarmEnabled=true;
+   }
+   this.forensic=null;this.forensicBackdrop=null;
+  }
   try{this.storage?.setItem(MATCH_PERF_SETTING,JSON.stringify(this.enabled));}catch{}
  }
  start(game,quality,renderer,training=false){
   if(!this.enabled)return;
   if(this.current)this.finish('restarted',game,quality,renderer);
+  // One diagnostic recorder piggybacks on the existing gameplay RAF.
+  // No extra RAF, forced Canvas readback or upload timing claims.
+  const forensic=this.forensicEnabled?new ForensicRecorder():null;
+  this.forensic=forensic;
+  this.forensicBackdrop=forensic?renderer.seasonalBackdrop||null:null;
+  if(forensic){
+   forensic.deep=true;
+   forensic.startBrowserObservers();
+   setActiveProbe(forensic);
+   if(renderer.seasonalBackdrop){
+    renderer.seasonalBackdrop.prewarmEnabled=!SEASON_PREWARM_DISABLED;
+    renderer.seasonalBackdrop.onTelemetry=(name,details)=>
+     forensic.event('seasonal:'+name,{gameSeconds:round(game.elapsed||0),...details});
+   }
+   forensic.event('trial-start',{seed:game.seed,seasonPrewarm:!SEASON_PREWARM_DISABLED,
+    hawkWarmup:renderer.hawkWarmupMode||'legacy',snowRenderer:SNOW_RENDER_MODE});
+  }
   this.current={
    id:Date.now()+'-'+Math.floor(Math.random()*100000),
    start:new Date().toISOString(),startNow:typeof performance!=='undefined'?performance.now():0,
@@ -78,7 +111,7 @@ export class MatchPerformance {
    snowClipsPrevious:snowMaskMetrics.directClips,snowDirectClips:0,
    snowSpritePrevious:snowMaskMetrics.snowSpriteMetrics.draws,snowSpriteDraws:0,
    previousCpuMs:null,stutterTotal:0,over50:0,over100:0,
-   lastSnapshot:0,lastProfile:''
+   lastSnapshot:0,lastProfile:'',hawkStates:forensic?new Map():null
   };
   this.snapshot(game,quality,renderer,'start');
  }
@@ -138,6 +171,18 @@ export class MatchPerformance {
    c.lastResolution=resolution;c.lastDecoration=decoration;
   }
   const profile=c.lastProfile;
+  if(this.forensic){
+   // Log transitions once per hawk/phase, NOT a large event on every frame.
+   for(const e of game.entities||[]){
+    if(e.kind!=='hawk')continue;
+    const state=`${e.phase}:${e.warning>0?'warning':'visible'}:${e.dive?'dive':'flight'}:${e.retreat?'retreat':'active'}`;
+    if(c.hawkStates.get(e.id)===state)continue;
+    c.hawkStates.set(e.id,state);
+    this.forensic.event('hawk-state',{id:e.id,gameSeconds:round(game.elapsed||0),
+     phase:e.phase||null,warning:round(e.warning||0),dive:!!e.dive,
+     attackKind:e.attackKind||null,retreat:!!e.retreat});
+   }
+  }
   const snowMaskRebuilds=Math.max(0,snowMaskMetrics.rebuilds-c.snowMaskPrevious);
   const snowDirectClips=Math.max(0,snowMaskMetrics.directClips-c.snowClipsPrevious);
   c.snowMaskPrevious=snowMaskMetrics.rebuilds;
@@ -191,7 +236,7 @@ export class MatchPerformance {
    (c.byStage[stage]??(c.byStage[stage]=[])).push(dt);
    (c.byWindow[windowKey]??(c.byWindow[windowKey]=[])).push(dt);
    (c.byProfile[profile]??(c.byProfile[profile]=[])).push(dt);
-   if(dt>33.33){
+   if(dt>STUTTER_THRESHOLD_MS){
     c.stutterTotal++;
     if(dt>50)c.over50++;
     if(dt>100)c.over100++;
@@ -217,16 +262,22 @@ export class MatchPerformance {
       }else if(entity.kind==='fruit')fruit++;
      }
      c.stutters[position]={
-      frame:c.samples.length,frameMs:round(dt),gameSeconds:round(game.elapsed||0),
+      frame:c.samples.length,frameMs:round(dt),atSeconds:round((timestamp-c.startNow)/1000),
+      gameSeconds:round(game.elapsed||0),
       stage:game.stage,weather:getWeatherMode(),profile,canvas:[renderer.canvas.width,renderer.canvas.height],
       previousCallbackCpuMs:c.previousCpuMs===null?null:round(c.previousCpuMs),
       currentCallbackCpuMs:round(callbackMs),
       pendingSeasonSurface:renderer.seasonalBackdrop?.pending?.id??null,
+      cachedSeasonSurfaces:renderer.seasonalBackdrop?.frames?.size??null,
+      snowAmount:round(game.surfaceWeather?.snow||0,3),
+      heapUsedMb:Number.isFinite(globalThis.performance?.memory?.usedJSHeapSize)?
+       round(globalThis.performance.memory.usedJSHeapSize/1048576,2):null,
       snowMaskRebuilds,snowDirectClips,snowSpriteDraws,
       entities:{wood,hawk,snake,fruit,particles:game.particles?.length??0},
       visibleWarnings:{snakes:snakeWarnings,hawks:hawkWarnings},
       textWarningsShown:renderer.showTextWarnings!==false
      };
+     if(this.forensic)this.forensic.rememberStutter(c.samples.length);
     }
    }
   }
@@ -239,10 +290,20 @@ export class MatchPerformance {
   const c=this.current;
   if(!c)return null;
   this.snapshot(game,quality,renderer,'end:'+reason);
+  const forensic=this.forensic;
+  if(forensic){
+   forensic.event('trial-end',{reason,gameSeconds:round(game.elapsed||0)});
+   forensic.stopBrowserObservers();setActiveProbe(null);
+   if(renderer.seasonalBackdrop){
+    renderer.seasonalBackdrop.onTelemetry=null;
+    renderer.seasonalBackdrop.prewarmEnabled=true;
+   }
+  }
+  this.forensic=null;this.forensicBackdrop=null;
   this.current=null;
   const report={
    schemaVersion:1,source:'Chaua Educa / desempenho automatico por partida',
-   provenance:{gameVersion:GAME_VERSION,testBranch:'teste-v2-performance-sem-avisos-texto',build:typeof document==='undefined'?null:document.querySelector('meta[name="chaua-build"]')?.content||null,host:typeof location!=='undefined'?location.host:null,
+   provenance:{gameVersion:GAME_VERSION,testBranch:'test/forense-causal-raf-v114-20261120',build:typeof document==='undefined'?null:document.querySelector('meta[name="chaua-build"]')?.content||null,host:typeof location!=='undefined'?location.host:null,
     path:typeof location!=='undefined'?location.pathname:null},
    id:c.id,startedAt:c.start,collectedAt:new Date().toISOString(),
    device:viewportInfo(renderer),
@@ -251,18 +312,24 @@ export class MatchPerformance {
    endReason:reason,settings:{qualityMode:quality.mode,qualityLevel:quality.level,
     resolution:renderer.resolution,decoration:renderer.decoration,
     textWarningsShownAtEnd:renderer.showTextWarnings!==false},
-   measurement:{eligibleOnly:'visible-focused-playing',deepInstrumentation:false,
+   measurement:{eligibleOnly:'visible-focused-playing',deepInstrumentation:!!forensic,
     sampleLimit:MAX_FRAMES,capped:c.samples.length===MAX_FRAMES,
     limitations:['RAF intervals include browser scheduling and are not exclusively CPU or GPU work.',
      'CPU callback timings are not GPU raster measurements.',
-     'Frame timestamps after tab switches, pauses and quiz screens are excluded.']},
-   summary:{...summarizeFrames(c.samples),stutterCount:c.stutterTotal},
+     'Frame timestamps after tab switches, pauses and quiz screens are excluded.',
+     'Long Animation Frames are browser-reported and may be unavailable on this Android device.',
+     'The JSON can correlate JS, scheduling and visible art, but cannot directly prove GPU texture eviction or Skia raster work.']},
+   summary:{...summarizeFrames(c.samples),stutterCount:c.stutterTotal,stutterThresholdMs:STUTTER_THRESHOLD_MS},
    byStage:byBucket(c.byStage),byTenSecondWindow:byBucket(c.byWindow),
    byProfile:byBucket(c.byProfile),
    profileChanges:c.profileChanges,climateTimeline:c.snapshots,
    stutters:c.stutters.sort((a,b)=>a.frame-b.frame),
    longCallbacks:{thresholdMs:LONG_CALLBACK_MS,total:c.longCallbackTotal,
     slowest:c.longCallbacks.sort((a,b)=>a.gameSeconds-b.gameSeconds)},
+   experiment:{forensicEnabled:!!forensic,seasonPrewarmEnabled:!SEASON_PREWARM_DISABLED,
+    hawkWarmup:renderer.hawkWarmupMode||'legacy',snowRenderer:SNOW_RENDER_MODE,
+    fixedSeed:c.seed,diagnosticRevision:'causal-raf-v1'},
+   forensics:forensic?forensic.report(c.stutters):undefined,
    snowMask:{renderer:SNOW_RENDER_MODE,
     rebuildsDuringFlight:c.snowMaskRebuilds,
     directClipsDuringFlight:c.snowDirectClips,

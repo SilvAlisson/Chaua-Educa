@@ -30,7 +30,7 @@ const DEFAULT_BUDGET_MS=1.8;
 export class SeasonalBackdrop {
  constructor({prewarmSeconds=DEFAULT_PREWARM_SECONDS,sliceRows=DEFAULT_SLICE_ROWS,
   budgetMs=DEFAULT_BUDGET_MS,now=()=>performance.now()}={}){
-  this.frames=new Map();this.key='';this.pending=null;this.prewarmEnabled=true;this.onTelemetry=null;
+  this.frames=new Map();this.firstPresented=new Set();this.key='';this.pending=null;this.prewarmEnabled=true;this.onTelemetry=null;
   this.prewarmSeconds=Math.max(0,prewarmSeconds);
   this.sliceRows=Math.max(1,Math.floor(sliceRows));
   this.budgetMs=Math.max(.1,budgetMs);
@@ -39,7 +39,7 @@ export class SeasonalBackdrop {
  release(){
   for(const surface of this.frames.values()){surface.width=0;surface.height=0;}
   if(this.pending){this.pending.surface.width=0;this.pending.surface.height=0;}
-  this.pending=null;this.frames.clear();this.key='';this.atlas=null;
+  this.pending=null;this.frames.clear();this.firstPresented.clear();this.key='';this.atlas=null;
  }
  prepare(atlas,w,h,dpr,game){
   const state=journeySeason(game),margin=26;
@@ -122,6 +122,19 @@ export class SeasonalBackdrop {
   const probe=activeProbe,prepAt=probe?probe.begin('render.seasonalPrepare'):0;
   const state=this.prepare(atlas,w,h,dpr,game),margin=26;
   if(probe)probe.end('render.seasonalPrepare',prepAt);
+  // First Canvas presentation is measurable; whether this triggers GPU
+  // rasterization cannot be established without a browser/GPU trace.
+  const primaryId=state.mix===1?state.to:state.from;
+  if(probe&&!this.firstPresented.has(primaryId)){
+   this.firstPresented.add(primaryId);
+   probe.event('seasonal-first-present',{seasonId:primaryId,gameSeconds:game.elapsed,
+    mix:state.mix,ready:this.frames.has(primaryId)});
+  }
+  if(probe&&state.mix>0&&state.mix<1&&!this.firstPresented.has(state.to)){
+   this.firstPresented.add(state.to);
+   probe.event('seasonal-first-present',{seasonId:state.to,gameSeconds:game.elapsed,
+    mix:state.mix,ready:this.frames.has(state.to)});
+  }
   const blitAt=probe?probe.begin('render.seasonalBlit'):0;
   const drift=reduced||PERF_AB_VARIANT==='static-season-bg'?0:Math.sin(time*.035)*24;
   c.save();c.setTransform(1,0,0,1,0,0);
