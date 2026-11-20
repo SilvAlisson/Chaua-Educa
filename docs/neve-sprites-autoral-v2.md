@@ -1,0 +1,13 @@
+# V2 — sprites de neve a partir da arte original (32 variantes/etapas por direção)
+
+O gerador de imagens produziu duas grades conceituais, mas a inspeção técnica encontrou transparência ruidosa e geometria desalinhada com as 4 variantes de árvores superiores e inferiores do jogo. As grades são **referências conceituais, não recursos publicáveis**. Não seria correto prometer encaixe perfeito ou inserir pixels artificiais nas árvores.
+
+O modo `snow-render=sprites` prepara **16 etapas por variante**, usando o overlay aprovado em `Seasons/Winter/trees-{upper,lower}-overlay-04.webp` e a geometria original `FOREST_ART`. O recorte de 32 colunas é executado uma única vez por etapa, durante `Renderer.initializeAssets`, antes de qualquer partida. Cada etapa vira uma região de uma spritesheet em memória, com quatro variantes e dois atlas por orientação. O renderizador copia o sprite já preparado (sem recortar por árvore em cada frame). O estágio acumulado permanece sólido; somente o próximo incremento é mesclado, para não enfraquecer a neve já depositada. O modo 100% usa a spritesheet final aprovada.
+
+A pré-renderização utiliza 75% da resolução da fonte da neve, preservando o WebP original intacto e todas as hitboxes. A memória adicional estimada e tempo de construção ficam no JSON, em `snowMask.spriteEstimatedBytes` e `snowMask.spriteBuildMs`. Se a memória ou FPS piorarem, o modo `?snow-render=direct` restaura o recorte anterior e `?snow-render=legacy` restaura a reconstrução antiga. Ambos mantêm o histórico de partidas automático.
+
+Outros travamentos analisados: na última partida 238,27s / 59,85 FPS / 1% low 39,68 FPS, houve 14.423 recortes diretos, sem reconstruções de atlas; pico de 95,1 ms aos 153,62s na tempestade, totalmente fora da neve. Não podemos atribuí-lo a gelo. Precisa de subtimings de fundo, árvores e efeitos para localizar o custo sem sacrificar a arte.
+
+## Continuidade e opacidade verificadas
+
+A primeira implementação com `source-over` em ambos os estágios foi rejeitada pelo QA: o alpha dos dois estágios não compunha corretamente nas fronteiras, e um crossfade puro deixava a neve antes depositada transparente. O mecanismo agora cria **deltas esparsos pré-calculados** da etapa seguinte, invertendo a equação de composição de cor/alpha (RGBA premultiplicado). O estágio inteiro já depositado continua com 100% de sua opacidade autoral, enquanto apenas o novo incremento se forma ou desaparece. Nenhum `getImageData` ocorre no voo: as leituras acontecem apenas durante a preparação dos sprites. O atlas de deltas ocupa menos espaço ao empacotar as áreas alteradas, e seus tamanhos entram em `spriteEstimatedBytes`. A implementação exige aprovação dos testes de monotonicidade e continuidade para ser considerada válida.

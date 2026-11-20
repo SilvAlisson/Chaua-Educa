@@ -43,11 +43,22 @@ app.classList.toggle('mobile-device', mobileDevice);
 document.documentElement.classList.toggle('mobile-device', mobileDevice);
 if(mobileDevice) $('.home-links').append($('#open-credits'));
 const renderer = new Renderer($('#forest'));
+// This test build starts without text placards. Toggle them in Settings to
+// compare matched flights, while preserving warning sounds and screen-reader cues.
+const TEXT_WARNING_SETTING='chaua-attack-warning-text';
+renderer.showTextWarnings=DB.readObject(TEXT_WARNING_SETTING,false)===true;
 renderer.homeMobileLayout=mobileDevice;
 const quality=new VisualQuality(DB.readObject('chaua-visual-quality','auto'));
 // Detailed forensic capture and automatic match summaries are exclusive.
 const diagnosticLink=new URLSearchParams(location.search).get('perf-test')==='1';
 const matchPerformance=new MatchPerformance({enabled:!diagnosticLink&&DB.readObject(MATCH_PERF_SETTING,true)!==false});
+// Repeat the encounter seed for controlled A/B testing, without changing the
+// regular random gameplay. Only unsigned decimal numbers are accepted.
+const seedQuery=new URLSearchParams(location.search).get('test-seed');
+const fixedTestSeed=seedQuery!==null&&/^\d{1,10}$/.test(seedQuery)&&
+    Number(seedQuery)<=0xffffffff?Number(seedQuery):null;
+// Reused on every RAF: create no new timing objects on normal frames.
+const cpuSections={physicsMs:0,uiMs:0,audioMs:0,visualMs:0,drawMs:0,otherMs:0};
 function applyVisualQuality() {
     if(quality.mode==='auto')renderer.setAutomaticQuality(quality.level);
     else renderer.setQuality(quality.level);
@@ -236,7 +247,7 @@ function start(training = false, checkpoint = null) {
     // app/canvas ResizeObserver. A synchronous resize here forced style/layout
     // immediately after changing classes and hiding the home screen.
     flightLearning=createFlightLearning(checkpoint?.stage??0);learningReturnFocus=null;
-    if(training)game.startTutorial();else if(checkpoint){selectedMode='tranquilo';game.resumeChapter(checkpoint,DB.reviewTopics(player));}else game.start(selectedMode, DB.reviewTopics(player));
+    if(training)game.startTutorial();else if(checkpoint){selectedMode='tranquilo';game.resumeChapter(checkpoint,DB.reviewTopics(player));}else game.start(selectedMode, DB.reviewTopics(player),fixedTestSeed===null?undefined:fixedTestSeed);
     matchPerformance.start(game,quality,renderer,training);
     forestAudio.beginFlight();
     if(betaRuntime?.active)betaRuntime.attempt();
@@ -253,6 +264,7 @@ function home() {
     if(matchPerformance.finish('returned-to-menu',game,quality,renderer))refreshPerformanceControls();
     closeDialogs(); clearInputs(); cancelAnimationFrame(resultAnimation);
     game.reset(); flightCues.reset(); previousState = ''; clock.reset(); lastTime = 0;
+    forestAudio.update('menu',!audioInterrupted&&!document.hidden&&document.hasFocus(),0,0,0,0,0);
     releaseFlightLandscape(app, document, screen);
     $('#hud').hidden = true; $('#countdown').hidden = true; $('#home').hidden = false;
     app.classList.remove('in-flight','training'); document.documentElement.classList.remove('in-flight'); updateTrainingButton();updateChapterButtons();
@@ -383,6 +395,10 @@ $('.brand').addEventListener('click', event => { event.preventDefault(); home();
 document.querySelectorAll('.back-home').forEach(button => button.addEventListener('click', home));
 function pauseFlight(message='Seu voo e seus poderes estão pausados.') {
     clearInputs(); game.pause(); clock.reset(); lastTime=0;
+    // Immediate stop, rather than waiting for the next animation callback.
+    if(game.state==='paused')
+        forestAudio.update('paused',!audioInterrupted&&!document.hidden&&document.hasFocus(),
+            game.sceneTime??game.elapsed,game.stage,0,0,0);
     if(game.state==='paused')$('#pause-message').textContent=message;
     syncUI();
 }
@@ -634,9 +650,22 @@ function syncUI() {
         const number=Math.max(1,Math.ceil(game.countdown));hudText('#count-number',number);
         if(flightCues.countdown(number)) { $('#screen-reader-status').textContent=`Prepare as asas: ${number}`; sound('countdown'); }
     } else flightCues.countdown(null);
+    // Isolate the mobile warning burst: cue discovery, accessible DOM update
+    // and sound creation are all separate from Canvas warning badge painting.
+    // The normal game pays no instrumented timing cost.
+    const cueProbe=activeProbe;
+    const cueAt=cueProbe?cueProbe.begin('ui.warningCues'):0;
     const cues=flightCues.warnings(game);
-    if(cues.length) { hudText('#flight-alert',cues.map(cue=>cue.text).join(' ')); for(const cue of cues)if(warningSounds)sound(cue.sound); }
+    if(cueProbe)cueProbe.end('ui.warningCues',cueAt,{count:cues.length});
+    const noticeAt=cueProbe?cueProbe.begin('ui.warningAnnouncement'):0;
+    if(cues.length)hudText('#flight-alert',cues.map(cue=>cue.text).join(' '));
     else if(!flightCues.hasWarnings(game))hudText('#flight-alert','');
+    if(cueProbe)cueProbe.end('ui.warningAnnouncement',noticeAt,{count:cues.length});
+    if(cues.length&&warningSounds){
+        const soundAt=cueProbe?cueProbe.begin('ui.warningSounds'):0;
+        for(const cue of cues)sound(cue.sound);
+        if(cueProbe)cueProbe.end('ui.warningSounds',soundAt,{count:cues.length});
+    }
     hudText('#score',game.score);
     hudText('#stage-name',game.tutorial ? (LESSONS[game.tutorial.step]?.title || 'Treino concluído') : STAGES[game.stage]);
     const progress=game.tutorial ? game.tutorial.step/LESSONS.length*100 : Math.min(100,journeyProgress(game)*100);
@@ -667,6 +696,7 @@ function frame(time) {
     // This elapsed JS wall time is diagnostic, not a GPU timing measurement.
     const betaStateBefore=game.state;
     const frameWorkStart=performance.now();
+    const measureSections=matchPerformance.current!==null&&game.state==='playing';
     const probe=activeProbe;
     if(probe)probe.beginFrame(time,game.stage);
     const delta = lastTime ? Math.min(.25, Math.max(0, (time - lastTime) / 1000)) : 0;
@@ -675,15 +705,19 @@ function frame(time) {
     const clockAt=probe?probe.begin('engine.advance'):0;
     clock.advance(delta);
     if(probe)probe.end('engine.advance',clockAt);
+    const afterPhysics=measureSections?performance.now():0;
     if(game.state!==previousState || time-lastHudTime>=80){
         const hudAt=probe?probe.begin('ui.sync'):0;
         syncUI();lastHudTime=time;
         if(probe)probe.end('ui.sync',hudAt);
     }
+    const afterUI=measureSections?performance.now():0;
     const sceneTime = game.state === 'menu' ? time / 1000 : (game.sceneTime ?? game.elapsed);
     forestAudio.update(game.state,!audioInterrupted&&!document.hidden&&document.hasFocus(),sceneTime,game.stage,
         journeyRain(game, game.tutorial), journeyStorm(game, game.mode, game.tutorial),
         journeyWind(game, game.mode, game.tutorial));
+    const afterAudio=measureSections?performance.now():0;
+    let afterVisual=afterAudio;
     if(document.hidden){
         if(betaRuntime?.active)betaRuntime.frame(time,betaStateBefore);
         matchPerformance.frame(time,game,quality,renderer,0,false);
@@ -702,16 +736,27 @@ function frame(time) {
         const visualAt=probe?probe.begin('engine.visual'):0;
         const frameView=game.visual(clock.accumulator / (1 / 120));
         if(probe)probe.end('engine.visual',visualAt,{particles:frameView.particles.length});
+        if(measureSections)afterVisual=performance.now();
+        renderer.collectRenderTimings=measureSections;
         const drawAt=probe?probe.begin('render.game'):0;
         renderer.game(frameView, reducedMotion.matches, time / 1000);
         if(probe)probe.end('render.game',drawAt);
     }
     if(probe)probe.endFrame();
+    const afterDraw=measureSections?performance.now():0;
     if(betaRuntime?.active)betaRuntime.frame(time,betaStateBefore);
     const activeFlight=document.hasFocus()&&game.state==='playing';
     const frameWorkMs=performance.now()-frameWorkStart;
+    if(measureSections){
+        cpuSections.physicsMs=afterPhysics-frameWorkStart;
+        cpuSections.uiMs=afterUI-afterPhysics;
+        cpuSections.audioMs=afterAudio-afterUI;
+        cpuSections.visualMs=afterVisual-afterAudio;
+        cpuSections.drawMs=afterDraw-afterVisual;
+        cpuSections.otherMs=Math.max(0,frameWorkMs-(afterDraw-frameWorkStart));
+    }
     if(quality.sample(delta,activeFlight,frameWorkMs))applyVisualQuality();
-    matchPerformance.frame(time,game,quality,renderer,frameWorkMs,activeFlight);
+    matchPerformance.frame(time,game,quality,renderer,frameWorkMs,activeFlight,measureSections?cpuSections:null);
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -812,6 +857,7 @@ function showSettings(fromPause=false){
     if($('#weather-mode')) $('#weather-mode').value=getWeatherMode();
     $('#controls-side').value=app.dataset.controlsSide;
     $('#warning-sounds').checked=warningSounds;
+    $('#show-text-warnings').checked=renderer.showTextWarnings;
     $('#settings-sound').checked=soundOn;
     $('#audio-volume').value=Math.round(forestAudio.volume*100);
     $('#volume-value').textContent=`${Math.round(forestAudio.volume*100)}%`;
@@ -874,6 +920,10 @@ if(new URLSearchParams(location.search).get('perf-test')==='1'){
 
 $('#controls-side').addEventListener('change',event=>{app.dataset.controlsSide=event.target.value;saveSetting('chaua-controls-side',event.target.value);});
 $('#warning-sounds').addEventListener('change',event=>{warningSounds=event.target.checked;saveSetting('chaua-warning-sounds',warningSounds);});
+$('#show-text-warnings').addEventListener('change',event=>{
+    renderer.showTextWarnings=event.target.checked;
+    saveSetting(TEXT_WARNING_SETTING,renderer.showTextWarnings);
+});
 $('#settings-sound').addEventListener('change',event=>{soundOn=event.target.checked;DB.writeObject('chaua-sound',soundOn); forestAudio.setEnabled(soundOn);updateSoundButton();if(soundOn)sound('correct');});
 
 // Beta is opened deliberately; ordinary play never imports or starts a collector.

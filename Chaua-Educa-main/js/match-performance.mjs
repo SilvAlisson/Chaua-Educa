@@ -5,10 +5,12 @@ import {summarizeFrames} from './frame-summary.mjs';
 import {journeySeason} from './seasons.mjs';
 import {getWeatherMode} from './weather.mjs';
 import {GAME_VERSION} from './version.mjs';
+import {snowMaskMetrics,SNOW_RENDER_MODE} from './tree-art.mjs';
 
 export const MATCH_PERF_KEY='chaua-performance-matches-v1';
 export const MATCH_PERF_SETTING='chaua-performance-auto-enabled';
 const MAX_REPORTS=10,MAX_FRAMES=45000,MAX_STUTTERS=100,MAX_EVENTS=80,MAX_SNAPSHOTS=160;
+const MAX_LONG_CALLBACKS=50,LONG_CALLBACK_MS=18;
 const round=(n,d=2)=>Number(Number(n).toFixed(d));
 const empty=()=>Object.create(null);
 function storageOrNull(){
@@ -71,6 +73,10 @@ export class MatchPerformance {
    seed:game.seed,mode:game.mode,training:!!training,
    samples:[],byStage:empty(),byWindow:empty(),byProfile:empty(),
    stutters:[],events:[],snapshots:[],profileChanges:[],previous:0,
+   longCallbacks:[],longCallbackTotal:0,
+   snowMaskPrevious:snowMaskMetrics.rebuilds,snowMaskRebuilds:0,
+   snowClipsPrevious:snowMaskMetrics.directClips,snowDirectClips:0,
+   snowSpritePrevious:snowMaskMetrics.snowSpriteMetrics.draws,snowSpriteDraws:0,
    previousCpuMs:null,stutterTotal:0,over50:0,over100:0,
    lastSnapshot:0,lastProfile:''
   };
@@ -95,12 +101,13 @@ export class MatchPerformance {
    cold:round(game.surfaceWeather?.cold??0,3),
    snow:round(game.surfaceWeather?.snow??0,3),
    quality:quality.mode+'/'+quality.level,
+   textWarningsShown:renderer.showTextWarnings!==false,
    resolution:renderer.resolution,
    decoration:renderer.decoration,
    canvas:[renderer.canvas.width,renderer.canvas.height]
   });
  }
- frame(timestamp,game,quality,renderer,callbackMs,eligible){
+ frame(timestamp,game,quality,renderer,callbackMs,eligible,cpuSections=null){
   const c=this.current;
   if(!c)return;
   if(game.state==='ended'||game.state==='trained'){
@@ -109,16 +116,77 @@ export class MatchPerformance {
   if(game.state==='menu'){
    this.finish('returned-to-menu',game,quality,renderer);return;
   }
-  if(!eligible){c.previous=0;c.previousCpuMs=null;return;}
-  const profile=quality.mode+'/'+quality.level+'/'+renderer.resolution+'/'+renderer.decoration;
-  if(profile!==c.lastProfile){
+  if(!eligible){
+   c.previous=0;c.previousCpuMs=null;
+   c.snowMaskPrevious=snowMaskMetrics.rebuilds;
+   c.snowClipsPrevious=snowMaskMetrics.directClips;
+   c.snowSpritePrevious=snowMaskMetrics.snowSpriteMetrics.draws;
+   return;
+  }
+  // Quality is stable for nearly every frame. Avoid constructing a new
+  // four-part profile string at 60+ Hz; still record every real profile change.
+  const mode=quality.mode,level=quality.level,resolution=renderer.resolution,
+   decoration=renderer.decoration;
+  if(mode!==c.lastMode||level!==c.lastLevel||
+      resolution!==c.lastResolution||decoration!==c.lastDecoration){
+   const profile=mode+'/'+level+'/'+resolution+'/'+decoration;
    if(c.profileChanges.length<MAX_SNAPSHOTS)c.profileChanges.push({
     gameSeconds:round(game.elapsed||0),profile,canvas:[renderer.canvas.width,renderer.canvas.height]
    });
    c.lastProfile=profile;
+   c.lastMode=mode;c.lastLevel=level;
+   c.lastResolution=resolution;c.lastDecoration=decoration;
+  }
+  const profile=c.lastProfile;
+  const snowMaskRebuilds=Math.max(0,snowMaskMetrics.rebuilds-c.snowMaskPrevious);
+  const snowDirectClips=Math.max(0,snowMaskMetrics.directClips-c.snowClipsPrevious);
+  c.snowMaskPrevious=snowMaskMetrics.rebuilds;
+  c.snowClipsPrevious=snowMaskMetrics.directClips;
+  c.snowMaskRebuilds+=snowMaskRebuilds;
+  c.snowDirectClips+=snowDirectClips;
+  const snowSpriteDraws=Math.max(0,snowMaskMetrics.snowSpriteMetrics.draws-c.snowSpritePrevious);
+  c.snowSpritePrevious=snowMaskMetrics.snowSpriteMetrics.draws;
+  c.snowSpriteDraws+=snowSpriteDraws;
+  // Record the largest CPU stalls even when their RAF gap occurs *after*
+  // this callback. The normal path performs no allocation or entity scan.
+  if(callbackMs>=LONG_CALLBACK_MS){
+   c.longCallbackTotal++;
+   let position=c.longCallbacks.length;
+   if(position>=MAX_LONG_CALLBACKS){
+    let smallest=0;
+    for(let i=1;i<position;i++)if(c.longCallbacks[i].cpuMs<c.longCallbacks[smallest].cpuMs)smallest=i;
+    if(callbackMs<=c.longCallbacks[smallest].cpuMs)position=-1;
+    else position=smallest;
+   }
+   if(position>=0){
+    let wood=0,snakes=0,fruit=0,hawks=0,activeSnakeWarnings=0;
+    for(const e of game.entities||[]){
+     if(e.kind==='wood'){wood++;if(e.snake){snakes++;if(['warning','windup','striking'].includes(e.snake.phase))activeSnakeWarnings++;}}
+     else if(e.kind==='hawk')hawks++;
+     else if(e.kind==='fruit')fruit++;
+    }
+    const breakdownMs=cpuSections?{
+     physicsMs:round(cpuSections.physicsMs),uiMs:round(cpuSections.uiMs),
+     audioMs:round(cpuSections.audioMs),visualMs:round(cpuSections.visualMs),
+     drawMs:round(cpuSections.drawMs),otherMs:round(cpuSections.otherMs)
+    }:null;
+    c.longCallbacks[position]={
+     gameSeconds:round(game.elapsed||0),stage:game.stage,cpuMs:round(callbackMs),
+     breakdownMs,renderPartsMs:renderer._renderCpuParts&&cpuSections?{
+      backgroundMs:round(renderer._renderCpuParts.backgroundMs),
+      treesMs:round(renderer._renderCpuParts.treesMs),
+      entitiesMs:round(renderer._renderCpuParts.entitiesMs),
+      birdMs:round(renderer._renderCpuParts.birdMs),
+      particlesMs:round(renderer._renderCpuParts.particlesMs),
+      foregroundMs:round(renderer._renderCpuParts.foregroundMs)
+     }:null,weather:getWeatherMode(),profile,snowMaskRebuilds,snowDirectClips,snowSpriteDraws,
+     textWarningsShown:renderer.showTextWarnings!==false,
+     entities:{wood,snakes,fruit,hawks,activeSnakeWarnings,particles:game.particles?.length??0}
+    };
+   }
   }
   if(c.previous>0&&timestamp>c.previous&&c.samples.length<MAX_FRAMES){
-   const dt=timestamp-c.previous,stage=String(game.stage),windowKey=String(Math.floor((game.elapsed||0)/10)*10);
+   const dt=timestamp-c.previous,stage=game.stage,windowKey=Math.floor((game.elapsed||0)/10)*10;
    c.samples.push(dt);
    (c.byStage[stage]??(c.byStage[stage]=[])).push(dt);
    (c.byWindow[windowKey]??(c.byWindow[windowKey]=[])).push(dt);
@@ -135,11 +203,18 @@ export class MatchPerformance {
      else position=smallest;
     }
     if(position>=0){
-     let wood=0,hawk=0,snake=0,fruit=0;
+     let wood=0,hawk=0,snake=0,fruit=0,snakeWarnings=0,hawkWarnings=0;
      for(const entity of game.entities||[]){
-      if(entity.kind==='wood'){wood++;if(entity.snake)snake++;}
-      else if(entity.kind==='hawk')hawk++;
-      else if(entity.kind==='fruit')fruit++;
+      if(entity.kind==='wood'){
+       wood++;
+       if(entity.snake){
+        snake++;
+        if(entity.snake.phase==='warning'||entity.snake.phase==='windup'||entity.snake.phase==='striking')snakeWarnings++;
+       }
+      }else if(entity.kind==='hawk'){
+       hawk++;
+       if(!entity.harmless&&entity.x>game.x+100)hawkWarnings++;
+      }else if(entity.kind==='fruit')fruit++;
      }
      c.stutters[position]={
       frame:c.samples.length,frameMs:round(dt),gameSeconds:round(game.elapsed||0),
@@ -147,7 +222,10 @@ export class MatchPerformance {
       previousCallbackCpuMs:c.previousCpuMs===null?null:round(c.previousCpuMs),
       currentCallbackCpuMs:round(callbackMs),
       pendingSeasonSurface:renderer.seasonalBackdrop?.pending?.id??null,
-      entities:{wood,hawk,snake,fruit,particles:game.particles?.length??0}
+      snowMaskRebuilds,snowDirectClips,snowSpriteDraws,
+      entities:{wood,hawk,snake,fruit,particles:game.particles?.length??0},
+      visibleWarnings:{snakes:snakeWarnings,hawks:hawkWarnings},
+      textWarningsShown:renderer.showTextWarnings!==false
      };
     }
    }
@@ -164,14 +242,15 @@ export class MatchPerformance {
   this.current=null;
   const report={
    schemaVersion:1,source:'Chaua Educa / desempenho automatico por partida',
-   provenance:{gameVersion:GAME_VERSION,build:typeof document==='undefined'?null:document.querySelector('meta[name="chaua-build"]')?.content||null,host:typeof location!=='undefined'?location.host:null,
+   provenance:{gameVersion:GAME_VERSION,testBranch:'teste-v2-performance-sem-avisos-texto',build:typeof document==='undefined'?null:document.querySelector('meta[name="chaua-build"]')?.content||null,host:typeof location!=='undefined'?location.host:null,
     path:typeof location!=='undefined'?location.pathname:null},
    id:c.id,startedAt:c.start,collectedAt:new Date().toISOString(),
    device:viewportInfo(renderer),
    match:{seed:c.seed,mode:c.mode,training:c.training,score:game.score,
     won:!!game.won,flightSeconds:round(game.elapsed||0),stage:game.stage},
    endReason:reason,settings:{qualityMode:quality.mode,qualityLevel:quality.level,
-    resolution:renderer.resolution,decoration:renderer.decoration},
+    resolution:renderer.resolution,decoration:renderer.decoration,
+    textWarningsShownAtEnd:renderer.showTextWarnings!==false},
    measurement:{eligibleOnly:'visible-focused-playing',deepInstrumentation:false,
     sampleLimit:MAX_FRAMES,capped:c.samples.length===MAX_FRAMES,
     limitations:['RAF intervals include browser scheduling and are not exclusively CPU or GPU work.',
@@ -181,7 +260,16 @@ export class MatchPerformance {
    byStage:byBucket(c.byStage),byTenSecondWindow:byBucket(c.byWindow),
    byProfile:byBucket(c.byProfile),
    profileChanges:c.profileChanges,climateTimeline:c.snapshots,
-   stutters:c.stutters.sort((a,b)=>a.frame-b.frame),events:c.events
+   stutters:c.stutters.sort((a,b)=>a.frame-b.frame),
+   longCallbacks:{thresholdMs:LONG_CALLBACK_MS,total:c.longCallbackTotal,
+    slowest:c.longCallbacks.sort((a,b)=>a.gameSeconds-b.gameSeconds)},
+   snowMask:{renderer:SNOW_RENDER_MODE,
+    rebuildsDuringFlight:c.snowMaskRebuilds,
+    directClipsDuringFlight:c.snowDirectClips,
+    spriteDrawsDuringFlight:c.snowSpriteDraws,
+    spriteBuildMs:snowMaskMetrics.snowSpriteMetrics.buildMs,
+    spriteEstimatedBytes:snowMaskMetrics.snowSpriteMetrics.estimatedBytes},
+   events:c.events
   };
   this.lastReport=report;
   this.records.push(report);

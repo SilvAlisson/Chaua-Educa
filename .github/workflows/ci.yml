@@ -78,7 +78,12 @@ jobs:
           npm run test:render-profile
           npm run test:auto-visual
           npm run test:perf-probe
+          node scripts/benchmark-warning-bursts.mjs
           node tests/browser-match-performance.cjs
+          node tests/browser-text-warning-toggle.cjs
+          node tests/browser-runtime-warmup-a-b.cjs
+          node tests/browser-snow-direct-clip-a-b.cjs
+          node tests/browser-snow-prebaked-variants.cjs
           npm run test:perf-forensics
           npm run test:perf-experiments
           npm run test:snake-continuity

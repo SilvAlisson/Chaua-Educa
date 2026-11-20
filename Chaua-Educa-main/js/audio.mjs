@@ -79,7 +79,7 @@ export class ForestAudio {
     }
     play(type) {
         if(!this.enabled||!this.visible)return;
-        if(type==='thunder'){if(this.ensure())this.playThunder(1,lightningStrikeAt(0));return;}
+        if(type==='thunder'){if(this.active&&this.ensure())this.playThunder(1,lightningStrikeAt(0));return;}
         // UI-only events should never initialize an audio device.
         const notes=AUDIO_NOTES;
         if(type!=='flap'&&!notes[type])return;
@@ -133,9 +133,10 @@ export class ForestAudio {
         const now=this.context?.currentTime??0;
         for(const voice of this.thunderVoices){
             try {
+                // No scheduled or playing thunder should leak into a pause.
                 voice.gain.gain.cancelScheduledValues(now);
-                voice.gain.gain.setTargetAtTime(0,now,.012);
-                voice.source.stop(now+.08);
+                voice.gain.gain.setValueAtTime(0,now);
+                voice.source.stop(now);
             } catch { /* Already finished or interrupted by device */ }
         }
         this.thunderVoices.clear();
@@ -200,11 +201,19 @@ export class ForestAudio {
                 context.resume().catch(()=>{});
             }
         }
-        const active=this.enabled&&visible&&['menu','playing','countdown','arrival'].includes(state);
+        // Never play looping weather in menus or dialogs. Previously `menu`
+        // was active and the 250ms fade leaked wind/rain into pause screens.
+        const active=this.enabled&&visible&&['playing','countdown','arrival'].includes(state);
         const c=this.context;
-        if(active!==this.active) {
-            this.active=active;this.ambient.gain.setTargetAtTime(active ? .2 : 0,c.currentTime,.25);
-            if(!active)this.stopThunder();
+        if(active!==this.active){
+            this.active=active;
+            const gain=this.ambient.gain,now=c.currentTime;
+            gain.cancelScheduledValues(now);
+            if(active)gain.setTargetAtTime(.2,now,.06);
+            else{
+                gain.setValueAtTime(0,now);
+                this.stopThunder();
+            }
         }
         const stormVisible=['playing','arrival'].includes(state);
         if(!stormVisible&&this.thunderVoices.size)this.stopThunder();

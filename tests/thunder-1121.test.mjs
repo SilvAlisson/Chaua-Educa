@@ -162,3 +162,28 @@ test('all thunder pitch extremes preserve the requested short/medium/long ranges
   }
  }
 });
+
+test('audio weather remains silent in menu and pauses immediately without muting new flights',async()=>{
+ const {audio,ctx}=await harness();
+ const time=strikeTime(0);
+ audio.update('menu',true,time,0,1,1,1);
+ assert.equal(audio.active,false);
+ assert.equal(audio.ambient.gain.value,0,'menu should be silent');
+ audio.update('playing',true,time,0,1,1,1);
+ assert.equal(audio.active,true);
+ assert.equal(ctx.events.length,1);
+ const thunder=ctx.events[0].source;
+ audio.update('paused',true,time,0,1,1,1);
+ assert.equal(audio.active,false);
+ assert.equal(audio.ambient.gain.value,0,'wind/rain must mute synchronously');
+ assert.equal(thunder.stoppedAt,ctx.currentTime,'thunder must stop immediately');
+ assert.equal(audio.thunderVoices.size,0);
+ audio.update('menu',true,time,0,1,1,1);
+ assert.equal(ctx.events.length,1);
+ audio.update('playing',true,strikeTime(1),0,1,1,1);
+ assert.equal(audio.active,true);
+ assert.equal(ctx.events.length,2,'next flight re-enables thunder');
+ audio.update('quiz',true,strikeTime(1),0,1,1,1);
+ assert.equal(audio.ambient.gain.value,0,'quiz must be silent');
+ assert.equal(ctx.events[1].source.stoppedAt,ctx.currentTime);
+});

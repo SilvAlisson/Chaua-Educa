@@ -108,23 +108,30 @@ test('four existing transparent snow overlays crossfade progressively at every b
  }
 });
 
-test('the upper tree snow overlay touches only the exposed branch cap, never its ceiling-bound trunk strip',t=>{
+test('upper-tree snow remains on the authored exposed cap, with a safe direct fallback when sprites are not loaded',t=>{
  const old=new Map(images);
  t.after(()=>{images.clear();for(const [k,v] of old)images.set(k,v)});
  const original={id:'original'},stage4={id:'stage4'};
  images.set('trees-upper',original);
  images.set('trees-upper-overlay-04',stage4);
- const oldCanvas=globalThis.OffscreenCanvas,inside=mock();inside.c.clearRect=()=>{};
- globalThis.OffscreenCanvas=class{getContext(){return inside.c}};
+ const oldCanvas=globalThis.OffscreenCanvas;
+ const offscreenSizes=[];
+ globalThis.OffscreenCanvas=class{
+  constructor(width,height){offscreenSizes.push([width,height]);}
+  getContext(){return mock().c;}
+ };
  t.after(()=>{globalThis.OffscreenCanvas=oldCanvas});
  const upper=mock();
  drawLivingTrunk(upper.c,{x:200,y:200,upper:true,width:TREE_WIDTH,length:900,snow:.375});
- const snowDraws=inside.calls.filter(x=>x.type==='image'&&x.args[0]===stage4);
- assert.equal(snowDraws.length,4,'each authored cell uses solid final snow');
- assert.ok(inside.calls.some(x=>x.type==='rect'),'coverage grows through a spatial mask');
- const composed=upper.calls.find(x=>x.type==='image'&&x.args[0]!==original);
- assert.ok(composed.args[4]>2,'the composed overlay uses the exposed cap rather than the ceiling strip');
- assert.ok(upper.calls.some(x=>x.type==='image'&&x.args[0]===original),'the authored base tree must remain');
+ const capDraws=upper.calls.filter(x=>x.type==='image'&&x.args[0]===stage4);
+ assert.equal(capDraws.length,1,'reveal the original snow overlay directly, not through a rebuilt atlas');
+ assert.ok(upper.calls.some(x=>x.type==='rect'),'the original progressive 32-column clipping mask remains');
+ assert.ok(upper.calls.some(x=>x.type==='clip'),'snow art must be clipped to the exposed cap');
+ assert.ok(offscreenSizes.every(([width,height])=>width!==1024||height!==1024),
+  'snow must not allocate a 1024x1024 overlay atlas; ordinary bark tile caching remains allowed');
+ const authoredSourceY=capDraws[0].args[2];
+ assert.ok(authoredSourceY>=49,'the upper overlay must begin at the cap splice, not at the ceiling-bound trunk');
+ assert.ok(upper.calls.some(x=>x.type==='image'&&x.args[0]===original),'base tree sprite preserved');
 });
 
 test('forest atmosphere no longer emits duplicate snowfall particles',()=>{

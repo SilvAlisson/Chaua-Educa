@@ -246,11 +246,17 @@ function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=2
  // Similar density on laptop and portrait viewports, without letting a huge
  // canvas spawn an unbounded number of raindrops.
  const areaScale=Math.max(.65,Math.min(1.45,Math.sqrt(w*h/(960*640))));
+ // Motion values are constant for the entire paint call; do not repeat
+ // optional property reads and multiplications for every rain drop.
+ const stormTravel=motion?.storm??time*storm;
+ const windTravel=motion?.wind??time*wind;
+ const speedTravel=motion?.speed??time*speed;
  c.save();
  c.beginPath();c.rect(0,0,w,h);c.clip();
  c.lineCap='round';
  for(const {depth,count} of bands){
   const visibleCount=Math.max(1,Math.round(count*areaScale*(1+storm*.55)));
+  const driftX=(time*14+windTravel*48+stormTravel*14)*depth;
   const opacity=rainClamp(rain*(foreground?.68:.37+depth*.32)+storm*.10);
   c.globalAlpha=opacity;
   c.strokeStyle='#305768';
@@ -260,8 +266,8 @@ function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=2
   c.beginPath();
   for(let i=0;i<visibleCount;i++){
    const seed=(i+1)*67.17+depth*119.7;
-   const y=rainWrap(seed*11.17+time*(230+depth*270+(i%4)*27)+(motion?.storm??time*storm)*120+(motion?.speed??time*speed)*.1,h+64)-32;
-   const x=rainWrap(seed*23.79-(time*14+(motion?.wind??time*wind)*48+(motion?.storm??time*storm)*14)*depth,w+64)-32;
+   const y=rainWrap(seed*11.17+time*(230+depth*270+(i%4)*27)+stormTravel*120+speedTravel*.1,h+64)-32;
+   const x=rainWrap(seed*23.79-driftX,w+64)-32;
    const length=(foreground?10:6)+depth*8+(i%3)*1.5;
    const sideways=-(wind*.55+storm*.26+speed*.0016)*length;
    const item=rainScratch[i]||(rainScratch[i]={x:0,y:0,length:0,tipX:0,radius:0});

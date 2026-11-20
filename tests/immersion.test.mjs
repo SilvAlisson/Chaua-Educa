@@ -31,7 +31,7 @@ test('world distance is integrated and frozen on pause, independent of graphics'
  g.start();assert.equal(g.distance,0);assert.equal(g.popups.length,0);
 });
 function fakeAudio(){
- const params=()=>({value:0,setTargetAtTime(v){this.value=v;},setValueAtTime(v){this.value=v;},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}});
+ const params=()=>({value:0,setTargetAtTime(v){this.value=v;},setValueAtTime(v){this.value=v;},cancelScheduledValues(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}});
  const node=()=>({gain:params(),frequency:params(),connect(n){return n;},start(){},stop(){},disconnect(){}});
  return {currentTime:1,sampleRate:100,state:'running',destination:{},createGain:node,createBufferSource:node,createBiquadFilter:node,createOscillator:node,
  createBuffer:()=>({getChannelData:()=>new Float32Array(200)})};
@@ -40,6 +40,7 @@ test('audio requires opt-in, reuses one context and mutes ambience during dialog
  let contexts=0;const audio=new ForestAudio(()=>{contexts++;return fakeAudio();});
  audio.play('fruit');assert.equal(contexts,0);audio.setEnabled(true);audio.play('points');assert.equal(contexts,0);
  audio.play('fruit');audio.play('flap');assert.equal(contexts,1);
+ audio.update('menu',true,10,0);assert.equal(audio.active,false);assert.equal(audio.ambient.gain.value,0,'initial menu must stay silent');
  audio.update('playing',true,10,0);assert.equal(audio.active,true);assert.ok(audio.ambient.gain.value>0);
  for(const state of ['quiz','paused','impact','ended']){audio.update(state,true,10,0);assert.equal(audio.active,false);assert.equal(audio.ambient.gain.value,0);}
  audio.update('playing',true,10,0);audio.setEnabled(false);audio.update('playing',true,10,0);
