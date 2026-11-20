@@ -78,12 +78,15 @@ function drawSnowDirect(c,kind,f,sx,sy,cx,cw,splice,snowyTipEnd,s,px,destY,snow)
 // Caps, knots, branches and foliage retain the authored proportions.
 export function drawLivingTrunk(c, {x, y, upper = false, width = TREE_WIDTH, length = 900, variant = 0, time = 0, snow = 0, rain = 0}) {
  const kind = upper ? 'upper' : 'lower';
+ // A/B intervention: keep weather and snowfall, remove only tree-bound snow.
+ // This also avoids switching to the authored full-snow image at snow=1.
+ const treeSnow=PERF_AB_VARIANT==='snow-mask-off'?0:snow;
  // Snap the final 1/256 increment to the fully authored winter artwork:
  // the approved full-snow source is pixel-perfect, while a 75%-resolution
  // atlas can differ by one antialiased edge pixel at 255/256. This also
  // prevents a one-frame perceived reduction in coverage as snow finishes.
- const fullSnow = snow >= 1 - 1e-6 ||
-   (SNOW_RENDER_MODE==='sprites'&&snow>=255/256);
+ const fullSnow = treeSnow >= 1 - 1e-6 ||
+   (SNOW_RENDER_MODE==='sprites'&&treeSnow>=255/256);
  const snowImg4 = fullSnow ? images.get(`trees-${kind}-snow-04`) : null;
  const image = snowImg4 || images.get(`trees-${kind}`);
  if (!image) return;
@@ -96,7 +99,7 @@ export function drawLivingTrunk(c, {x, y, upper = false, width = TREE_WIDTH, len
  const bark=livingBark(barkImage,kind,((variant%4)+4)%4,f);
  const splice = upper ? f.spliceY : f.spliceY - 1;
  // Snow icicles may extend past original alpha bounds. Visual clip only.
- const snowyTipEnd=upper&&snow>0?Math.max(f.endY,Math.min(512,f.endY+30)):f.endY;
+ const snowyTipEnd=upper&&treeSnow>0?Math.max(f.endY,Math.min(512,f.endY+30)):f.endY;
  const join = y + (splice - f.anchor[1]) * s;
  if (upper) {
   const start = y - length;
@@ -106,7 +109,7 @@ export function drawLivingTrunk(c, {x, y, upper = false, width = TREE_WIDTH, len
   const end = y + length;
   fillBark(c,bark,coreLeft,join,width,s,end-join,false);
   // Preserve the snow dome above the bare wood's y=20 content bound.
-  const capTop=snow>0?0:cy;
+  const capTop=treeSnow>0?0:cy;
   c.drawImage(image,sx+cx,sy+capTop,cw,splice-capTop,
    px,y+(capTop-f.anchor[1])*s,cw*s,(splice-capTop)*s);
  }
@@ -121,7 +124,7 @@ export function drawLivingTrunk(c, {x, y, upper = false, width = TREE_WIDTH, len
  // single 219-second Android flight. Direct clipping completely removes
  // those atlas updates; the 32-column snow edge and 1/256 steps stay intact.
  // ?perf-test=1&perf-ab=legacy-snow-rebuild retains the original A/B path.
- if(snow>0&&!fullSnow&&PERF_AB_VARIANT!=='snow-mask-off'){
+ if(treeSnow>0&&!fullSnow){
   if(SNOW_RENDER_MODE==='sprites'){
    const sourceY=sy+(upper?splice:0);
    const sourceHeight=upper?snowyTipEnd-splice:splice;

@@ -81,6 +81,7 @@ jobs:
           node scripts/benchmark-warning-bursts.mjs
           node tests/browser-match-performance.cjs
           npm run test:match-forensics
+          npm run test:tree-snow-ab
           node tests/browser-text-warning-toggle.cjs
           node tests/browser-runtime-warmup-a-b.cjs
           node tests/browser-snow-direct-clip-a-b.cjs

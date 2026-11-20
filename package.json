@@ -28,6 +28,7 @@
     "test:perf-probe": "node tests/browser-perf-probe.cjs",
     "test:perf-forensics": "node tests/browser-perf-forensics.cjs",
     "test:match-forensics": "node tests/browser-match-forensic-integration.cjs",
+    "test:tree-snow-ab": "node tests/browser-tree-snow-ab.cjs",
     "test:perf-experiments": "node tests/browser-perf-experiments.cjs",
     "test:winter-art": "node tests/browser-approved-winter.cjs",
     "test:pages-path": "node tests/browser-github-pages.cjs",

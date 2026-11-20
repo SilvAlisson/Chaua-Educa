@@ -5,13 +5,15 @@ import {diagnosticStutterSlot} from '../Chaua-Educa-main/js/perf-sampling.mjs';
 import {clipSnowReveal,snowRevealHeight} from '../Chaua-Educa-main/js/winter-vfx.mjs';
 import {readFileSync} from 'node:fs';
 
-test('A/B modes never affect game unless perf-test is enabled',()=>{
- assert.equal(PERF_AB_VARIANT,'baseline');
- assert.equal(resolvePerfVariant('?perf-ab=snow-mask-off'),'baseline');
+test('isolated snowless browser A/B defaults off and can restore baseline without perf-test',()=>{
+ assert.equal(PERF_AB_VARIANT,'baseline','Node remains the authored baseline');
+ assert.equal(resolvePerfVariant(''),'snow-mask-off');
+ assert.equal(resolvePerfVariant('?perf-ab=snow-mask-off'),'snow-mask-off');
+ assert.equal(resolvePerfVariant('?perf-ab=baseline'),'baseline');
  for(const v of ['snow-mask-off','snow-flakes-off','static-season-bg','legacy-snow-clips']){
   assert.equal(resolvePerfVariant('?perf-test=1&perf-ab='+v),v);
  }
- assert.equal(resolvePerfVariant('?perf-test=1&perf-ab=invalid'),'baseline');
+ assert.equal(resolvePerfVariant('?perf-test=1&perf-ab=invalid'),'snow-mask-off');
 });
 test('clip reveal preserves all 32 columns on the fallback path',()=>{
  const calls=[],ctx={beginPath(){calls.push('begin');},rect(...args){calls.push(args);},clip(){calls.push('clip');}};

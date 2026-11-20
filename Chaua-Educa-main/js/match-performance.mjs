@@ -7,6 +7,7 @@ import {getWeatherMode} from './weather.mjs';
 import {GAME_VERSION} from './version.mjs';
 import {snowMaskMetrics,SNOW_RENDER_MODE} from './tree-art.mjs';
 import {ForensicRecorder} from './perf-forensics.mjs';
+import {PERF_AB_VARIANT} from './perf-ab.mjs';
 import {setActiveProbe} from './perf-hooks.mjs';
 
 export const MATCH_PERF_KEY='chaua-performance-matches-v1';
@@ -15,7 +16,9 @@ const MAX_REPORTS=10,MAX_FRAMES=45000,MAX_STUTTERS=100,MAX_EVENTS=80,MAX_SNAPSHO
 const MAX_LONG_CALLBACKS=50,LONG_CALLBACK_MS=18;
 const STUTTER_THRESHOLD_MS=28;
 const forensicParams=typeof location==='undefined'?null:new URLSearchParams(location.search);
-const MATCH_FORENSICS=forensicParams?.get('match-forensics')==='1';
+// Dedicated forensics branch: automatically include the causal trace in the regular match JSON.
+// ?match-forensics=0 is an explicit opt-out for overhead comparison.
+const MATCH_FORENSICS=typeof location!=='undefined'&&forensicParams?.get('match-forensics')!=='0';
 const SEASON_PREWARM_DISABLED=MATCH_FORENSICS&&forensicParams?.get('season-prewarm')==='off';
 const round=(n,d=2)=>Number(Number(n).toFixed(d));
 const empty=()=>Object.create(null);
@@ -98,7 +101,8 @@ export class MatchPerformance {
      forensic.event('seasonal:'+name,{gameSeconds:round(game.elapsed||0),...details});
    }
    forensic.event('trial-start',{seed:game.seed,seasonPrewarm:!SEASON_PREWARM_DISABLED,
-    hawkWarmup:renderer.hawkWarmupMode||'legacy',snowRenderer:SNOW_RENDER_MODE});
+    hawkWarmup:renderer.hawkWarmupMode||'legacy',snowRenderer:SNOW_RENDER_MODE,
+     perfAbVariant:PERF_AB_VARIANT,treeSnowAccumulationEnabled:PERF_AB_VARIANT!=='snow-mask-off'});
   }
   this.current={
    id:Date.now()+'-'+Math.floor(Math.random()*100000),
@@ -303,7 +307,7 @@ export class MatchPerformance {
   this.current=null;
   const report={
    schemaVersion:1,source:'Chaua Educa / desempenho automatico por partida',
-   provenance:{gameVersion:GAME_VERSION,testBranch:'test/forense-causal-raf-v114-20261120',build:typeof document==='undefined'?null:document.querySelector('meta[name="chaua-build"]')?.content||null,host:typeof location!=='undefined'?location.host:null,
+   provenance:{gameVersion:GAME_VERSION,testBranch:'test/inverno-sem-neve-arvores-forense-20261120',build:typeof document==='undefined'?null:document.querySelector('meta[name="chaua-build"]')?.content||null,host:typeof location!=='undefined'?location.host:null,
     path:typeof location!=='undefined'?location.pathname:null},
    id:c.id,startedAt:c.start,collectedAt:new Date().toISOString(),
    device:viewportInfo(renderer),
@@ -328,7 +332,8 @@ export class MatchPerformance {
     slowest:c.longCallbacks.sort((a,b)=>a.gameSeconds-b.gameSeconds)},
    experiment:{forensicEnabled:!!forensic,seasonPrewarmEnabled:!SEASON_PREWARM_DISABLED,
     hawkWarmup:renderer.hawkWarmupMode||'legacy',snowRenderer:SNOW_RENDER_MODE,
-    fixedSeed:c.seed,diagnosticRevision:'causal-raf-v1'},
+    perfAbVariant:PERF_AB_VARIANT,treeSnowAccumulationEnabled:PERF_AB_VARIANT!=='snow-mask-off',
+    fixedSeed:c.seed,diagnosticRevision:'tree-snow-ab-v1'},
    forensics:forensic?forensic.report(c.stutters):undefined,
    snowMask:{renderer:SNOW_RENDER_MODE,
     rebuildsDuringFlight:c.snowMaskRebuilds,

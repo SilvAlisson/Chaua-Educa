@@ -13,10 +13,12 @@ const browser=chromium;
    await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
    const url=new URL(process.env.GAME_URL||'http://127.0.0.1:5501/');
    url.searchParams.set('snow-render',mode);
+   url.searchParams.set('perf-ab','baseline'); // keep original snow-art parity despite experiment default
    await page.goto(url.toString(),{waitUntil:'networkidle'});
    const result=await page.evaluate(async()=>{
-    const [{Renderer},{drawLivingTrunk,snowMaskMetrics}]=await Promise.all([
-     import('/js/render.mjs'),import('/js/tree-art.mjs')]);
+    const [{Renderer},{drawLivingTrunk,snowMaskMetrics},{loadAssets}]=await Promise.all([
+     import('/js/render.mjs'),import('/js/tree-art.mjs'),import('/js/assets.mjs')]);
+    await loadAssets();
     const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;
     const r=new Renderer(canvas);await r.ready;
     const c=canvas.getContext('2d',{willReadFrequently:true});
