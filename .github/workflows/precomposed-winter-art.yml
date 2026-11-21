@@ -1,0 +1,68 @@
+name: Bake original-faithful winter spritesheets
+
+on:
+  push:
+    branches:
+      - test/neve-precomposta-fiel-20261121
+    paths:
+      - scripts/build_precomposed_winter_art.py
+      - .github/workflows/precomposed-winter-art.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: faithful-snow-art-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install image compositor
+        run: python -m pip install Pillow==11.3.0
+      - name: Bake 16 exact-origin snow levels per tree family
+        run: python scripts/build_precomposed_winter_art.py
+      - name: Verify original-art provenance and stage counts
+        run: |
+          python - <<'PY'
+          import json, pathlib, hashlib
+          root=pathlib.Path.cwd()
+          p=root/'Chaua-Educa-main/assets/Seasons/Winter/Precomposed/manifest.json'
+          j=json.loads(p.read_text())
+          assert j['stages']==16
+          for name,v in j['families'].items():
+              assert len(v['files'])==16 and len(v['hashes'])==16
+              for f,h in zip(v['files'],v['hashes']):
+                  assert hashlib.sha256((root/f).read_bytes()).hexdigest()==h
+              assert (root/v['base']).read_bytes()==(root/v['files'][0]).read_bytes()
+              if name!='special':
+                  assert (root/v['fullSnow']).read_bytes()==(root/v['files'][-1]).read_bytes()
+          print('PASS: 48 original-based WebP sheets, baseline pixel sources intact')
+          PY
+      - name: Upload all winter sheets and preview PNGs
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-faithful-winter-sheets-16-stages
+          path: Chaua-Educa-main/assets/Seasons/Winter/Precomposed/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Commit generated artwork on experimental branch only
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "test/neve-precomposta-fiel-20261121"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Chaua-Educa-main/assets/Seasons/Winter/Precomposed/
+          if ! git diff --cached --quiet; then
+            git commit -m "art: bake 48 winter sheets from original trees [skip ci]"
+            git push origin HEAD:test/neve-precomposta-fiel-20261121
+          fi
