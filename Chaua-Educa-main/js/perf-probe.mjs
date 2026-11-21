@@ -5,32 +5,17 @@ import {journeySeason} from './seasons.mjs';
 import {winterAmount} from './living-motion.mjs';
 import {ForensicRecorder} from './perf-forensics.mjs';
 import {setActiveProbe} from './perf-hooks.mjs';
+import {PERF_AB_VARIANT} from './perf-ab.mjs';
+import {GAME_VERSION} from './version.mjs';
+import {diagnosticStutterSlot} from './perf-sampling.mjs';
 
 const MAX_FRAMES=45_000;
 const MAX_DETAILS=150;
 const SEASON_NAMES=['spring','summer','autumn','winter'];
 const round=(x,n=2)=>Number(x.toFixed(n));
 
-export function summarizeFrames(samples){
- const dt=Array.from(samples,x=>typeof x==='number'?x:x.dt).filter(v=>v>0&&Number.isFinite(v));
- if(!dt.length)return {frames:0,fps:null,onePercentLowFps:null,frameP50Ms:null,frameP95Ms:null,frameP99Ms:null,maxFrameMs:null,framesOver22Ms:0,framesOver33Ms:0,framesOver50Ms:0,framesOver100Ms:0};
- dt.sort((a,b)=>a-b);
- let total=0,over22=0,over33=0,over50=0,over100=0;
- for(const ms of dt){total+=ms;if(ms>22)over22++;if(ms>33.33)over33++;if(ms>50)over50++;if(ms>100)over100++;}
- const pick=p=>round(dt[Math.floor((dt.length-1)*p)],1);
- const worstCount=Math.max(1,Math.ceil(dt.length*.01));
- let worstMs=0;for(let i=dt.length-worstCount;i<dt.length;i++)worstMs+=dt[i];
- return {
-  frames:dt.length,
-  fps:round(dt.length*1000/total),
-  // 1% low: inverse mean frametime of the slowest 1% of complete frames.
-  onePercentLowFps:round(1000*worstCount/worstMs),
-  frameP50Ms:pick(.5),frameP95Ms:pick(.95),frameP99Ms:pick(.99),
-  maxFrameMs:round(dt[dt.length-1],1),
-  framesOver22Ms:over22,framesOver33Ms:over33,
-  framesOver50Ms:over50,framesOver100Ms:over100
- };
-}
+import {summarizeFrames} from './frame-summary.mjs';
+export {summarizeFrames} from './frame-summary.mjs';
 
 export function mountPerformanceProbe({game,quality,renderer}){
  if(document.querySelector('#chaua-qa-panel'))return;
@@ -54,6 +39,7 @@ export function mountPerformanceProbe({game,quality,renderer}){
  let samples=[],changes=[],stutters=[],transitions=[],climateTimeline=[];
  let slowCount=0,severeCount=0,lastProfile='',lastSeason='',lastWeather='',lastStage=null,lastReport=null;
  const forensics=new ForensicRecorder();
+ const assetVersion=(()=>{try{return JSON.parse(document.querySelector('#chaua-modules')?.textContent||'{}').imports?.['./js/script.js']||null;}catch{return null;}})();
  const profile=()=>quality.mode+'/'+quality.level+'/'+renderer.resolution+'/'+renderer.decoration;
  const addTransition=e=>{if(transitions.length<MAX_DETAILS)transitions.push(e);};
  const snapshot=(reason)=>{
@@ -90,6 +76,8 @@ export function mountPerformanceProbe({game,quality,renderer}){
   }
   lastReport={
    schemaVersion:1,source:'Chaua Educa / opt-in local performance probe',
+   provenance:{gameVersion:GAME_VERSION,assetVersion,diagnosticRevision:'mobile-audit-1',
+    host:location.host,path:location.pathname,gitCommit:null},
    collectedAt:new Date().toISOString(),
    device:{userAgent:navigator.userAgent,deviceMemoryGiB:navigator.deviceMemory??null,
     logicalCores:navigator.hardwareConcurrency??null,screen:[screen.width,screen.height],
@@ -102,9 +90,10 @@ export function mountPerformanceProbe({game,quality,renderer}){
    byStage:Object.fromEntries(Object.entries(stages).map(([key,v])=>[key,summarizeFrames(v)])),
    byProfile:Object.fromEntries(Object.entries(byProfile).map(([key,v])=>[key,summarizeFrames(v)])),
    byTenSecondWindow:Object.fromEntries(Object.entries(windows).map(([key,v])=>[key,summarizeFrames(v)])),
-   profileChanges:changes,stutters,transitions,climateTimeline,
+   profileChanges:changes,stutters:stutters.sort((a,b)=>a.frame-b.frame),transitions,climateTimeline,
+   stutterSelection:'bounded-reservoir-with-severe-frame-priority',
    diagnosticLevel:forensics.deep?'deep':'normal',
-   experiments:{snakeWarmupEnabled:!!renderer.snakeWarmupEnabled,
+   experiments:{perfAB:PERF_AB_VARIANT,snakeWarmupEnabled:!!renderer.snakeWarmupEnabled,
     snakeSheetsWarmed:renderer.snakeWarmupIndex||0,
     seasonalSliceRows:renderer.seasonalBackdrop?.sliceRows??null,
     seasonalBudgetMs:renderer.seasonalBackdrop?.budgetMs??null,
@@ -144,16 +133,18 @@ export function mountPerformanceProbe({game,quality,renderer}){
     samples.push({dt,at:now-startTime,stage:game.stage,profile:current});
     if(dt>22){
      slowCount++;if(dt>33.33)severeCount++;
-     if(stutters.length<MAX_DETAILS){
+     const slot=diagnosticStutterSlot(slowCount,MAX_DETAILS,samples.length,dt,stutters);
+     if(slot>=0){
       let wood=0,hawk=0,snake=0;
       for(const e of game.entities||[]){if(e.kind==='wood'){wood++;if(e.snake)snake++;}else if(e.kind==='hawk')hawk++;}
-      stutters.push({frame:samples.length,atSeconds:round((now-startTime)/1000),
+      if(stutters[slot]&&forensics.deep)forensics.discardStutter(stutters[slot].frame);
+      stutters[slot]={frame:samples.length,atSeconds:round((now-startTime)/1000),
        gameSeconds:round(game.elapsed||0),frameMs:round(dt),stage:game.stage,
        pendingBackdrop:renderer.seasonalBackdrop?.pending?.id??null,
        heapUsedMb:Number.isFinite(performance.memory?.usedJSHeapSize)?
          round(performance.memory.usedJSHeapSize/1048576,1):null,
-       entities:{wood,hawk,snake,particles:game.particles?.length||0}});
-      forensics.rememberStutter(samples.length);
+       entities:{wood,hawk,snake,particles:game.particles?.length||0}};
+      if(forensics.deep)forensics.rememberStutter(samples.length);
      }
     }
    }
@@ -168,12 +159,14 @@ export function mountPerformanceProbe({game,quality,renderer}){
   active=true;hasPlayed=false;startTime=performance.now();previous=0;lastUI=0;nextClimate=0;
   forensics.clear();forensics.startedAt=startTime;
   forensics.deep=level.value==='deep';level.disabled=true;
-  forensics.game=game;forensics.startBrowserObservers();
-  setActiveProbe(forensics);
+  forensics.game=game;
+  // Leve: preserve RAF measurements without the overhead of deep JS hooks.
+  if(forensics.deep){forensics.startBrowserObservers();setActiveProbe(forensics);}
+  else setActiveProbe(null);
   samples=[];changes=[];stutters=[];transitions=[];climateTimeline=[];
   slowCount=0;severeCount=0;lastProfile='';lastSeason='';lastWeather='';lastStage=null;lastReport=null;
   start.disabled=true;stop.disabled=false;
-  if(renderer.seasonalBackdrop)renderer.seasonalBackdrop.onTelemetry=logBackdrop;
+  if(renderer.seasonalBackdrop)renderer.seasonalBackdrop.onTelemetry=forensics.deep?logBackdrop:null;
   requestAnimationFrame(tick);
  });
  stop.addEventListener('click',()=>{if(active)finish('manual-stop',true);else if(lastReport)download(lastReport);});

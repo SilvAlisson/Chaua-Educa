@@ -15,7 +15,8 @@ export const ACTION_TIMINGS = Object.freeze({
  snakeDaze:.85
 });
 export function parrotAction(p = {}) {
- if(p.reduced||p.perched||p.landing!==null&&p.landing!==undefined||p.surprise)return null;
+ if(p.perched||p.landing!==null&&p.landing!==undefined||p.surprise)return null;
+ if(p.reduced)return p.defeated?null:{state:'gliding',sheet:'parrot-flight',frame:3,progress:0};
  if(p.defeated){
    const progress=clamp(p.impactProgress||0);
    // Authored impact frames 0..3 go from surprise to spiral-eyed daze.

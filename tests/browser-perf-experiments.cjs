@@ -10,7 +10,7 @@ const root=base.endsWith('/')?base:base+'/';
   for(const enabled of [false,true]){
    const page=await browser.newPage({viewport:{width:1366,height:768},deviceScaleFactor:1,acceptDownloads:true});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.goto(root+'?perf-test=1&snakeWarmup='+(enabled?'1':'0'),{waitUntil:'networkidle'});
+   await page.goto(root+'?perf-test=1&perf-level=deep&snakeWarmup='+(enabled?'1':'0'),{waitUntil:'networkidle'});
    await page.locator('#start-training:not([disabled])').waitFor();
    const original=page.locator('#result-bird canvas');
    assert.equal(await original.count(),1,'result bird canvas exists before any flight');
@@ -43,9 +43,9 @@ const root=base.endsWith('/')?base:base+'/';
    assert.equal(report.experiments.snakeWarmupEnabled,enabled);
    const warmups=report.forensics.gameEvents.filter(e=>e.name==='snake-warmup');
    if(enabled){
-    assert.deepEqual(warmups.map(e=>e.sheet),['idle','attack','stunned'],'warm each sheet once, in order');
-    assert.equal(report.experiments.snakeSheetsWarmed,3);
-    assert.equal(report.forensics.measuredOperations['snake.warmupMs']?.count,3);
+    assert.deepEqual(warmups.map(e=>e.sheet),['idle','attack','stunned','high','sweep'],'warm each sheet once, in order');
+    assert.equal(report.experiments.snakeSheetsWarmed,5);
+    assert.equal(report.forensics.measuredOperations['snake.warmupMs']?.count,5);
    }else{
     assert.equal(warmups.length,0,'no hidden warmup in the baseline');
     assert.equal(report.experiments.snakeSheetsWarmed,0);

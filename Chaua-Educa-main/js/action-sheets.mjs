@@ -1,3 +1,4 @@
+import {loadImage} from './image-loader.mjs';
 // Required production action atlases. Unsupported states deliberately use their
 // separately authored v6 poses; missing action assets must never silently swap art.
 export const ACTION_SHEET_DEFS=Object.freeze({
@@ -12,19 +13,12 @@ export function preloadActionSheets(){
  if(typeof Image==='undefined')return Promise.resolve([]);
  if(pending)return pending;
  pending=Promise.all(Object.entries(ACTION_SHEET_DEFS).map(async ([key,info])=>{
-  const image=new Image();
   const src=new URL(info.path,import.meta.url).href;
-  await new Promise((resolve,reject)=>{
-   image.onload=resolve;
-   image.onerror=()=>reject(new Error(`Required action atlas unavailable: ${key} (${src})`));
-   image.src=src;
-  });
-  if(image.naturalWidth!==info.columns*info.cell||image.naturalHeight!==info.rows*info.cell)
-   throw new Error(`Required action atlas has incorrect dimensions: ${key}`);
-  if(image.decode)await image.decode();
-  sheets.set(key,image);
-  return key;
- }));
+  const image=await loadImage(src,{width:info.columns*info.cell,height:info.rows*info.cell,
+   errorMessage:`Required action atlas unavailable: ${key} (${src})`});
+  return [key,image];
+ })).then(entries=>{for(const [key,image] of entries)sheets.set(key,image);return entries.map(([key])=>key);})
+ .catch(error=>{pending=null;throw error;});
  return pending;
 }
 export function hasActionSheet(key){return sheets.has(key);}

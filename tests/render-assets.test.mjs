@@ -32,6 +32,7 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  };
  const calls=[];
  const ctx=new Proxy({}, {get(target,key){
+  if(key==='createPattern')return (image,repetition)=>({image,repetition});
   if(key==='drawImage')return (img,...args)=>{assert.ok(args.every(Number.isFinite));calls.push(img.url ?? "cached-surface");};
   if(key==='createLinearGradient'||key==='createRadialGradient')return ()=>({addColorStop(){}});
   return target[key]??(()=>{});

@@ -1,3 +1,4 @@
+import {CAMPAIGN_TARGET_SECONDS} from '../Chaua-Educa-main/js/journey.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {challengeAt} from '../Chaua-Educa-main/js/challenge.mjs';
@@ -8,6 +9,8 @@ import DB from '../Chaua-Educa-main/js/database.js';
 test('challenge keeps growing after the final scenery stage, with finite safe ceilings',()=>{
  const times=[0,30,90,180,300,480,720];let previous=challengeAt(0);
  for(const time of times){const now=challengeAt(time);assert.ok(now.speedGain>=previous.speedGain);assert.ok(now.pressure>=previous.pressure);assert.ok(now.minInterval<=previous.minInterval);assert.ok(now.quietEvery>=previous.quietEvery);previous=now;}
+ assert.equal(challengeAt(CAMPAIGN_TARGET_SECONDS).pressure,1,'all challenge tiers must fit inside the campaign');
+ assert.equal(challengeAt(CAMPAIGN_TARGET_SECONDS*.9).name,'Voo de resistência');
  assert.ok(challengeAt(650).speedGain>challengeAt(240).speedGain);
  assert.deepEqual(challengeAt(99999),challengeAt(10000));
  assert.deepEqual(challengeAt(NaN),challengeAt(0));
@@ -29,17 +32,18 @@ test('an active pilot can navigate a late challenge corridor without powers or q
  const g=new Game({seed:0});g.reset('aventura');g.state='playing';g.elapsed=650;g.distance=28000;g.nextQuizAt=Infinity;
  for(let i=0;i<45/STEP;i++){
   g.entities=g.entities.filter(e=>e.kind==='wood'||e.kind==='hawk');
-  if(g.y>pilotTarget(g)+12&&g.vy>0&&g.flapCooldown<=0){g.press();g.release();}g.tick(STEP);
+  if(g.y>pilotTarget(g)+20&&g.vy>0&&g.flapCooldown<=0){g.press();g.release();}g.tick(STEP);
   assert.equal(g.state,'playing',g.reason);
  }
  assert.equal(g.shield,false);assert.equal(g.fruits,0);
  const pressure=challengeAt(g.elapsed);g.pause();for(let i=0;i<120;i++)g.tick(STEP);assert.deepEqual(challengeAt(g.elapsed),pressure);
 });
-test('unchanged friendly scores survive while old challenge records move to history',()=>{
+test('new animal encounters archive both previous modes',()=>{
  const previous=new Map(DB.memory);DB.memory.clear();
  try{
   DB.memory.set('db-chaua-floresta-v9',[{playerName:'Ana',mode:'aventura',score_val:942},{playerName:'Ana',mode:'tranquilo',score_val:600}]);
-  assert.equal(DB.get().find(r=>r.mode==='tranquilo').score_val,600);
+  assert.equal(DB.get().length,0);
+  assert.ok(DB.previousScores().some(r=>r.mode==='tranquilo'&&r.score_val===600));
   assert.ok(!DB.get().some(r=>r.mode==='aventura'));
   assert.ok(DB.previousScores().some(r=>r.ruleset==='floresta-v9'&&r.score_val===942));
  }finally{DB.memory.clear();for(const [k,v]of previous)DB.memory.set(k,v);}

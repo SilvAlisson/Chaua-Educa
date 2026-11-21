@@ -36,8 +36,9 @@ export function drawAnimalSurface(c,points,{snow=0,wet=0,snowfall=0,time=0,reduc
  }
  c.restore();
 }
+function isFiniteMatrix(m){return !!(m&&Number.isFinite(m.a)&&Number.isFinite(m.b)&&Number.isFinite(m.c)&&Number.isFinite(m.d)&&Number.isFinite(m.e)&&Number.isFinite(m.f));}
 function inverse(m){
- if(!m||![m.a,m.b,m.c,m.d,m.e,m.f].every(Number.isFinite))return null;
+ if(!isFiniteMatrix(m))return null;
  const det=m.a*m.d-m.b*m.c;
  return Math.abs(det)<1e-9?null:{a:m.d/det,b:-m.b/det,c:-m.c/det,d:m.a/det,e:(m.c*m.f-m.d*m.e)/det,f:(m.b*m.e-m.a*m.f)/det};
 }
@@ -82,7 +83,7 @@ export class AnimalWeather {
   const drip=this.rain>.1&&this.time>=state.releaseAt;
   if(!this.reduced&&this.dt>0&&(shake||drip)&&this.worldInverse){
    const matrix=c.getTransform?.();
-   if(matrix&&[matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f].every(Number.isFinite)){
+   if(isFiniteMatrix(matrix)){
     const count=this.low?1:shake?3:1;
     for(let i=0;i<count&&this.particles.length<this.limit;i++){
      const snowy=this.snow*state.load>.12&&(this.wet<.12||i%2===0);

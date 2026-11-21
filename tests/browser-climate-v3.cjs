@@ -10,7 +10,7 @@ fs.mkdirSync(OUT,{recursive:true});
   for(const [mode,width,height] of [['aventura',1366,638],['tranquilo',390,844]]){
    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',route=>route.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,route=>route.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    await page.evaluate(async(mode)=>{
     const [{Renderer},{Game},{setWeatherMode}]=await Promise.all([

@@ -1,3 +1,4 @@
+import {canvasSpy,installCanvasMock} from './helpers/canvas.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game} from '../Chaua-Educa-main/js/engine.mjs';
@@ -11,6 +12,7 @@ import {drawTreeVariant} from '../Chaua-Educa-main/js/tree-art.mjs';
 import {images} from '../Chaua-Educa-main/js/assets.mjs';
 import {shapesHitRect,intersects,rectShape} from '../Chaua-Educa-main/js/collision.mjs';
 import {ForestAudio} from '../Chaua-Educa-main/js/audio.mjs';
+import {lightningStrikeAt,LIGHTNING_FLASH_SECONDS} from '../Chaua-Educa-main/js/lightning.mjs';
 
 function spyCanvas(){
  const events=[],gradients=[];
@@ -42,7 +44,7 @@ test('prewarm uses prototype-inherited seed/mode from the ACTUAL Game.visual(alp
  const previous=getWeatherMode();t.after(()=>setWeatherMode(previous));
  setWeatherMode('auto');
  const g=new Game({seed:217});
- g.mode='tranquilo';g.elapsed=290;g.state='playing';g.snapshot();
+ g.mode='tranquilo';g.elapsed=climateReferenceSeconds(g.mode,g.seed)*.375;g.state='playing';g.snapshot();
  const interpolated=g.visual(1);
  assert.equal(interpolated.mode,'tranquilo');
  assert.equal(interpolated.seed,217);
@@ -50,7 +52,7 @@ test('prewarm uses prototype-inherited seed/mode from the ACTUAL Game.visual(alp
  assert.equal(Object.hasOwn(interpolated,'seed'),false);
  const atlas={naturalWidth:1672,naturalHeight:941};
  const cache=new SeasonalBackdrop();
- const correctState=journeySeason({mode:g.mode,seed:g.seed,elapsed:308,distance:28000});
+ const correctState=journeySeason({mode:g.mode,seed:g.seed,elapsed:g.elapsed,distance:28000});
  assert.equal(correctState.to,1,'expect summer before autumn boundary');
  // The incremental scheduler uses 24-row slices and a SOFT time budget;
  // allow enough calls to complete the cache on slow CI machines.
@@ -84,7 +86,7 @@ test('ascending hawk preserves the wingbeat action instead of inverted dive art'
  for(const [y,up] of [[175,true],[425,false]]){
   const g=new Game({seed:104});
   g.state='playing';g.elapsed=100;g.sequence=4;g.mode='aventura';
-  g.y=y;g.entities=[];g.spawn();
+  g.y=y;g.hawkSequence=up?1:0;g.entities=[];g.spawn();
   const hawk=g.entities.find(e=>e.kind==='hawk');
   assert.ok(hawk,'solo hawk did not spawn');
   assert.equal(hawk.ascent,up);
@@ -99,18 +101,21 @@ test('ascending hawk preserves the wingbeat action instead of inverted dive art'
  }
 });
 
-test('camera-bounded bark draws fewer repeated tiles without changing the original cap',t=>{
+test('camera-bounded bark keeps one cached pattern fill and the unchanged authored cap',t=>{
+ installCanvasMock(t);
  const backup=new Map(images);t.after(()=>{images.clear();for(const [k,v] of backup)images.set(k,v)});
- const art={id:'tree-variants'};
- images.set('tree-variants',art);
+ const art={id:'tree-variants'};images.set('tree-variants',art);
  for(const upper of [true,false]){
-  const full=spyCanvas(),cropped=spyCanvas();
+  const full=canvasSpy(),cropped=canvasSpy();
   drawTreeVariant(full.c,400,190,upper,'moss',undefined,0,0,2,1000);
   drawTreeVariant(cropped.c,400,190,upper,'moss',undefined,0,0,2,240);
-  const count=c=>c.events.filter(e=>e[0]==='image'&&e[1]===art).length;
-  assert.ok(count(full)>=9,'reference trunk not drawn completely');
-  assert.ok(count(cropped)<count(full),'camera culling failed');
-  assert.ok(count(cropped)>=2,'culling removed authored cap or entire bark');
+  assert.deepEqual(cropped.draws,full.draws,'camera culling must preserve the authored cap');
+  assert.equal(full.draws.length,1);assert.equal(full.fills.length,1);assert.equal(cropped.fills.length,1);
+  assert.ok(cropped.fills[0][3]<full.fills[0][3],'offscreen bark must be culled');
+  assert.ok(cropped.fills[0][3]>0,'visible bark must remain');
+  const patterns=cropped.patterns.length;
+  drawTreeVariant(cropped.c,400,190,upper,'moss',undefined,0,0,3,300);
+  assert.equal(cropped.patterns.length,patterns,'changing reach must reuse the warmed pattern');
  }
 });
 
@@ -149,7 +154,7 @@ test('atmospheric gradient cache obeys context + dimensions and uses a single su
 
 test('lightning uses doubled strokes and never requests a Gaussian shadow blur',()=>{
  const {c,events}=spyCanvas();
- const time=(1-.15+.02)/.31;
+ const time=lightningStrikeAt(0).startsAt+LIGHTNING_FLASH_SECONDS*.2;
  drawLightning(c,900,600,time,1,false);
  assert.ok(events.filter(e=>e[0]==='stroke').length>=3,'lightning+fork strokes missing');
  assert.equal(c.shadowBlur,0);

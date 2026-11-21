@@ -1,0 +1,27 @@
+name: Pack reviewed rotten tree art
+on:
+  pull_request:
+    paths:
+      - 'art-source/trees/rot-1101.png'
+      - 'art-source/trees/rot-snow-1101.png'
+      - 'scripts/pack_tree_rot_1101.py'
+      - '.github/workflows/pack-tree-art.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow==11.3.0
+      - run: python scripts/pack_tree_rot_1101.py
+      - uses: actions/upload-artifact@v6
+        with:
+          name: reviewed-tree-atlases
+          path: test-results/tree-art-packed/
+          if-no-files-found: error

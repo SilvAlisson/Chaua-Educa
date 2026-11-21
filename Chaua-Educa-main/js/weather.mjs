@@ -1,10 +1,22 @@
-import { JOURNEY } from './journey.mjs';
+import { JOURNEY,journeyReferenceDistance } from './journey.mjs';
+import {lightningStrikeAt} from './lightning.mjs';
 import { smoothstep } from './motion.mjs';
 import {seasonFromFlight,seasonWeights} from './climate-timeline.mjs';
 
 // All VISUAL weather in the active game reads the same seasonal clock.
 // Numeric-distance inputs remain for existing world-physics wind and tests.
-const visualWeights=source=>seasonWeights(seasonFromFlight(source));
+const visualWeights=source=>{
+    if (source && typeof source === 'object' && Number.isFinite(source.elapsed)) {
+        if (source._vWeights && source._vWeightsElapsed === source.elapsed) {
+            return source._vWeights;
+        }
+        const w = seasonWeights(seasonFromFlight(source));
+        source._vWeights = w;
+        source._vWeightsElapsed = source.elapsed;
+        return w;
+    }
+    return seasonWeights(seasonFromFlight(source));
+};
 
 const rainStart = JOURNEY[1].start + 1500;
 const rainEnd = JOURNEY[2].start - 1000;
@@ -64,10 +76,11 @@ export function journeyStorm(distance, mode, tutorial = false) {
 
 // WORLD PHYSICS ONLY. Visual menu overrides (sun, storm, autumn, etc.)
 // must never modify moving hazards, encounters or deterministic replays.
-// This is exactly the old AUTO numeric-distance wind curve, including
-// its adventure-only storm term, independent of weatherOverride.
+// The deterministic route-relative curve includes the challenge storm term;
+// it never depends on the player's visual weather selection.
 export function physicsWind(distance,mode,tutorial=false){
     if(tutorial || !Number.isFinite(distance))return 0;
+    distance=journeyReferenceDistance(distance,mode);
     const gustStart=JOURNEY[2].start+600;
     const gustEnd=JOURNEY[2].start+3700;
     const gust=smoothstep(Math.min(distance-gustStart,gustEnd-distance)/900);
@@ -133,33 +146,35 @@ export function drawJourneyFog(context, width, height, fog) {
     context.restore();
 }
 
-// Visual lightning flash and electric bolt in the clouds during storms
+// Two natural pulses from one deterministic discharge. The same envelope
+// lights the background and, after actors are drawn, the entire flight scene.
+export function lightningFlashStrength(time, storm=1, reduced=false) {
+    if (storm<=.05||reduced)return 0;
+    const strike=lightningStrikeAt(time);
+    if(!strike.active)return 0;
+    const phase=strike.phase;
+    let flash=0;
+    if(phase<.35)flash=Math.sin(phase/.35*Math.PI);
+    else if(phase>=.42&&phase<.75)flash=Math.sin((phase-.42)/.33*Math.PI)*.72;
+    return flash>.01?Math.min(1,flash*storm):0;
+}
+
+// Atmospheric brightness plus a visible electric bolt in the clouds.
 export function drawLightning(context, width, height, time, storm, reduced) {
-    if (storm <= 0.05) return;
-
-    // Strike occurs deterministically every ~3.2 seconds
-    const cycle = (time * 0.31 + 0.15) % 1;
-    if (cycle >= 0.09) return;
-
-    const phase = cycle / 0.09;
-    let flash = 0;
-    if (phase < 0.35) {
-        flash = Math.sin(phase / 0.35 * Math.PI);
-    } else if (phase >= 0.42 && phase < 0.75) {
-        flash = Math.sin((phase - 0.42) / 0.33 * Math.PI) * 0.72;
-    }
-    if (flash <= 0.01) return;
+    const flash=lightningFlashStrength(time,storm,reduced);
+    if(!flash)return;
+    const strike=lightningStrikeAt(time);
 
     context.save();
 
     // 1. Sky and atmospheric illumination
-    context.globalAlpha = Math.min(0.85, flash * 0.78 * storm);
+    context.globalAlpha = Math.min(0.85, flash * 0.78);
     context.fillStyle = '#e2efff';
     context.fillRect(0, 0, width, height);
 
     // 2. Visible jagged electric lightning bolt tearing through the sky
     if (!reduced && flash > 0.25) {
-        context.globalAlpha = Math.min(1, flash * 1.1 * storm);
+        context.globalAlpha = Math.min(1, flash * 1.1);
         // Two opaque/transparent strokes preserve the bolt's authored
         // silhouette without an expensive Canvas shadowBlur gaussian pass.
         context.shadowBlur=0;
@@ -175,17 +190,17 @@ export function drawLightning(context, width, height, time, storm, reduced) {
 
         for (let s = 1; s <= steps; s++) {
             const progress = s / steps;
-            const seed = (Math.floor(time * 3) * 17 + s * 11);
+            const seed = (strike.index * 17 + s * 11);
             const jitter = (Math.sin(seed * 0.8) * 26);
             currX = startX + (targetX - startX) * progress + jitter;
             currY = targetY * progress;
             context.lineTo(currX, currY);
         }
-        context.globalAlpha=Math.min(.30,flash*.28*storm);
+        context.globalAlpha=Math.min(.30,flash*.28);
         context.strokeStyle='#93c5fd';
         context.lineWidth=9;
         context.stroke();
-        context.globalAlpha=Math.min(1,flash*1.1*storm);
+        context.globalAlpha=Math.min(1,flash*1.1);
         context.strokeStyle='#ffffff';
         context.lineWidth=2.8;
         context.stroke();
@@ -202,14 +217,32 @@ export function drawLightning(context, width, height, time, storm, reduced) {
     context.restore();
 }
 
+// Draw after forest, trunks, birds and weather so the flash actually lights
+// all visible artwork. One lightweight screen-blended fill, no blur/shaders.
+export function drawLightningIllumination(context,width,height,time,storm,reduced=false) {
+    const flash=lightningFlashStrength(time,storm,reduced);
+    if(!flash)return;
+    context.save();
+    context.globalCompositeOperation='screen';
+    context.globalAlpha=Math.min(.66,flash*.56);
+    context.fillStyle='#d9eaff';
+    context.fillRect(0,0,width,height);
+    context.restore();
+}
+
 // Rain is a light procedural atmosphere, never a spritesheet or a bank of
 // opaque white lines. Coordinates are deterministic in active flight time.
 const rainWrap=(value,span)=>((value%span)+span)%span;
 const rainClamp=x=>Math.min(1,Math.max(0,Number.isFinite(x)?x:0));
-function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=250){
+const rainScratch=[];
+const RAIN_BANDS_FG_LOW = Object.freeze([{depth:1,count:10}]);
+const RAIN_BANDS_FG_NORM = Object.freeze([{depth:1,count:38}]);
+const RAIN_BANDS_BG_LOW = Object.freeze([{depth:.40,count:18},{depth:.73,count:28}]);
+const RAIN_BANDS_BG_NORM = Object.freeze([{depth:.40,count:68},{depth:.73,count:104}]);
+function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=250,motion=null){
  if(w<=0||h<=0)return;
- const bands=foreground?[{depth:1,count:low?6:22}]:
-  [{depth:.40,count:low?12:56},{depth:.73,count:low?18:88}];
+ const bands=foreground?(low?RAIN_BANDS_FG_LOW:RAIN_BANDS_FG_NORM):
+  (low?RAIN_BANDS_BG_LOW:RAIN_BANDS_BG_NORM);
  // Similar density on laptop and portrait viewports, without letting a huge
  // canvas spawn an unbounded number of raindrops.
  const areaScale=Math.max(.65,Math.min(1.45,Math.sqrt(w*h/(960*640))));
@@ -218,36 +251,37 @@ function renderRainBands(c,w,h,time,rain,storm,wind,low,foreground=false,speed=2
  c.lineCap='round';
  for(const {depth,count} of bands){
   const visibleCount=Math.max(1,Math.round(count*areaScale*(1+storm*.55)));
-  const opacity=rainClamp(rain*(foreground?.43:.24+depth*.28)+storm*.10);
+  const opacity=rainClamp(rain*(foreground?.68:.37+depth*.32)+storm*.10);
   c.globalAlpha=opacity;
-  c.strokeStyle=foreground?'#a3ccda':'#6f9daa';
-  c.fillStyle=foreground?'#bde0e8':'#97b9c7';
-  c.lineWidth=foreground?1.15:.64+depth*.51;
+  c.strokeStyle='#305768';
+  c.fillStyle=foreground?'#e5f8ff':'#c4e4f0';
+  c.lineWidth=foreground?2.1:1.1+depth*.75;
   // Soft, short curves: visibility comes from layering, not brightness.
   c.beginPath();
   for(let i=0;i<visibleCount;i++){
    const seed=(i+1)*67.17+depth*119.7;
-   const fallSpeed=230+depth*270+storm*120+(i%4)*27+speed*.1;
-   const y=rainWrap(seed*11.17+time*fallSpeed,h+64)-32;
-   const x=rainWrap(seed*23.79-time*(14+wind*48+storm*14)*depth,w+64)-32;
-   const length=(foreground?7:4)+depth*6+(i%3)*1.5;
+   const y=rainWrap(seed*11.17+time*(230+depth*270+(i%4)*27)+(motion?.storm??time*storm)*120+(motion?.speed??time*speed)*.1,h+64)-32;
+   const x=rainWrap(seed*23.79-(time*14+(motion?.wind??time*wind)*48+(motion?.storm??time*storm)*14)*depth,w+64)-32;
+   const length=(foreground?10:6)+depth*8+(i%3)*1.5;
    const sideways=-(wind*.55+storm*.26+speed*.0016)*length;
+   const item=rainScratch[i]||(rainScratch[i]={x:0,y:0,length:0,tipX:0,radius:0});
+   item.x=x;item.y=y;item.length=length;
+   item.radius=(foreground?.95:.48)+depth*.52+(i%3)*.08;
+   item.tipX=x-(wind*.55+storm*.26+speed*.0016)*length*.42;
    c.moveTo(x,y);
    c.quadraticCurveTo(x+sideways*.22,y+length*.5,x+sideways*.42,y+length);
   }
+  c.stroke();
+  c.strokeStyle=foreground?'#e5f8ff':'#c4e4f0';
+  c.lineWidth=foreground?1.15:.65+depth*.4;
   c.stroke();
   // Heads of droplets have volume and different focus instead of straight
   // horizontal screen-space streaks. One batch fill per depth band.
   c.beginPath();
   for(let i=0;i<visibleCount;i++){
-   const seed=(i+1)*67.17+depth*119.7;
-   const fallSpeed=230+depth*270+storm*120+(i%4)*27+speed*.1;
-   const y=rainWrap(seed*11.17+time*fallSpeed,h+64)-32;
-   const x=rainWrap(seed*23.79-time*(14+wind*48+storm*14)*depth,w+64)-32;
-   const radius=(foreground?.72:.32)+depth*.52+(i%3)*.08;
-   const length=(foreground?7:4)+depth*6+(i%3)*1.5;
-   c.moveTo(x+radius,y+length);
-   c.ellipse(x,y+length,radius,radius*1.28,-.1,0,Math.PI*2);
+   const item=rainScratch[i];
+   c.moveTo(item.tipX+item.radius,item.y+item.length);
+   c.ellipse(item.tipX,item.y+item.length,item.radius,item.radius*1.28,-.1,0,Math.PI*2);
   }
   c.fill();
  }
@@ -265,7 +299,7 @@ export function drawRainRipples(c,w,h,time,rain,storm,low,reduced=false){
   const phase=rainWrap(time*(1.2+storm*.37)+i*.417,1);
   const x=rainWrap(i*173.6+24,w);
   const y=h-20-(i*17.1)%33;
-  c.globalAlpha=rain*(1-phase)*.18;
+  c.globalAlpha=rain*(1-phase)*.30;
   c.beginPath();c.ellipse(x,y,1.7+phase*6,.6+phase*2.3,0,0,Math.PI*2);
   c.stroke();
  }
@@ -282,7 +316,7 @@ export function drawSurfaceRainImpacts(c,x,y,wet,time,seed=0,low=false,reduced=f
   const phase=rainWrap(time*(1.5+(i%3)*.19)+seed*.37+i*.28,1);
   const sx=x+(i-(count-1)*.5)*12;
   const sy=y-(1-phase)*6;
-  c.globalAlpha=wet*(1-phase)*.42;
+  c.globalAlpha=wet*(1-phase)*.58;
   c.beginPath();
   c.ellipse(sx,sy,1.15+phase*2,.55+phase*1.1,0,0,Math.PI*2);
   c.fill();
@@ -292,22 +326,40 @@ export function drawSurfaceRainImpacts(c,x,y,wet,time,seed=0,low=false,reduced=f
 
 // Distant rain with a narrow atmospheric wash, near-bluish shadows, droplets
 // and ground contact. Keeps tint restrained so the authored forest survives.
-export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250){
+export function drawJourneyRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250,motion=null){
  if(rain<=0||width<=0||height<=0)return;
  const c=context;
  c.save();
  const wash=weatherGradients(c,width,height).rain;
- c.globalAlpha=rainClamp(rain*(.12+storm*.145));
+ c.globalAlpha=rainClamp(rain*(.18+storm*.16));
  c.fillStyle=wash;c.fillRect(0,0,width,height);
  c.restore();
  if(reduced)return;
- renderRainBands(c,width,height,time,rain,storm,wind,lowDetail,false,speed);
+ renderRainBands(c,width,height,time,rain,storm,wind,lowDetail,false,speed,motion);
  drawRainRipples(c,width,height,time,rain,storm,lowDetail,reduced);
 }
 
 // Foreground is deliberately sparse: actors, pickups and hazards must remain
 // legible. In low/reduced modes unnecessary close droplets are suppressed.
-export function drawForegroundRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250){
+export function drawForegroundRain(context,width,height,time,rain,reduced,lowDetail,storm=0,wind=0,speed=250,motion=null){
  if(reduced||rain<=0)return;
- renderRainBands(context,width,height,time,rain,storm,wind,lowDetail,true,speed);
+ renderRainBands(context,width,height,time,rain,storm,wind,lowDetail,true,speed,motion);
+}
+
+// A few long gusts remain legible against both green foliage and white winter
+// mountains. Two batched strokes, bounded particle count, active scene clock.
+export function drawWindGusts(c,w,h,time,wind,low=false,reduced=false,motion=null){
+ if(wind<=.01||reduced||w<=0||h<=0)return;
+ c.save();c.lineCap='round';c.beginPath();
+ const count=low?3:7;
+ for(let i=0;i<count;i++){
+  const x=w+180-rainWrap(i*173.7+time*180+(motion?.wind??time*wind)*90,w+360);
+  const y=45+rainWrap(i*97.1+Math.sin(time*.6+i)*12,Math.max(1,h-90));
+  const length=80+wind*65+(i%3)*16;
+  c.moveTo(x,y);c.bezierCurveTo(x-length*.3,y-13,x-length*.7,y+15,x-length,y+3);
+ }
+ c.globalAlpha=wind*(.25+.09*Math.sin(time*1.7)**2);
+ c.strokeStyle='#315965';c.lineWidth=3.3;c.stroke();
+ c.globalAlpha=wind*(.49+.12*Math.sin(time*1.7)**2);
+ c.strokeStyle='#eaf5e4';c.lineWidth=1.45;c.stroke();c.restore();
 }

@@ -14,7 +14,7 @@ SHEETS={
  'hawk-flight':('public/hawk/fly/flight.webp',320,8,'hawk'),
  'chaua':('assets/v6/chaua-atlas.webp',384,16,'chaua'),
  'hawk':('assets/v6/hawk-atlas.webp',384,16,'hawk'),
- **{f'snake-{k}':(f'public/snake/{folder}/{name}.webp',384,8,'snake') for k,folder,name in [('idle','base','idle'),('attack','attack','attack'),('stunned','reactions','stunned')]}
+ **{f'snake-{k}':(f'public/snake/{folder}/{name}.webp',384,8,'snake') for k,folder,name in [('idle','base','idle'),('attack','attack','attack'),('stunned','reactions','stunned'),('high','attack','high'),('sweep','attack','sweep')]}
 }
 def measure():
  data={}

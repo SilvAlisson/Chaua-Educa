@@ -1,18 +1,36 @@
+import {CHECKPOINT_KEY,normalizeCheckpoint} from './chapter-checkpoints.mjs';
 import {FOOD_IDS} from './foods.mjs';
 import { normalizeProgress, advanceProgress } from './missions.mjs';
 import { activeProbe } from './perf-hooks.mjs';
 import { ENTRIES, INITIAL_ENTRIES } from './collection.mjs';
-export const RULES_VERSION = 'floresta-v10';
+export const RULES_VERSION = 'floresta-v14';
 export default class DB {
     static dbName = `db-chaua-${RULES_VERSION}`;
     static storageAvailable = true;
     static memory = new Map();
+    static unsavedKeys = new Set();
+    static onStorageChange = null;
+    static setStorageAvailable(value) {
+        if(this.storageAvailable===value)return;
+        this.storageAvailable=value;
+        try{this.onStorageChange?.(value);}catch{}
+    }
+    static invalidateStorage(key) {
+        // Storage events only evict durable cache entries; unsaved session data survive.
+        for(const cached of key===null?[...this.memory.keys()]:[key])
+            if(!this.unsavedKeys.has(cached))this.memory.delete(cached);
+    }
+    static writeObject(key,value) {
+        this.memory.set(key,value);
+        try{this._writeJSON(key,value);return true;}catch{return false;}
+    }
     // Keep persistence synchronous and reliable until profiling establishes
     // whether these calls cause actual stutters. Measure without recording data
     // values, player names or personal history.
     static _readRaw(key) {
         const probe=activeProbe,t=probe?probe.begin('storage.read'):0;
         try{return localStorage.getItem(key);}
+        catch(error){this.setStorageAvailable(false);throw error;}
         finally{if(probe)probe.end('storage.read',t,{key});}
     }
     static _writeJSON(key,data) {
@@ -21,38 +39,28 @@ export default class DB {
         const serialized=JSON.stringify(data);
         if(probe)probe.end('storage.serialize',t,{key,bytes:serialized.length});
         t=probe?probe.begin('storage.write'):0;
-        try{localStorage.setItem(key,serialized);}
+        try{localStorage.setItem(key,serialized);this.unsavedKeys.delete(key);if(!this.unsavedKeys.size)this.setStorageAvailable(true);}
+        catch(error){this.unsavedKeys.add(key);this.setStorageAvailable(false);throw error;}
         finally{if(probe)probe.end('storage.write',t,{key,bytes:serialized.length});}
     }
 
     static get(legacy = false) {
         const key = legacy ? 'db-chaua' : this.dbName;
-        let rows;
-        try {rows=!this.storageAvailable&&this.memory.has(key)?this.memory.get(key):JSON.parse(this._readRaw(key)??'[]');}
-        catch {this.storageAvailable=false;rows=this.memory.get(key)??[];}
-        const valid=(Array.isArray(rows)?rows:[]).filter(p=>p&&typeof p.playerName==='string'&&Number.isFinite(p.score_val));
-        if(legacy)return valid;
-        // Only Aventura changed its rules. Keep the unchanged Amigável records
-        // in the current board, without mutating any v8 record or save.
-        const old=['floresta-v8','floresta-v9'].flatMap(version=>{const rows=this.readObject(`db-chaua-${version}`,[]);return Array.isArray(rows)?rows:[];});
-        const merged=new Map(valid.map(p=>[JSON.stringify([p.playerName,p.mode]),{...p}]));
-        for(const row of Array.isArray(old)?old:[]){
-            if(!row||row.mode!=='tranquilo'||typeof row.playerName!=='string'||!Number.isFinite(row.score_val))continue;
-            const id=JSON.stringify([row.playerName,row.mode]),current=merged.get(id);
-            if(!current||row.score_val>current.score_val)merged.set(id,{...row});
-        }
-        return [...merged.values()];
+        const rows=this.readObject(key,[]);
+        return (Array.isArray(rows)?rows:[]).filter(p=>p&&typeof p.playerName==='string'&&Number.isFinite(p.score_val)&&p.score_val>=0);
     }
 
     static readObject(key, fallback) {
         if (this.memory.has(key)) return this.memory.get(key);
-        try { return JSON.parse(this._readRaw(key) ?? 'null') ?? fallback; }
-        catch { return fallback; }
+        try {
+            const value=JSON.parse(this._readRaw(key)??'null')??fallback;
+            this.memory.set(key,value);return value;
+        } catch { return fallback; }
     }
 
     static previousScores() {
         const data = this.readObject('chaua-educa-v2', {});
-        const archived=['floresta-v2','floresta-v3','floresta-v4','floresta-v5','floresta-v6','floresta-v7','floresta-v8','floresta-v9'].flatMap(ruleset=>{
+        const archived=['floresta-v2','floresta-v3','floresta-v4','floresta-v5','floresta-v6','floresta-v7','floresta-v8','floresta-v9','floresta-v10','floresta-v11','floresta-v12','floresta-v13'].flatMap(ruleset=>{
             const forest=this.readObject(`db-chaua-${ruleset}`,[]);
             return (Array.isArray(forest)?forest:[]).filter(s=>s && typeof s.playerName==='string' && Number.isFinite(s.score_val) && s.score_val>=0).map(s=>({...s,ruleset}));
         });
@@ -92,7 +100,7 @@ export default class DB {
     }
 
     static discoverEntries(ids) {
-        const valid=ids.filter(id=>ENTRIES.some(entry=>entry.id===id));
+        const valid=(Array.isArray(ids)?ids:[]).filter(id=>ENTRIES.some(entry=>entry.id===id));
         if(!valid.length)return;
         const stored=this.readObject('chaua-nature-discoveries',[]);
         if(Array.isArray(stored)&&valid.every(id=>stored.includes(id)))return;
@@ -111,12 +119,12 @@ export default class DB {
 
     static missionProgress(player) {
         const stored=this.readObject('chaua-missions-v1',[]);
-        const row=Array.isArray(stored)?stored.find(r=>r?.player===player.trim()):null;
+        const row=Array.isArray(stored)?stored.find(r=>r?.player===(typeof player==='string'?player.trim():'')):null;
         return normalizeProgress(row?.progress);
     }
 
     static advanceMissions(player,event) {
-        const name=player.trim();
+        const name=typeof player==='string'?player.trim():'';
         if(name.length<3 || name.length>24)return normalizeProgress(null);
         const previous=this.missionProgress(name);
         const progress=advanceProgress(previous,event);
@@ -137,7 +145,8 @@ export default class DB {
     }
 
     static recordDiscovery(player, id, right) {
-        if (!player || typeof id !== 'string') return;
+        if (typeof player!=='string'||player.trim().length<3||player.trim().length>24||typeof id!=='string')return;
+        player=player.trim();
         const stored = this.readObject('chaua-discoveries', []);
         const records = Array.isArray(stored) ? stored.filter(r=>r && typeof r.player==='string' && r.player!==player) : [];
         const mistakes = this.reviewTopics(player).filter(topic=>topic!==id);
@@ -148,7 +157,25 @@ export default class DB {
         catch { this.storageAvailable=false; }
     }
 
+    static chapterCheckpoint(player){
+        const rows=this.readObject(CHECKPOINT_KEY,[]);
+        return normalizeCheckpoint((Array.isArray(rows)?rows:[]).find(r=>r?.player===(typeof player==='string'?player.trim():''))?.checkpoint);
+    }
+    static saveChapterCheckpoint(player,value){
+        if(typeof player!=='string'||player.trim().length<3)return;
+        player=player.trim();
+        if(player.length>24)return;
+        const checkpoint=normalizeCheckpoint(value);
+        const stored=this.readObject(CHECKPOINT_KEY,[]);
+        const rows=(Array.isArray(stored)?stored:[]).filter(r=>r&&typeof r.player==='string'&&r.player!==player);
+        if(checkpoint)rows.push({player,checkpoint});
+        this.memory.set(CHECKPOINT_KEY,rows);
+        try{this._writeJSON(CHECKPOINT_KEY,rows);}catch{this.storageAvailable=false;}
+    }
+
     static upsertPlayerScore(playerName, score, mode = 'aventura') {
+        if(typeof playerName!=='string'||playerName.trim().length<3||playerName.trim().length>24||!Number.isSafeInteger(score)||score<0||!['aventura','tranquilo'].includes(mode))return false;
+        playerName=playerName.trim();
         const data = this.get();
         const previous = data.find(p => p.playerName === playerName && p.mode === mode);
         const record = !previous || score > previous.score_val;

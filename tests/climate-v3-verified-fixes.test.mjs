@@ -1,3 +1,4 @@
+import {canvasSpy,installCanvasMock} from './helpers/canvas.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP} from '../Chaua-Educa-main/js/engine.mjs';
@@ -52,16 +53,12 @@ test('unused winter textures stop loading, but all authored overlays and sheddin
 });
 
 test('snow in variant trunks is painted on lower exposed cap once, not tiled along bark or inverted onto ceiling',t=>{
+ installCanvasMock(t);
  const previous=new Map(images);
  t.after(()=>{images.clear();for(const [k,v] of previous)images.set(k,v)});
  const base={id:'base'},snow={id:'snow'};
  images.set('tree-variants',base);images.set('tree-variants-snow',snow);
- const draws=[];
- const ctx=new Proxy({}, {get(_,key){
-  if(key==='drawImage')return (...args)=>draws.push(args);
-  if(key==='createLinearGradient')return ()=>({addColorStop(){}});
-  return ()=>{};
- },set(){return true;}});
+ const {c:ctx,draws}=canvasSpy();
  drawTreeVariant(ctx,400,190,false,'rot',undefined,1,0,0);
  const lower=draws.filter(args=>args[0]===snow);
  assert.equal(lower.length,1,'do not repeat snow bark strip over the entire trunk');

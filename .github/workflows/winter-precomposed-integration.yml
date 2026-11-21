@@ -1,0 +1,52 @@
+name: Test Chauá 1.0.13 winter precomposed art
+
+on:
+  push:
+    branches:
+      - preparacao-para-a-versao-2.0
+    paths:
+      - Chaua-Educa-main/js/script.js
+      - Chaua-Educa-main/js/assets.mjs
+      - Chaua-Educa-main/js/tree-art.mjs
+      - Chaua-Educa-main/js/perf-ab.mjs
+      - Chaua-Educa-main/js/precomposed-winter.mjs
+      - Chaua-Educa-main/index.html
+      - Chaua-Educa-main/assets/Seasons/Winter/Precomposed/**
+      - scripts/validate-release.mjs
+      - tests/qa-architecture.test.mjs
+      - tests/precomposed-winter.test.mjs
+      - tests/browser-precomposed-winter.cjs
+      - .github/workflows/winter-precomposed-integration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chauawinter-c-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  winter-test-c:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check all game unit tests, including precomposed art fidelity
+        run: npm test
+      - name: Audit game release and new opt-in assets
+        run: npm run audit:release
+      - name: Install Chromium for real browser art validation
+        run: npx playwright install --with-deps chromium
+      - name: Verify 43 stage textures and exact single-pass drawing
+        run: |
+          set -euo pipefail
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main >/tmp/chaua-winter-c.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          node tests/browser-precomposed-winter.cjs

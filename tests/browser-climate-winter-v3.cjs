@@ -9,7 +9,7 @@ fs.mkdirSync(out,{recursive:true});
   for(const [w,h] of [[1366,638],[390,844]]){
    const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    await page.evaluate(async()=>{
     const [{Renderer},{Game},{setWeatherMode}]=await Promise.all([
@@ -31,6 +31,38 @@ fs.mkdirSync(out,{recursive:true});
      {kind:'fruit',id:14,x:560,y:320,variety:2}
     ];
    });
+   // Check actual raster opacity at several accumulation levels, independently
+   // of the seasonal timing and the moving game camera.
+   const coverCheck=await page.evaluate(async()=>{
+    const {drawLivingTrunk}=await import('/js/tree-art.mjs');
+    const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
+    const c=canvas.getContext('2d',{willReadFrequently:true}),rows=[];
+    const render=(upper,snow)=>{
+     c.clearRect(0,0,512,512);
+     drawLivingTrunk(c,{x:256,y:upper?420:80,upper,width:180,length:600,variant:0,snow});
+     return c.getImageData(0,0,512,512).data;
+    };
+    for(const upper of [false,true]){
+     const base=render(upper,0),full=render(upper,1);
+     let last=0;
+     for(const snow of [.25,.5,.75,255/256]){
+      const pixels=render(upper,snow);let solid=0,ghost=0,total=0;
+      for(let i=0;i<full.length;i+=4){
+       if(full[i+3]<250||full[i]<150||full[i+1]<150||full[i+2]<150)continue;
+       const difference=(a,b)=>Math.max(...[0,1,2,3].map(k=>Math.abs(a[i+k]-b[i+k])));
+       if(difference(base,full)<60)continue;
+       total++;
+       if(difference(pixels,full)<12)solid++;
+       else if(difference(pixels,base)>12)ghost++;
+      }
+      if(!total||solid<=0||solid<last)throw Error('Snow cover is absent or receding: '+JSON.stringify({upper,snow,solid,last,total}));
+      if(ghost>total*.08)throw Error('Snow still fades through translucent pixels: '+JSON.stringify({upper,snow,ghost,total}));
+      rows.push({upper,snow,solid,ghost,total});last=solid;
+     }
+    }
+    return rows;
+   });
+   console.log('WINTER_SOLID_COVER '+JSON.stringify(coverCheck));
    let last=-1;
    for(const [name,progress,mode] of [
     ['late-autumn',.60,'auto'],

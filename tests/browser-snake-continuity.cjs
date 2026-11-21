@@ -8,7 +8,7 @@ const fs=require('node:fs'),path=require('node:path');
  try{
   const page=await browser.newPage({viewport:{width:960,height:640}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+  await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
   const checks=await page.evaluate(async()=>{
    const {Renderer}=await import('/js/render.mjs');

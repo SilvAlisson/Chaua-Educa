@@ -7,7 +7,7 @@ const pct=(a,p)=>{const b=[...a].sort((x,y)=>x-y);return b[Math.floor((b.length-
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
  try{
   const page=await browser.newPage({viewport:{width:960,height:640}});
-  await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+  await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
   const stats=await page.evaluate(async()=>{
    const {Renderer}=await import('/js/render.mjs');

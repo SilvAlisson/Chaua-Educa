@@ -9,7 +9,7 @@ const fs=require('node:fs'),path=require('node:path');
   const page=await browser.newPage({viewport,deviceScaleFactor:1}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   page.on('response',r=>{if(r.status()>=400)errors.push(r.status()+' '+r.url());});
-  await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+  await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
   const result=await page.evaluate(async()=>{
    const sheets=await import('/js/action-sheets.mjs');

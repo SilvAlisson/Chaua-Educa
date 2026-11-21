@@ -1,3 +1,5 @@
+import {PERF_AB_VARIANT} from './perf-ab.mjs';
+
 // Winter VFX are procedural and use the original character/tree art intact.
 // No generated anatomy, no texture allocation per frame, no sprite replacement.
 const clamp01=v=>Math.min(1,Math.max(0,Number.isFinite(v)?v:0));
@@ -5,23 +7,28 @@ const wrap=(v,span)=>((v%span)+span)%span;
 
 // Far and mid-distance snow are drawn beneath the animals. Near-camera flakes
 // are sparse and do not compete with fruits, HUD, warning labels or predators.
-export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0,foreground=false){
+const FOREGROUND_LAYERS_NORMAL = Object.freeze([{depth: 1, count: 18}]);
+const FOREGROUND_LAYERS_LOW = Object.freeze([{depth: 1, count: 6}]);
+const BACKGROUND_LAYERS_NORMAL = Object.freeze([{depth: .32, count: 48}, {depth: .68, count: 56}]);
+const BACKGROUND_LAYERS_LOW = Object.freeze([{depth: .32, count: 16}, {depth: .68, count: 16}]);
+
+export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0,foreground=false,motion=null){
  const amount=clamp01(intensity);
- if(amount<=.012||reduced||w<=0||h<=0)return;
- const layers=foreground?[{depth:1,count:low?3:10}]:
-  [{depth:.32,count:low?11:30},{depth:.68,count:low?9:34}];
+ if(amount<=.012||reduced||w<=0||h<=0||PERF_AB_VARIANT==='snow-flakes-off')return;
+ const layers=foreground?(low?FOREGROUND_LAYERS_LOW:FOREGROUND_LAYERS_NORMAL):
+  (low?BACKGROUND_LAYERS_LOW:BACKGROUND_LAYERS_NORMAL);
  c.save();c.beginPath();c.rect(0,0,w,h);c.clip();
  for(const {depth,count} of layers){
-  c.fillStyle=depth>.8?'#f7fdff':'#e8f6fa';
-  c.globalAlpha=Math.min(.72,amount*(foreground?.43:.35+depth*.30));
+  c.fillStyle='#ffffff';
+  c.globalAlpha=Math.min(.96,amount*(foreground?.90:.70+depth*.25));
   c.beginPath();
   for(let i=0;i<count;i++){
    const seed=(i+1)*137.71+depth*191.43;
    const velocity=(28+depth*74+(i%5)*7);
    const y=wrap(seed*17.31+time*velocity,h+60)-30;
    const sway=Math.sin(time*(.54+depth*.42)+seed)*((1-depth)*12+4);
-   const x=wrap(seed*29.17+time*(wind*21+depth*4)+sway,w+60)-30;
-   const radius=(foreground?1.05:.63)+depth*(foreground?1.35:1.17)+(i%3)*.12;
+   const x=wrap(seed*29.17+(motion?.wind??time*wind)*21+time*depth*4+sway,w+60)-30;
+   const radius=(foreground?1.45:.95)+depth*(foreground?1.65:1.5)+(i%3)*.12;
    c.moveTo(x+radius,y);
    c.arc(x,y,radius,0,Math.PI*2);
   }
@@ -30,11 +37,11 @@ export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0
  if(foreground&&!low){
   // A few soft, four-point flakes distinguish snow from rain droplets.
   // No sprite/atlas: four short strokes are batched into one path.
-  c.globalAlpha=amount*.34;c.strokeStyle='#f5fcff';c.lineWidth=.8;c.lineCap='round';
+  c.globalAlpha=amount*.6;c.strokeStyle='#f5fcff';c.lineWidth=.8;c.lineCap='round';
   c.beginPath();
-  for(let i=0;i<3;i++){
+  for(let i=0;i<6;i++){
    const seed=(i+1)*241.73;
-   const x=wrap(seed*2.17+time*(wind*19+6)+Math.sin(time*.6+i)*7,w+48)-24;
+   const x=wrap(seed*2.17+(motion?.wind??time*wind)*19+time*6+Math.sin(time*.6+i)*7,w+48)-24;
    const y=wrap(seed*3.41+time*(95+i*13),h+48)-24;
    const r=2.7+i*.3;
    c.moveTo(x-r,y);c.lineTo(x+r,y);
@@ -45,13 +52,50 @@ export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0
  c.restore();
 }
 
-// Tiny crystals settle on an exposed branch/cap and then fade. Existing winter
-// WebP layers supply the substantial snow; these are just contact feedback.
+// Grow coverage instead of fading the whole snow sheet through translucent white.
+// Stable column delays give an uneven edge; every column grows downward and
+// reaches the exact authored extent at full cover. No RNG or pixel readback.
+export function snowRevealHeight(intensity,column=0){
+ const amount=clamp01(intensity);
+ const progress=1-Math.pow(1-amount,1.6);
+ const delay=((Math.imul(column+1,73)>>>0)%101)/101*.18;
+ return clamp01((progress-delay)/(1-delay));
+}
+// Cache clipping geometry for visually identical snow-masks. The old path
+// allocation was repeated once PER visible trunk and frame.
+const revealPaths=new Map(),REVEAL_PATH_LIMIT=192;
+export function clipSnowReveal(c,x,y,width,height,intensity){
+ const columns=32;
+ if(typeof Path2D!=='undefined'&&PERF_AB_VARIANT!=='legacy-snow-clips'){
+  const step=Math.round(clamp01(intensity)*256);
+  const key=`${x}:${y}:${width}:${height}:${step}`;
+  let path=revealPaths.get(key);
+  if(!path){
+   path=new Path2D();
+   for(let i=0;i<columns;i++){
+    const reach=snowRevealHeight(intensity,i);
+    if(reach>0)path.rect(x+i*width/columns,y,width/columns,height*reach);
+   }
+   if(revealPaths.size>=REVEAL_PATH_LIMIT)revealPaths.delete(revealPaths.keys().next().value);
+   revealPaths.set(key,path);
+  }
+  c.clip(path);return;
+ }
+ c.beginPath();
+ for(let i=0;i<columns;i++){
+  const reach=snowRevealHeight(intensity,i);
+  if(reach>0)c.rect(x+i*width/columns,y,width/columns,height*reach);
+ }
+ c.clip();
+}
+
+// Visible contact crystals supplement the authored snow without covering the
+// flight corridor. Low detail keeps the same contrast with fewer particles.
 export function drawSnowContact(c,x,y,intensity,time,seed=0,reduced=false,low=false,falling=false){
  const snow=clamp01(intensity);
  if(snow<=.15||reduced)return;
  const count=low?2:4;
- c.save();c.globalAlpha=Math.min(.48,(snow-.15)*.4);
+ c.save();c.globalAlpha=Math.min(.92,.55+(snow-.15)*.44);
  c.fillStyle='#eaf8fb';c.beginPath();
  for(let i=0;i<count;i++){
   const phase=wrap(time*.23+seed*.17+i*.31,1);
@@ -59,7 +103,7 @@ export function drawSnowContact(c,x,y,intensity,time,seed=0,reduced=false,low=fa
   // Downward release from an upper hanging tree must follow gravity.
   // Lower tree caps can collect flakes that flutter just above the surface.
   const sy=falling?y+phase*15:y-2-Math.sin(phase*Math.PI)*3;
-  const r=(.65+(i%2)*.3)*Math.min(1,snow*1.2);
+  const r=(1.25+(i%2)*.45)*(.7+snow*.3);
   c.moveTo(sx+r,sy);
   c.arc(sx,sy,r,0,Math.PI*2);
  }

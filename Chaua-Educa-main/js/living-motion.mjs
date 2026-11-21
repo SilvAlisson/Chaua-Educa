@@ -22,7 +22,8 @@ export function winterAmount(game) {
     const wm = getWeatherMode();
     if (wm === 'winter') return 1.0;
     if (wm !== 'auto') return 0;
-    return seasonWeights(seasonFromFlight(game))[3];
+    const s = seasonFromFlight(game);
+    return (s.from === 3 ? (1 - s.mix) : 0) + (s.to === 3 ? s.mix : 0);
 }
 
 // Bright summer tropical sun presence
@@ -32,6 +33,9 @@ export function summerSunAmount(game, rain = 0, storm = 0) {
     if (wm === 'storm' || wm === 'rain' || wm === 'winter') return 0;
     if (wm === 'autumn') return 0.25;
     if (wm === 'spring') return 0.55;
-    const w=seasonWeights(seasonFromFlight(game));
-    return clamp((w[0]*.50+w[1]*1.0+w[2]*.15)*(1-rain*.8-storm*.7));
+    const s = seasonFromFlight(game);
+    const w0 = (s.from === 0 ? 1 - s.mix : 0) + (s.to === 0 ? s.mix : 0);
+    const w1 = (s.from === 1 ? 1 - s.mix : 0) + (s.to === 1 ? s.mix : 0);
+    const w2 = (s.from === 2 ? 1 - s.mix : 0) + (s.to === 2 ? s.mix : 0);
+    return clamp((w0 * 0.50 + w1 * 1.0 + w2 * 0.15) * (1 - rain * 0.8 - storm * 0.7));
 }

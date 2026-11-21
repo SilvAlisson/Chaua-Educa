@@ -19,7 +19,7 @@ const root=process.env.GAME_URL||'http://127.0.0.1:5501/',out=process.env.SCREEN
  }
  const p=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true});await p.goto(root,{waitUntil:'networkidle'});await p.mouse.move(810,320);await p.mouse.wheel(0,900);await p.waitForTimeout(300);
  const rect=await p.locator('#btnStart').boundingBox();assert.ok(rect.y>=0&&rect.y+rect.height<=390,'start remains unreachable in landscape');await p.screenshot({path:path.join(out,'paisagem-rolagem.png')});await p.close();
- const art=await browser.newPage({viewport:{width:1440,height:960}});await art.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));await art.goto(root,{waitUntil:'networkidle'});
+ const art=await browser.newPage({viewport:{width:1440,height:960}});await art.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));await art.goto(root,{waitUntil:'networkidle'});
  await art.evaluate(async()=>{
   const {Renderer}=await import('/js/render.mjs'),{Game}=await import('/js/engine.mjs');const canvas=document.createElement('canvas');canvas.style.cssText='position:fixed;inset:0;width:100vw;height:100vh';document.body.replaceChildren(canvas);const r=new Renderer(canvas);await r.ready;window.scene={r,Game};
  });
@@ -33,13 +33,24 @@ const root=process.env.GAME_URL||'http://127.0.0.1:5501/',out=process.env.SCREEN
   },mode);if(mode==='impact')assert.ok(metrics.impactContact);await art.screenshot({path:path.join(out,name+'.png')});
  }
  // The refuge contains the player only, not scaled-down copies on a plank.
- const count=await art.evaluate(async()=>{const {images}=await import('/js/assets.mjs'),{r,Game}=window.scene,g=new Game();g.state='playing';g.refuge={x:330,y:320};g.entities=[];const c=r.c,original=c.drawImage;let count=0;c.drawImage=function(img,...args){if(img===images.get('chaua-atlas'))count++;return original.call(this,img,...args);};try{r.game(g,true);}finally{c.drawImage=original;}return count;});assert.equal(count,1);
+ const count=await art.evaluate(async()=>{
+  const {images}=await import('/js/assets.mjs'),{r,Game}=window.scene,g=new Game();
+  g.state='playing';g.refuge={x:330,y:320};g.entities=[];
+  const c=r.c,original=c.drawImage;let current=0,old=0;
+  c.drawImage=function(img,...args){
+   if(img===images.get('chaua-atlas'))old++;
+   if(img.src?.endsWith('/public/parrot/fly/flight.webp'))current++;
+   return original.call(this,img,...args);
+  };
+  try{r.game(g,true);}finally{c.drawImage=original;}
+  return {current,old};
+ });assert.deepEqual(count,{current:1,old:0},'one current static flight pose, no old miniature birds');
  const penetration=await art.evaluate(async()=>{
   const {drawBird,woodContactPosition}=await import('/js/render.mjs'),{impactPose}=await import('/js/motion.mjs'),{r}=window.scene;let overlapping=0;
   for(const reduced of [false,true])for(const progress of [0,.1,.25,.5,.75,1]){
    const g={x:220,y:300,wing:.6,angle:.12,state:'impact',impactContact:{x:210,y:0,w:110,h:350}},p=woodContactPosition(g,progress,reduced);r.base();
-   drawBird(r.c,{x:p.x,y:p.y,scale:.74,wing:g.wing,angle:g.angle,defeated:true,impactProgress:progress,reduced,time:1});
-   const pixels=r.c.getImageData(210,0,110,350).data,hit=impactPose(progress,reduced),angle=g.angle+hit.angle,factor=27.7027*.74/60;
+   drawBird(r.c,{x:p.x,y:p.y,scale:1.04,wing:g.wing,angle:g.angle,defeated:true,impactProgress:progress,reduced,time:1});
+   const pixels=r.c.getImageData(210,0,110,350).data,hit=impactPose(progress,reduced),angle=g.angle+hit.angle,factor=27.7027*1.04/60;
    const bx=p.x+hit.x+84*factor*Math.cos(angle)+12*factor*Math.sin(angle),by=p.y+hit.y+84*factor*Math.sin(angle)-12*factor*Math.cos(angle);
    for(let k=0;k<pixels.length;k+=4){const red=pixels[k],green=pixels[k+1],blue=pixels[k+2],alpha=pixels[k+3],x=210+(k/4)%110,y=Math.floor(k/4/110);
     // Golden stars are intentional contact effects, not the animal. Check green

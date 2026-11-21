@@ -4,7 +4,7 @@ import {Game} from '../Chaua-Educa-main/js/engine.mjs';
 
 test('fruit corridor never inverts or overlaps tree clearance in late snake encounters',()=>{
  let checked=0;
- for(const mode of ['aventura','tranquilo'])for(let seed=0;seed<40;seed++){
+ for(const mode of ['aventura','tranquilo'])for(let seed=0;seed<80;seed++){
   const g=new Game({seed});g.reset(mode);
   for(let n=0;n<70;n++){
    g.elapsed=n*3;g.entities=[];g.sequence=n;g.nextSpawn=0;g.spawn();

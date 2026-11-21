@@ -15,7 +15,7 @@ fs.mkdirSync(out,{recursive:true});
   for(const [width,height] of [[1366,638],[390,844]]){
    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',route=>route.fulfill({
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,route=>route.fulfill({
     contentType:'text/javascript',body:''
    }));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{
@@ -86,6 +86,7 @@ fs.mkdirSync(out,{recursive:true});
     assert.equal(state.shield,false,name);
     const file=label=>path.join(out,width+'x'+height+'-'+name+'-'+label+'.png');
     await page.screenshot({path:file('contact')});
+    let previousDistance=28000;
     for(const [label,age] of shield?[
      ['recovering',.10],['recovered',.32]
     ]:[
@@ -101,7 +102,12 @@ fs.mkdirSync(out,{recursive:true});
        score:game.score,distance:game.distance};
      },age);
      assert.equal(current.score,560);
-     assert.equal(current.distance,28000);
+     if(shield){
+      assert.ok(current.distance>previousDistance,'shield recovery continues the route');
+     }else{
+      assert.equal(current.distance,28000,'fatal impact freezes the route');
+     }
+     previousDistance=current.distance;
      if(!shield&&label==='late-dazed')assert.equal(current.state,'impact');
      if(!shield&&label==='gameover')assert.equal(current.state,'ended');
      if(shield)assert.equal(current.state,'playing');

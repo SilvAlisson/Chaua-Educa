@@ -49,6 +49,20 @@
       "sha256": "d0f12f60db0bd509a74b41008a88c205d72169ac6b219524bd220763dad5a493",
       "width": 1536,
       "height": 768
+    },
+    {
+      "path": "Chaua-Educa-main/public/snake/attack/high.webp",
+      "bytes": 206418,
+      "sha256": "85604af43f46e6df1e2a1055e5dfa16b9c1be65ece4a78554bcf8572d64e5194",
+      "width": 1536,
+      "height": 768
+    },
+    {
+      "path": "Chaua-Educa-main/public/snake/attack/sweep.webp",
+      "bytes": 174268,
+      "sha256": "55dc424e1cc89756076d32d14106e72b978c25f9f899c07c260bd2a462b517dc",
+      "width": 1536,
+      "height": 768
     }
   ]
 }

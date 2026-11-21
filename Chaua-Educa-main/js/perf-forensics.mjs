@@ -59,6 +59,11 @@ export class ForensicRecorder {
   pushBounded(this.frames,f,MAX_FRAMES);
   this.currentFrame=null;
  }
+ discardStutter(frame){
+  this.stutterFrames.delete(frame);
+  this.stutterOperations.delete(frame);
+  this.stutterEvents.delete(frame);
+ }
  rememberStutter(frame){
   // Save nearby measured CPU work NOW, before a long flight evicts older frames.
   if(this.stutterFrames.size>=160){

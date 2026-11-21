@@ -11,16 +11,16 @@ test('watching and warning use only idle and alert art',()=>{
   const s=snakeA2Pose({phase:'watching',age:i/120});
   assert.equal(s.key,'idle');assert.ok(s.frame>=0&&s.frame<=7);
  }
- assert.equal(snakeA2Pose({phase:'warning',warningAge:0}).frame,3);
- assert.equal(snakeA2Pose({phase:'warning',warningAge:SNAKE_TIMING.warning}).frame,5);
+ assert.equal(snakeA2Pose({phase:'warning',warningAge:0}).frame,2);
+ assert.equal(snakeA2Pose({phase:'warning',warningAge:SNAKE_TIMING.warning}).frame,4);
 });
 test('attack follows existing physics timing',()=>{
  assert.deepEqual(pose('windup',0),{key:'attack',frame:0,state:'windup'});
  assert.equal(pose('windup',SNAKE_TIMING.windup-.001).frame,3);
  assert.equal(pose('striking',0).frame,4);
  assert.equal(pose('striking',SNAKE_TIMING.strike-.001).frame,5);
- assert.equal(pose('recovering',0).frame,6);
- assert.equal(pose('recovering',SNAKE_TIMING.recovery-.001).frame,7);
+ assert.equal(pose('recovering',0).frame,5);
+ assert.equal(pose('recovering',SNAKE_TIMING.recovery-.001).frame,0);
  assert.equal(pose('spent',2).key,'idle');
 });
 test('shield daze alone uses reaction art and reduced motion is static',()=>{

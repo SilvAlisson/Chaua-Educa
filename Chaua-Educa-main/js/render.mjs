@@ -1,30 +1,38 @@
+import {flightWarnings} from './flight-warnings.mjs';
+import {playerFlightPlacement,hawkPresentation} from './actor-placement.mjs';
+import {pickupPose} from './pickup-geometry.mjs';
+import {snakeAttack,HAWK_ATTACKS} from './attack-patterns.mjs';
 import {breeze,treeBend,winterAmount} from './living-motion.mjs';
 import {drawForestLife} from './forest-life.mjs';
-import {HAWK_ART,hawkUsesActionArt} from './hawk-geometry.mjs';
+import {HAWK_ART} from './hawk-geometry.mjs';
 import {SeasonalBackdrop,drawSeasonParticles} from './seasons.mjs';
 import {activeProbe} from './perf-hooks.mjs';
 import {drawSnowfall,drawSnowContact,winterBreathSettings} from './winter-vfx.mjs';
-import {drawSnakeA2,snakeA2Pose,snakeA2NeedsMirror,preloadSnakeA2,warmupSnakeA2,snakeA2HeadRect,snakePlacement} from './snake-a2.mjs';
-import {parrotAction,hawkAction,ACTION_TIMINGS} from './action-states.mjs';
+import {drawSnakeA2,snakeA2ArtScale,SNAKE_SHEET_KEYS,snakeA2Pose,snakeA2NeedsMirror,preloadSnakeA2,warmupSnakeA2,snakeA2HeadRect,snakePlacement} from './snake-a2.mjs';
+import {parrotAction,ACTION_TIMINGS} from './action-states.mjs';
 import {drawActionSheet,preloadActionSheets} from './action-sheets.mjs';
 import {drawLivingTrunk,drawTreeVariant,drawRefugeTree,prepareTreeWeather} from './tree-art.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {SPRITES} from './sprite-data.mjs';
-import {birdAnimation,hawkAnimation,placeWarnings} from './animation.mjs';
+import {birdAnimation,hawkAnimation} from './animation.mjs';
 import {hawkAngle} from './collision.mjs';
 import {predictedHawkY} from './animals.mjs';
 import { canvasResolution,identicalCanvasBudgets } from './quality.mjs';
-import { flightViewport, advanceFlightCamera, warningPosition, snakeWarningPosition } from './viewport.mjs';
+import { flightViewport, advanceFlightCamera } from './viewport.mjs';
 import { images, loadAssets } from './assets.mjs';
 import { impactPose, smoothstep } from './motion.mjs';
-import { journeyRain, journeyStorm, journeyWind, journeyFog, drawJourneyRain, drawForegroundRain, drawSurfaceRainImpacts, drawJourneyFog, drawLightning } from './weather.mjs';
+import { journeyRain, journeyStorm, journeyWind, journeyFog, drawWindGusts, drawJourneyRain, drawForegroundRain, drawSurfaceRainImpacts, drawJourneyFog, drawLightning, drawLightningIllumination } from './weather.mjs';
 import {drawFood} from './food-art.mjs';
 import {surfaceSnow} from './surface-weather.mjs';
+import {WeatherMotion} from './weather-motion.mjs';
 import {TreeDrips} from './weather-art.mjs';
 import {AnimalWeather} from './animal-weather.mjs';
 import { WIDTH, HEIGHT } from './engine.mjs';
 
 const TAU = Math.PI * 2;
+const ROUTE_LINE_DASH = Object.freeze([4, 8]);
+const HAWK_LINE_DASH = Object.freeze([6, 8]);
+const SHIELD_EMPTY_DASH = Object.freeze([5, 7]);
 const BACKGROUND_PALETTE=['#dbe7b5','#dde0a1','#e6d8a0','#d9e9b7'];
 const TINT_PALETTE=['#bdcf8c','#e4c16b','#507b63','#92bf74'];
 
@@ -119,6 +127,7 @@ export function woodContactPosition(game,progress=0,reduced=false){
 function birdFoot(scale){
     const f=SPRITES.chaua.frames[12];return (f.content[1]+f.content[3]-5-f.anchor[1])*27.7027*scale/SPRITES.chaua.landmarkWidth;
 }
+const birdPlacementScratch={x:0,y:0,angle:0};
 function animatedBird(c,p){
     const {x,y,scale=1,angle=0,time=0,reduced=false,reaction=0,defeated=false,impactProgress=0,turbo=false,stamina=1,perched=false,surprise=false,won=false,landing=null,snow=0,rain=0,low=false}=p;
     const clip=birdAnimation({wing:p.wing,time,perched:perched&&!surprise,landing,defeated:defeated||surprise,impactProgress:surprise?1:impactProgress,reduced});
@@ -134,23 +143,13 @@ function animatedBird(c,p){
         c.rotate(angle+hit.angle+(impactProgress>=1?Math.sin(time*9)*.017:0));
     }
     else {
-        const heave=(!reduced&&!perched&&p.flapImpulse>0)?p.flapImpulse*Math.sin(p.flapImpulse*Math.PI)*3.5:0;
-        const heaveAngle=(!reduced&&!perched&&p.flapImpulse>0)?-p.flapImpulse*0.04:0;
-        if(heave!==0)c.translate(0,-heave);
-        c.rotate(angle+heaveAngle);
-        if(!reduced&&!perched&&!surprise&&!defeated){
-            // Continuous sub-pixel lift and feather-line sway while gliding.
-            // Keep the same intact WebP pose: alternating full-body frames
-            // would make the beak and wings pop / temporarily double.
-            const glide=Math.max(0,1-Math.max(0,p.wing||0)*8);
-            if(glide>0){
-                c.translate(0,Math.sin(time*2.6)*.65*scale*glide);
-                c.rotate(Math.sin(time*1.9)*.006*glide);
-            }
-        }
+        if(!perched&&!surprise&&!defeated&&landing===null){
+            const placement=playerFlightPlacement(p,birdPlacementScratch);
+            c.translate(placement.x-x,placement.y-y);c.rotate(placement.angle);
+        }else c.rotate(angle);
     }
     if(turbo&&!perched&&!reduced)drawTurboFlames(c,size,time);
-    const action=parrotAction({...p,time,wing:p.wing,reduced,perched,landing,defeated,surprise,impactProgress});
+    const action=parrotAction(p);
     const newSprite=action ? drawActionSheet(c,action.sheet,action.frame,-77*scale,-77*scale,154*scale,154*scale) : false;
     if(!action){ // Explicitly authored v6: perch, landing, reduced-motion and surprise.
         if(perched&&!surprise&&!defeated&&landing===null)perchedSprite(c,clip,factor);
@@ -211,11 +210,88 @@ function leaf(c, x, y, size, rotation, light = '#87b36a', dark = '#3d7349') {
     c.restore();
 }
 
+const seedSprites = new Map();
+function getSeedSprite(color = '#a0582c') {
+    let sprite = seedSprites.get(color);
+    if (!sprite) {
+        const sw = 7, sh = sw * 1.65;
+        const width = 36, height = 48;
+        const cx = 18, cy = 24;
+        const canvas = typeof OffscreenCanvas !== 'undefined'
+            ? new OffscreenCanvas(width, height)
+            : document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const c = canvas.getContext('2d');
+
+        // 1. Sombra suave de relevo 3D
+        c.fillStyle = 'rgba(0,0,0,0.28)';
+        c.beginPath();
+        c.ellipse(cx + 1.5, cy + 2.5, sw * 0.9, sh * 0.9, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // 2. Casca anatômica de argila em gota
+        c.fillStyle = color;
+        c.beginPath();
+        c.moveTo(cx, cy - sh);
+        c.bezierCurveTo(cx + sw * 1.05, cy - sh * 0.25, cx + sw * 1.05, cy + sh * 0.65, cx, cy + sh);
+        c.bezierCurveTo(cx - sw * 1.05, cy + sh * 0.65, cx - sw * 1.05, cy - sh * 0.25, cx, cy - sh);
+        c.fill();
+
+        // 3. Contorno sutil de profundidade
+        c.strokeStyle = 'rgba(40, 20, 8, 0.45)';
+        c.lineWidth = 1.2;
+        c.stroke();
+
+        // 4. Embrião / núcleo interno com textura de argila
+        c.fillStyle = 'rgba(255, 235, 175, 0.38)';
+        c.beginPath();
+        c.ellipse(cx - sw * 0.22, cy - sh * 0.15, sw * 0.42, sh * 0.5, -0.15, 0, Math.PI * 2);
+        c.fill();
+
+        // 5. Brilho especular de polpa úmida
+        c.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        c.beginPath();
+        c.ellipse(cx - sw * 0.32, cy - sh * 0.35, sw * 0.25, sh * 0.28, -0.2, 0, Math.PI * 2);
+        c.fill();
+
+        // 6. Cicatriz do ápice (hilo)
+        c.fillStyle = 'rgba(45, 20, 10, 0.7)';
+        c.beginPath();
+        c.arc(cx, cy - sh + 1.8, sw * 0.22, 0, Math.PI * 2);
+        c.fill();
+
+        sprite = canvas;
+        seedSprites.set(color, sprite);
+    }
+    return sprite;
+}
+
+const featherSprites = new Map();
+function getFeatherSprite(color) {
+    let sprite = featherSprites.get(color);
+    if (!sprite) {
+        const size = 10;
+        const width = 24, height = 30;
+        const cx = 12, cy = 14;
+        const canvas = typeof OffscreenCanvas !== 'undefined'
+            ? new OffscreenCanvas(width, height)
+            : document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const c = canvas.getContext('2d');
+        c.beginPath();c.moveTo(cx,cy-size);c.bezierCurveTo(cx+size*.8,cy-size*.4,cx+size*.55,cy+size*.5,cx,cy+size);
+        c.bezierCurveTo(cx-size*.55,cy+size*.4,cx-size*.6,cy-size*.5,cx,cy-size);c.fillStyle=color;c.fill();
+        c.strokeStyle='#eff6cbb0';c.lineWidth=1;c.beginPath();c.moveTo(cx,cy+size*1.2);c.lineTo(cx,cy-size*.8);c.stroke();
+        sprite = canvas;
+        featherSprites.set(color, sprite);
+    }
+    return sprite;
+}
+
 function feather(c,x,y,size,rotation,color) {
+    const sprite = getFeatherSprite(color);
     c.save();c.translate(x,y);c.rotate(rotation);
-    c.beginPath();c.moveTo(0,-size);c.bezierCurveTo(size*.8,-size*.4,size*.55,size*.5,0,size);
-    c.bezierCurveTo(-size*.55,size*.4,-size*.6,-size*.5,0,-size);c.fillStyle=color;c.fill();
-    c.strokeStyle='#eff6cbb0';c.lineWidth=1;c.beginPath();c.moveTo(0,size*1.2);c.lineTo(0,-size*.8);c.stroke();
+    const s = size / 10;
+    c.drawImage(sprite, -12*s, -14*s, 24*s, 30*s);
     c.restore();
 }
 
@@ -510,6 +586,10 @@ function drawRefugeHearts(c, x, y, size, t) {
 }
 
 // Pre-rendered radial glows and static vector sprites for zero-cost drawImage in gameplay loop.
+const PEPPER_AURA_STOPS = Object.freeze([[8, 0, '#ff523366'], [8, 0.5, '#ff883344'], [8, 1, '#ff330000']]);
+const FEATHER_AURA_STOPS = Object.freeze([[16, 0, 'rgba(255, 235, 140, 0.45)'], [16, 0.65, 'rgba(255, 205, 60, 0.28)'], [16, 1, 'rgba(255, 216, 80, 0)']]);
+const SHIELD_AURA_STOPS = Object.freeze([[38, 0, 'rgba(46, 245, 195, 0.04)'], [38, 0.7, 'rgba(46, 245, 195, 0.28)'], [38, 1, 'rgba(46, 245, 195, 0)']]);
+const compareFruitX = (a, b) => a.x - b.x;
 const pickupCaches = new Map();
 function getPickupCache(key, radius, stops) {
     let surface = pickupCaches.get(key);
@@ -564,14 +644,10 @@ function getPepperSprite() {
     return surface;
 }
 
-export function drawBird(c, {
-    x, y, scale = 1, angle = 0, wing = 0, perched = false, time = 0, surprise = false,
-    reduced = false, reaction = 0, flapImpulse = 0, vy = 0,
-    defeated = false, impactProgress = 0, turbo = false, stamina = 1, won = false, landing = null,
-    shieldHitAge = null, snow = 0, rain = 0, low = false, cold = snow, weather = null
-}) {
+export function drawBird(c, props) {
     if(!images.has('chaua-atlas'))return;
-    return animatedBird(c,{x,y,scale,angle,wing,perched,time,surprise,reduced,reaction,flapImpulse,vy,defeated,impactProgress,turbo,stamina,won,landing,shieldHitAge,snow,rain,low,cold,weather});
+    if(props.cold===undefined)props.cold=props.snow??0;
+    return animatedBird(c, props);
 }
 
 // Shared attachment geometry keeps the authored perch positioned harmoniously.
@@ -595,6 +671,7 @@ export class Renderer {
         this.canvas = canvas;
         this.c = canvas.getContext('2d');
         this.treeDrips = new TreeDrips();
+        this.weatherMotion = new WeatherMotion();
         this.animalWeather = new AnimalWeather();
         this.forestCache = null;
         this.fragmentedBackdrop = null;
@@ -613,13 +690,18 @@ export class Renderer {
         // so wind drift and 8-stripe transitions blit 1:1 without bilinear rescaling.
         this.scaledForestCacheEnabled = true;
         this.cachedView = null;
+        this.initializeAssets();
+        this.resize();
+    }
+    initializeAssets() {
         this.ready = Promise.all([loadAssets(),preloadSnakeA2(),preloadActionSheets()]).then(() => {
-            prepareTreeWeather();
+            prepareTreeWeather(this.c);
             // Warm up pickup radial caches during asset load so first spawn never stalls.
             getPickupCache('fruit-glow', 28, [[4, 0, '#ffffffaa'], [4, 0.5, '#f4d87c44'], [4, 1, '#ffffff00']]);
             getPickupCache('pepper-glow', 36, [[4, 0, '#ff5233bb'], [4, 0.6, '#ff803355'], [4, 1, '#ffffff00']]);
             getPickupCache('feather-glow', 42, [[6, 0, '#ffe399dd'], [6, 0.6, '#ffd55e66'], [6, 1, '#ffffff00']]);
             getPickupCache('shield-glow', 42, [[6, 0, '#a8f5d0dd'], [6, 0.6, '#46e49e66'], [6, 1, '#ffffff00']]);
+            getPickupCache('chaua-shield-aura', 78, [[38, 0, 'rgba(46, 245, 195, 0.04)'], [38, 0.7, 'rgba(46, 245, 195, 0.28)'], [38, 1, 'rgba(46, 245, 195, 0)']]);
             getPepperSprite();
             const particlesImg = images.get('season-particles');
             if (particlesImg && !particlesImg._rasterized) {
@@ -632,14 +714,15 @@ export class Renderer {
                 images.set('season-particles', off);
             }
             this.seasonalBackdrop=new SeasonalBackdrop();
-            this.seasonalBackdrop.prepare(images.get('season-backgrounds'),this.w,this.h,this.dpr,{elapsed:0,mode:'aventura',seed:0});
+            // Prepare the first season during countdown, before the flight.
+            // The menu uses forest.webp and does not need seasonal surfaces.
             // Initialize the enlarged predator compositor while assets load,
             // before the start button is enabled, not at its first encounter.
             this.c.save();this.c.translate(-1000,-1000);
             this.hawk({id:1,x:0,y:0,warning:0,phase:'crossing'},0,false);
             this.c.restore();
         });
-        this.resize();
+        return this.ready;
     }
     setQuality(level) {
         const next=level==='low'?'low':'high';
@@ -679,8 +762,21 @@ export class Renderer {
         };
         return view;
     }
+    releaseForestCaches() {
+        for(const key of ['skyCache','forestCache','fragmentedBackdrop','transitionBackdrop']){
+            const cache=this[key];
+            if(cache){cache.surface.width=0;cache.surface.height=0;this[key]=null;}
+        }
+    }
+    selectBackdrop(kind) {
+        if(this.backdropKind===kind)return;
+        if(kind==='seasonal')this.releaseForestCaches();
+        else this.seasonalBackdrop?.release();
+        this.backdropKind=kind;
+    }
     resize() {
         const r = this.canvas.getBoundingClientRect();
+        const previousW=this.w,previousH=this.h,previousDpr=this.dpr;
         this.w = r.width; this.h = r.height;
         this.cachedView = null;
         // Orientation/resize may change whether a resolution drop saves pixels.
@@ -688,10 +784,11 @@ export class Renderer {
             this.decoration=identicalCanvasBudgets(this.w,this.h,window.devicePixelRatio)?'low':'high';
         const size=canvasResolution(this.w,this.h,window.devicePixelRatio,this.resolution);
         this.dpr=size.dpr;
+        if(previousW!==this.w||previousH!==this.h||previousDpr!==this.dpr)this.seasonalBackdrop?.release();
         if(this.canvas.width!==size.width)this.canvas.width=size.width;
         if(this.canvas.height!==size.height)this.canvas.height=size.height;
         if(this.skyCache&&(this.skyCache.width!==size.width||this.skyCache.height!==size.height||this.skyCache.dpr!==this.dpr)){
-            this.skyCache.surface.width=0;this.skyCache=null;
+            this.skyCache.surface.width=0;this.skyCache.surface.height=0;this.skyCache=null;
         }
         if(this.forestCache&&(this.forestCache.viewW!==size.width||this.forestCache.viewH!==size.height||this.forestCache.dpr!==this.dpr)){
             this.forestCache.surface.width=0;this.forestCache.surface.height=0;
@@ -917,12 +1014,20 @@ export class Renderer {
         }
         return normal;
     }
-    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0, seasonDistance = null, rainSpeed = 250) {
+    resetFlightPresentation(){
+        // Checkpoint attempts can reuse the same seed and scene time. Clear
+        // short-lived visual state explicitly while retaining loaded art/caches.
+        this.treeDrips=new TreeDrips();this.animalWeather=new AnimalWeather();this.weatherMotion=new WeatherMotion();
+        this.cameraTime=undefined;this.cameraTop=undefined;
+    }
+
+    background(time, offset = 0, stage = 0, home = false, reduced = false, stageMix = 1, rain = 0, storm = 0, fog = 0, wind = 0, seasonDistance = null, rainSpeed = 250, weatherMotion = null) {
         if (reduced) offset = 0;
         const c = this.c, w = this.w, h = this.h;
         const palette=BACKGROUND_PALETTE;
         const light = reduced||stageMix===1 ? palette[stage] : mixColor(palette[Math.max(0, stage - 1)], palette[stage], stageMix);
         const seasonal=seasonDistance!==null && images.get('season-backgrounds');
+        this.selectBackdrop(seasonal?'seasonal':'forest');
         const winterLight=seasonDistance!==null?winterAmount(seasonDistance):0;
         const forest=seasonal?null:images.get('forest');
         const backdropMix=stageMix===1?1:Math.round(Math.max(0,Math.min(1,stageMix))*64)/64;
@@ -1012,25 +1117,11 @@ export class Renderer {
             c.fill();c.restore();
         }
         drawForestLife(c,w,h,time,seasonDistance??{elapsed:0,mode:'aventura',seed:0},rain,wind,reduced,this.decoration==='low',storm);
-        if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind);
+        if(seasonal)drawSeasonParticles(c,images.get('season-particles'),w,h,time,seasonDistance,reduced,this.decoration==='low',wind,weatherMotion);
         drawJourneyFog(c, w, h, fog);
-        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind, rainSpeed);
+        drawJourneyRain(c, w, h, time, rain, reduced, this.decoration === 'low', storm, wind, rainSpeed,weatherMotion);
         drawLightning(c, w, h, time, storm, reduced);
-        if (wind > 0 && !reduced) {
-            c.save();
-            c.globalAlpha = wind * (winterLight>.15?.09:.24);
-            c.strokeStyle = winterLight>.15?'#bfd9e2':'#e2edcb';
-            c.beginPath();
-            const streaks = winterLight>.15?(this.decoration==='low'?4:9):(this.decoration === 'low' ? 8 : 18);
-            for (let i = 0; i < streaks; i++) {
-                const x = w + 32 - ((i * 137.7 + time * 250) % (w + 64));
-                const y = (i * 93.4) % h;
-                c.moveTo(x, y);
-                c.quadraticCurveTo(x - 12, y - 4, x - 26, y + 1);
-            }
-            c.stroke();
-            c.restore();
-        }
+        drawWindGusts(c,w,h,time,wind,this.decoration==='low',reduced,weatherMotion);
         // Golden pollen belongs to warm seasons; it must not mix with snow.
         c.save();c.globalAlpha = (1-rain)*(1-winterLight);
         c.fillStyle = '#ffedb275';
@@ -1059,25 +1150,28 @@ export class Renderer {
             const wash = c.createLinearGradient(0, this.h * .50, 0, this.h * .78); wash.addColorStop(0, '#f0f1da'); wash.addColorStop(1, '#f0f1da00');
             c.fillStyle = '#f0f1da'; c.fillRect(0, 0, this.w, this.h * .5); c.fillStyle = wash; c.fillRect(0, this.h * .5, this.w, this.h * .28);
         }
-        const {x,y,scale}=homePerchLayout(this.w,this.h);
-        c.save(); c.translate(x, y);
+        if(!this.homeHideCharacter && (!this.homeMobileLayout || this.homePreview)){
+        const {x,y,scale}=this.homePreview||homePerchLayout(this.w,this.h);
+        c.save();
+        if(this.homePreview?.clip){const r=this.homePreview.clip;c.beginPath();c.rect(r.x,r.y,r.width,r.height);c.clip();}
+        c.translate(x, y);
         if(images.has('chaua-atlas'))drawRefugeTree(c,{x:0},scale*5+birdFoot(scale*1.3),time,scale*95,scale*1.3*9.65*27.7027/60);
         drawBird(c, { x: 0, y: scale * 5, scale: scale*1.3, perched: true, wing: reduced ? .08 : .07 + Math.sin(time * .9) * .06, time, reduced });
         c.restore();
+        }
         // Loose foreground leaves frame the diorama naturally.
         if (!mobile) {
             leaf(c, this.w * .985, this.h * .38, 75, -1.15, '#b0c16c', '#497e49');
             leaf(c, this.w * .965, this.h * .34, 55, -.5, '#a5b96b', '#47794b');
-            leaf(c, this.w * .61, this.h * .76, 45, -.7, '#92af5d', '#436f40');
         }
     }
 
     game(game, reduced, visualTime = 0) {
         this.base(false);
-        if(game.state==='countdown' && this.snakeWarmupEnabled && this.snakeWarmupIndex<3){
+        if(game.state==='countdown' && this.snakeWarmupEnabled && this.snakeWarmupIndex<SNAKE_SHEET_KEYS.length){
             // One sheet per countdown frame; the opaque backdrop immediately
             // covers this tiny translucent draw inside the visible main canvas.
-            const sheet=['idle','attack','stunned'][this.snakeWarmupIndex];
+            const sheet=SNAKE_SHEET_KEYS[this.snakeWarmupIndex];
             const warmProbe=activeProbe, warmAt=warmProbe?warmProbe.begin('snake.warmupMs'):0;
             const warmed=warmupSnakeA2(this.c,sheet);
             if(warmProbe)warmProbe.end('snake.warmupMs',warmAt,{sheet,success:warmed});
@@ -1112,10 +1206,12 @@ export class Renderer {
         const wind = journeyWind(game, game.mode, game.tutorial);
         const snow = surfaceSnow(game);
         const wet = game.surfaceWeather?.wet ?? rain;
+        const winter = winterAmount(game);
+        const weatherMotion=this.weatherMotion.advance(sceneTime,{wind,storm,speed:game.speed||250,seed:`${game.seed}:${game.tutorial?'training':'flight'}`});
         const probe=activeProbe;
         const backgroundAt=probe?probe.begin('render.background'):0;
         this.background(sceneTime, game.distance, game.stage, false, reduced, reduced?1:Math.min(1,game.stageAge/4),
-            rain, storm, fog, wind, game.tutorial?null:game, game.speed||250);
+            rain, storm, fog, wind, game.tutorial?null:game, game.speed||250,weatherMotion);
         if(probe)probe.end('render.background',backgroundAt);
         const baseView = this.getViewport();
         // Follow the player only on screens that cannot fit the full world at
@@ -1124,7 +1220,10 @@ export class Renderer {
         this.cameraTop=advanceFlightCamera(baseView,game.y,
             resetCamera?undefined:this.cameraTop,sceneTime-(this.cameraTime??sceneTime),reduced);
         this.cameraTime=sceneTime;
-        const view={...baseView,worldTop:this.cameraTop};
+        if(!this._renderView)this._renderView={...baseView};
+        const view=this._renderView;
+        Object.assign(view,baseView);
+        view.worldTop=this.cameraTop;
         const s = view.scale;
         let shakeX = 0, shakeY = 0;
         if (!reduced && game.shakeTime > 0 && game.shakeDuration > 0) {
@@ -1141,18 +1240,25 @@ export class Renderer {
         // Physical screen clip extends to y=0 and y=canvas height, not just
         // the logical game viewport. Derive wood limits from the live camera,
         // including shake and a 64px guard for transformed/leaning bark.
-        this.animalWeather.begin(c,{time:sceneTime,seed:game.seed,speed:game.speed,wind,snow,snowfall:winterAmount(game),wet,rain,reduced,low:this.decoration==='low'});
-        const renderBounds={
-            top:view.worldTop-(view.y+Math.abs(shakeY)+64)/s,
-            bottom:view.worldTop+(this.h-view.y+Math.abs(shakeY)+64)/s
-        };
+        this.animalWeather.begin(c,{time:sceneTime,seed:game.seed,speed:game.speed,wind,snow,snowfall:winter,wet,rain,reduced,low:this.decoration==='low'});
+        const renderBounds=this._renderBoundsScratch??(this._renderBoundsScratch={top:0,bottom:0,winter:0,wind:0,rain:0});
+        renderBounds.top=view.worldTop-(view.y+Math.abs(shakeY)+64)/s;
+        renderBounds.bottom=view.worldTop+(this.h-view.y+Math.abs(shakeY)+64)/s;
+        renderBounds.winter=winter;
+        renderBounds.wind=wind;
+        renderBounds.rain=rain;
         const treesAt=probe&&probe.deep?probe.begin('render.trees'):0;
-        for (const e of game.entities) {
+        for (let i = 0; i < game.entities.length; i++) {
+            const e = game.entities[i];
             if (e.kind === 'wood' && (this.drawOffscreenEntitiesForTest === true ||
                 !Number.isFinite(e.x) || (e.x >= view.worldLeft - 320 &&
                 e.x <= view.worldLeft + view.worldWidth + 320))) this.obstacle(e, game, reduced, renderBounds);
         }
-        this.treeDrips.draw(c,game,sceneTime,game.surfaceWeather?.drip??0,wind,this.decoration==='low',reduced,{left:view.worldLeft,right:view.worldLeft+view.worldWidth,bottom:renderBounds.bottom});
+        const dripsBounds=this._treeDripsBoundsScratch??(this._treeDripsBoundsScratch={left:0,right:0,bottom:0});
+        dripsBounds.left=view.worldLeft;
+        dripsBounds.right=view.worldLeft+view.worldWidth;
+        dripsBounds.bottom=renderBounds.bottom;
+        this.treeDrips.draw(c,game,sceneTime,game.surfaceWeather?.drip??0,wind,this.decoration==='low',reduced,dripsBounds);
         if(probe&&probe.deep)probe.end('render.trees',treesAt);
         c.restore();
         c.save(); c.beginPath(); c.rect(view.x, view.y, view.w, view.h); c.clip();
@@ -1163,7 +1269,7 @@ export class Renderer {
             const remaining = Math.min(1, game.pepper / 2);
             c.globalAlpha = 0.5 + 0.5 * remaining;
             const turboRadius = (46 + 14 * remaining) * (reduced ? 1 : 1 + Math.sin(game.elapsed * 12) * 0.08);
-            const auraSurface = getPickupCache('chaua-pepper-aura', 60, [[8, 0, '#ff523366'], [8, 0.5, '#ff883344'], [8, 1, '#ff330000']]);
+            const auraSurface = getPickupCache('chaua-pepper-aura', 60, PEPPER_AURA_STOPS);
             if (auraSurface) c.drawImage(auraSurface, game.x - turboRadius, game.y - turboRadius, turboRadius * 2, turboRadius * 2);
             else {
                 const aura = c.createRadialGradient(game.x, game.y, 8, game.x, game.y, turboRadius);
@@ -1195,7 +1301,7 @@ export class Renderer {
             const remaining = Math.min(1, game.feather / 3);
             c.globalAlpha = 0.5 + 0.5 * remaining;
             const radius = (66 + 18 * remaining) * (reduced ? 1 : 1 + Math.sin(game.elapsed * 3) * 0.06);
-            const auraSurface = getPickupCache('chaua-feather-aura', 84, [[16, 0, 'rgba(255, 235, 140, 0.45)'], [16, 0.65, 'rgba(255, 205, 60, 0.28)'], [16, 1, 'rgba(255, 216, 80, 0)']]);
+            const auraSurface = getPickupCache('chaua-feather-aura', 84, FEATHER_AURA_STOPS);
             if (auraSurface) c.drawImage(auraSurface, game.x - radius, game.y - radius, radius * 2, radius * 2);
             else {
                 const aura = c.createRadialGradient(game.x, game.y, 16, game.x, game.y, radius);
@@ -1218,38 +1324,52 @@ export class Renderer {
         // Collection trails suggest optional trajectories, never solid obstacles.
         this._routesMap ??= new Map();
         this._routesLists ??= [];
-        for (const list of this._routesMap.values()) {
+        this._routesMap.forEach(list => {
             list.length = 0;
             this._routesLists.push(list);
-        }
+        });
         this._routesMap.clear();
-        for (const e of game.entities) if (e.kind === 'fruit' && e.route !== undefined && !e.collected) {
-            let list = this._routesMap.get(e.route);
-            if (!list) {
-                list = this._routesLists.pop() || [];
-                this._routesMap.set(e.route, list);
+        for (let i = 0; i < game.entities.length; i++) {
+            const e = game.entities[i];
+            if (e.kind === 'fruit' && e.route !== undefined && !e.collected) {
+                let list = this._routesMap.get(e.route);
+                if (!list) {
+                    list = this._routesLists.pop() || [];
+                    this._routesMap.set(e.route, list);
+                }
+                list.push(e);
             }
-            list.push(e);
         }
-        for (const fruit of this._routesMap.values()) if (fruit.length > 1) {
-            fruit.sort((a,b) => a.x - b.x);
-            c.save(); c.strokeStyle = fruit[0].optional ? '#f4d77caa' : '#e9f3cf99';
-            c.lineWidth = 2; c.setLineDash([4, 8]); c.beginPath(); c.moveTo(fruit[0].x, fruit[0].y);
-            for (let i = 1; i < fruit.length; i++) c.lineTo(fruit[i].x, fruit[i].y);
-            c.stroke(); c.restore();
-        }
+        this._routesMap.forEach(fruit => {
+            if (fruit.length > 1) {
+                if (fruit.length === 2) {
+                    if (fruit[0].x > fruit[1].x) { const tmp = fruit[0]; fruit[0] = fruit[1]; fruit[1] = tmp; }
+                } else {
+                    fruit.sort(compareFruitX);
+                }
+                c.save(); c.strokeStyle = fruit[0].optional ? '#f4d77caa' : '#e9f3cf99';
+                c.lineWidth = 2; c.setLineDash(ROUTE_LINE_DASH); c.beginPath(); c.moveTo(fruit[0].x, fruit[0].y);
+                for (let i = 1; i < fruit.length; i++) c.lineTo(fruit[i].x, fruit[i].y);
+                c.stroke(); c.restore();
+            }
+        });
         const visibleLeft=view.worldLeft,visibleRight=view.worldLeft+view.worldWidth;
-        for (const e of game.entities) {
+        for (let i = 0; i < game.entities.length; i++) {
+            const e = game.entities[i];
             const margin=e.kind==='wood'?320:e.kind==='hawk'?180:100;
             const drawSprite=this.drawOffscreenEntitiesForTest===true||
                 !Number.isFinite(e.x)||(e.x>=visibleLeft-margin&&e.x<=visibleRight+margin);
             if (e.kind === 'wood') continue;
             if (e.kind === 'hawk') {
                 if (e.warning > 0 || (!e.harmless && e.x>game.x+180)) {
-                    c.save(); c.strokeStyle = '#684b3caa'; c.lineWidth = 2; c.setLineDash([6, 8]);
-                    c.beginPath(); c.moveTo(e.targetX, e.targetY); c.lineTo(e.startX, e.startY); c.stroke(); c.restore();
+                    c.save(); c.lineWidth = 2; c.setLineDash(HAWK_LINE_DASH);
+                    c.strokeStyle=e.targetLocked?'#a85b34aa':'#755a45aa';
+                    c.beginPath();
+                    if(e.attackKind){for(let i=0;i<=20;i++){const xx=e.startX+(e.targetX-e.startX)*i/20,yy=predictedHawkY(e,xx);if(i===0)c.moveTo(xx,yy);else c.lineTo(xx,yy);}}
+                    else {c.moveTo(e.targetX,e.targetY);c.lineTo(e.startX,e.startY);}
+                    c.stroke(); c.restore();
                 }
-                if(e.warning<=0&&drawSprite)this.hawk(e, reduced ? 0 : sceneTime, reduced, false, 0, false, snow, rain, this.decoration==='low',winterAmount(game));
+                if(e.warning<=0&&drawSprite)this.hawk(e, reduced ? 0 : sceneTime, reduced, false, 0, false, snow, rain, this.decoration==='low',winter);
             } else if (!e.collected&&drawSprite) this.pickup(e, game.elapsed, reduced, snow, wet);
         }
         const auraAt=probe&&probe.deep?probe.begin('render.shieldAura'):0;
@@ -1257,12 +1377,17 @@ export class Renderer {
             const r = 68;
             c.save();
             c.globalAlpha = game.shield ? 0.95 : 0.45;
-            const aura = c.createRadialGradient(game.x, game.y, 38, game.x, game.y, r + 10);
-            aura.addColorStop(0, 'rgba(46, 245, 195, 0.04)');
-            aura.addColorStop(0.7, 'rgba(46, 245, 195, 0.28)');
-            aura.addColorStop(1, 'rgba(46, 245, 195, 0)');
-            c.fillStyle = aura;
-            c.beginPath(); c.arc(game.x, game.y, r + 10, 0, TAU); c.fill();
+            const auraRadius = r + 10;
+            const auraSurface = getPickupCache('chaua-shield-aura', auraRadius, SHIELD_AURA_STOPS);
+            if (auraSurface) c.drawImage(auraSurface, game.x - auraRadius, game.y - auraRadius, auraRadius * 2, auraRadius * 2);
+            else {
+                const aura = c.createRadialGradient(game.x, game.y, 38, game.x, game.y, auraRadius);
+                aura.addColorStop(0, 'rgba(46, 245, 195, 0.04)');
+                aura.addColorStop(0.7, 'rgba(46, 245, 195, 0.28)');
+                aura.addColorStop(1, 'rgba(46, 245, 195, 0)');
+                c.fillStyle = aura;
+                c.beginPath(); c.arc(game.x, game.y, auraRadius, 0, TAU); c.fill();
+            }
             c.strokeStyle = '#2ef5c3aa'; c.lineWidth = 2;
             c.beginPath(); c.arc(game.x, game.y, r, 0, TAU); c.stroke();
             const shieldImg = images.get('shield');
@@ -1285,7 +1410,7 @@ export class Renderer {
                     c.restore();
                 }
             } else {
-                c.setLineDash([5, 7]); c.strokeStyle = '#d0e9ff'; c.lineWidth = 2;
+                c.setLineDash(SHIELD_EMPTY_DASH); c.strokeStyle = '#d0e9ff'; c.lineWidth = 2;
                 c.beginPath(); c.arc(game.x, game.y, 48, 0, TAU); c.stroke(); c.setLineDash([]);
             }
             c.restore();
@@ -1306,16 +1431,17 @@ export class Renderer {
             : (game.state === 'ended' && !game.won ? 1 : 0);
         const contact=woodContactPosition(game,impactProg,reduced);
         const birdAt=probe&&probe.deep?probe.begin('render.bird'):0;
-        drawBird(c, {
-            x: contact.x, y: contact.y, scale: 1.04, perched: game.state === 'ended' && game.won,
-            cold: winterAmount(game), angle: game.angle, wing: reduced ? .2 : game.wing, time: (game.state==='impact'||game.state==='ended'&&game.won)?visualTime:sceneTime,
-            landing: game.arrival&&!game.won?Math.min(1,game.arrival.age/1.6):null,
-            reaction: game.collectPulse, flapImpulse: game.flapImpulse || 0, vy: game.vy || 0, reduced,
-            shieldHitAge:game.hit&&game.invincible>0?game.hit.age:null,
-            defeated: isDefeated, impactProgress: impactProg, turbo: (game.pepper || 0) > 0,
-            stamina: game.stamina !== undefined ? game.stamina : 1, won: game.state === 'ended' && game.won,
-            snow, rain, low:this.decoration==='low',weather:this.animalWeather
-        });
+        const bProps=this._drawBirdScratch??(this._drawBirdScratch={});
+        bProps.x=contact.x;bProps.y=contact.y;bProps.scale=1.04;bProps.perched=game.state==='ended'&&game.won;
+        bProps.cold=winter;bProps.angle=game.angle;bProps.wing=reduced?.2:game.wing;
+        bProps.time=(game.state==='impact'||game.state==='ended'&&game.won)?visualTime:sceneTime;
+        bProps.landing=game.arrival&&!game.won?Math.min(1,game.arrival.age/1.6):null;
+        bProps.reaction=game.collectPulse;bProps.flapImpulse=game.flapImpulse||0;bProps.vy=game.vy||0;bProps.reduced=reduced;
+        bProps.shieldHitAge=game.hit&&game.invincible>0?game.hit.age:null;
+        bProps.defeated=isDefeated;bProps.impactProgress=impactProg;bProps.turbo=(game.pepper||0)>0;
+        bProps.stamina=game.stamina!==undefined?game.stamina:1;bProps.won=game.state==='ended'&&game.won;
+        bProps.snow=snow;bProps.rain=rain;bProps.low=this.decoration==='low';bProps.weather=this.animalWeather;
+        drawBird(c, bProps);
         if(probe&&probe.deep)probe.end('render.bird',birdAt);
         const particlesAt=probe&&probe.deep?probe.begin('render.particles'):0;
         if (!reduced) {
@@ -1344,47 +1470,12 @@ export class Renderer {
                     c.restore();
                 }
                 else if(p.seed) {
+                    const sprite = getSeedSprite(p.color || '#a0582c');
                     c.save();
                     c.translate(p.x, p.y);
                     c.rotate(p.rotation);
-                    const sw = p.size || 6.5, sh = sw * 1.65;
-                    // 1. Sombra suave de relevo 3D
-                    c.fillStyle = 'rgba(0,0,0,0.28)';
-                    c.beginPath();
-                    c.ellipse(1.5, 2.5, sw * 0.9, sh * 0.9, 0, 0, Math.PI * 2);
-                    c.fill();
-
-                    // 2. Casca anatômica de argila em gota
-                    c.fillStyle = p.color || '#a0582c';
-                    c.beginPath();
-                    c.moveTo(0, -sh);
-                    c.bezierCurveTo(sw * 1.05, -sh * 0.25, sw * 1.05, sh * 0.65, 0, sh);
-                    c.bezierCurveTo(-sw * 1.05, sh * 0.65, -sw * 1.05, -sh * 0.25, 0, -sh);
-                    c.fill();
-
-                    // 3. Contorno sutil de profundidade
-                    c.strokeStyle = 'rgba(40, 20, 8, 0.45)';
-                    c.lineWidth = 1.2;
-                    c.stroke();
-
-                    // 4. Embrião / núcleo interno com textura de argila
-                    c.fillStyle = 'rgba(255, 235, 175, 0.38)';
-                    c.beginPath();
-                    c.ellipse(-sw * 0.22, -sh * 0.15, sw * 0.42, sh * 0.5, -0.15, 0, Math.PI * 2);
-                    c.fill();
-
-                    // 5. Brilho especular de polpa úmida
-                    c.fillStyle = 'rgba(255, 255, 255, 0.75)';
-                    c.beginPath();
-                    c.ellipse(-sw * 0.32, -sh * 0.35, sw * 0.25, sh * 0.28, -0.2, 0, Math.PI * 2);
-                    c.fill();
-
-                    // 6. Cicatriz do ápice (hilo)
-                    c.fillStyle = 'rgba(45, 20, 10, 0.7)';
-                    c.beginPath();
-                    c.arc(0, -sh + 1.8, sw * 0.22, 0, Math.PI * 2);
-                    c.fill();
-
+                    const scale = (p.size || 6.5) / 7;
+                    c.drawImage(sprite, -18 * scale, -24 * scale, 36 * scale, 48 * scale);
                     c.restore();
                 }
                 else if(p.puff) {
@@ -1400,38 +1491,37 @@ export class Renderer {
         c.globalAlpha = 1;
         if(game.popups.length) {
             c.font='800 18px Nunito';c.textAlign='center';c.lineWidth=3;c.strokeStyle='#254a35';
-            for(const p of game.popups) {
-                c.save();c.globalAlpha=Math.min(1,p.life*3);
+            for(let i=0;i<game.popups.length;i++) {
+                const p = game.popups[i];
+                c.globalAlpha=Math.min(1,p.life*3);
                 c.strokeText(p.text,p.x,p.y);
-                c.fillStyle=p.gold?'#ffe392':'#f1ffd4';c.fillText(p.text,p.x,p.y);c.restore();
+                c.fillStyle=p.gold?'#ffe392':'#f1ffd4';
+                c.fillText(p.text,p.x,p.y);
             }
+            c.globalAlpha=1;
         }
         c.restore();
         if(rain>0&&!reduced){
             const rWind=journeyWind(game,game.mode,game.tutorial);
             const rStorm=journeyStorm(game,game.mode,game.tutorial);
-            drawForegroundRain(c,this.w,this.h,sceneTime,rain,reduced,this.decoration==='low',rStorm,rWind,game.speed||250);
+            drawForegroundRain(c,this.w,this.h,sceneTime,rain,reduced,this.decoration==='low',rStorm,rWind,game.speed||250,weatherMotion);
         }
         // Only a few flakes pass in front of the flight action. HUD and
         // predator/snake notices are drawn above them for legibility.
-        if(winterAmount(game)>.01)drawSnowfall(c,this.w,this.h,sceneTime,winterAmount(game),reduced,
-            this.decoration==='low',wind,true);
+        if(winter>.01)drawSnowfall(c,this.w,this.h,sceneTime,winter,reduced,
+            this.decoration==='low',wind,true,weatherMotion);
+        // The original sky flash runs behind birds/trees. This second pass
+        // illuminates the complete scene without whitening warning labels.
+        drawLightningIllumination(c,this.w,this.h,sceneTime,storm,reduced);
         // Natural viewport flight boundary
-        const notices=[];
-        for(const e of game.entities)if(e.kind==='hawk'&&!e.harmless&&e.x>game.x+100){
-            const predictedY=Number.isFinite(e.startX)&&Number.isFinite(e.targetX)
-                ?predictedHawkY(e,game.x):e.y;
-            const p=warningPosition(view,predictedY);notices.push({...p,w:116,h:38,type:'hawk',entity:e});
-        }else if(e.kind==='wood'&&['warning','windup','striking'].includes(e.snake?.phase)){
-            notices.push({...snakeWarningPosition(view,e),w:136,h:26,type:'snake',entity:e});
-        }
-        if(notices.length){
-            for(const box of placeWarnings(notices,view)){
-                c.save();c.fillStyle='#fff4dbee';c.strokeStyle='#70513d';c.lineWidth=1.2;
+        const {boxes}=flightWarnings(game,view,reduced,shakeX,shakeY);
+        if(boxes.length){
+            for(const box of boxes){
+                c.save();c.fillStyle='#fff4db';c.strokeStyle='#70513d';c.lineWidth=1.2;
                 c.beginPath();c.roundRect(box.x,box.y,box.w,box.h,8);c.fill();c.stroke();
                 c.fillStyle='#49372c';c.textAlign='center';c.font='800 12px Nunito';
-                if(box.type==='snake')c.fillText(box.entity.snake.phase==='striking'?'Bote!':box.entity.snake.phase==='windup'?'Cobra vai atacar':'Cobra à frente',box.x+box.w/2,box.y+18);
-                else {const e=box.entity;c.fillText(e.dive?'↙ MERGULHO':e.ascent?'↖ SUBIDA':'← TRAVESSIA',box.x+box.w/2,box.y+15);c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:'Em aproximação',box.x+box.w/2,box.y+30);}
+                if(box.type==='snake')c.fillText(box.entity.snake.phase==='striking'?snakeAttack(box.entity.snake).label:box.entity.snake.phase==='windup'?snakeAttack(box.entity.snake).label+'…':'Cobra à frente',box.x+box.w/2,box.y+18);
+                else {const e=box.entity;c.fillText(e.attackKind?HAWK_ATTACKS[e.attackKind].label.toUpperCase():e.dive?'↙ MERGULHO':e.ascent?'↖ SUBIDA':'← TRAVESSIA',box.x+box.w/2,box.y+15);c.font='700 11px Nunito';c.fillText(e.warning>0?`Gavião · ${Math.max(1,Math.ceil(e.warning))}s`:e.attackKind?'Ataque anunciado':'Em aproximação',box.x+box.w/2,box.y+30);}
                 c.restore();
             }
         }
@@ -1449,12 +1539,14 @@ export class Renderer {
         const time = game.sceneTime ?? game.elapsed;
         const variant = (e.id ?? 0) % 3;
         const x = e.x + 29;
-        const wind = reduced ? 0 : journeyWind(game, game.mode, game.tutorial);
-        const rain = game.surfaceWeather?.wet ?? journeyRain(game, game.tutorial);
+        const wind = reduced ? 0 : (renderBounds?.wind ?? journeyWind(game, game.mode, game.tutorial));
+        const rain = game.surfaceWeather?.wet ?? (renderBounds?.rain ?? journeyRain(game, game.tutorial));
         const snow = surfaceSnow(game);
-        for (const side of ['top', 'bottom']) {
-            const upper = side === 'top';
-            const y = e[side];
+        const winter = renderBounds?.winter ?? winterAmount(game);
+        for (let sIdx = 0; sIdx < 2; sIdx++) {
+            const upper = sIdx === 0;
+            const side = upper ? 'top' : 'bottom';
+            const y = upper ? e.top : e.bottom;
             const visibleReach=renderBounds?Math.max(0,upper?y-renderBounds.top:renderBounds.bottom-y):1000;
             const broken = e.broken && e.brokenSide === side;
             if (broken && (reduced || !e.breakFx)) continue;
@@ -1478,7 +1570,7 @@ export class Renderer {
             if(rain>.03&&!reduced)
                 drawSurfaceRainImpacts(c,x,upper?y+3:y-3,rain,time,e.id||0,
                     this.decoration==='low',reduced);
-            if (!upper && e.snake) this.snake(e, reduced, snow, rain, time, this.decoration==='low',winterAmount(game));
+            if (!upper && e.snake) this.snake(e, reduced, snow, rain, time, this.decoration==='low', winter);
         }
     }
     trunk(key,preset,x,y,flip,time=0,variant=0,snow=0,rain=0){
@@ -1491,11 +1583,11 @@ export class Renderer {
         // A2 stunned sprites already contain their authored stars; no duplicate overlay.
         const activePhase=s.phase==='striking'?1:s.phase==='windup'?.70:
             s.phase==='recovering'?.48:(s.retreat?.90:0);
-        const pose=snakeA2Pose(s,reduced);
+        const pose=snakeA2Pose(s,reduced),artFactor=place.factor*snakeA2ArtScale(pose);
         this.animalWeather?.actor(c,{id:`snake:${wood.id}`,pose:{sheet:`snake-${pose.key}`,frame:pose.frame,
-            rect:[-192*place.factor,-352*place.factor,384*place.factor,384*place.factor],mirror:snakeA2NeedsMirror(pose)},
+            rect:[-192*artFactor,-352*artFactor,384*artFactor,384*artFactor],mirror:snakeA2NeedsMirror(pose)},
             moving:s.phase==='striking'||!!s.retreat,hidden:!!s.dazed});
-        if(cold>.18&&!s.retreat){
+        if(cold>.18&&!s.retreat&&!['windup','striking','recovering'].includes(s.phase)){
             const breath=winterBreathSettings('snake',cold,time,
                 {low,reduced,activity:activePhase,seed:wood.id||0});
             if(breath){
@@ -1532,21 +1624,10 @@ export class Renderer {
         if(!images.has('hawk-atlas'))return;
         const entity=e??{x,y,warning:warning?1:0,retreat,dive:false};
         const clip=hawkAnimation(entity,time,reduced),cAngle=retreat?0:angle;
-        const action=hawkAction(entity,time,reduced) ?? (reduced&&hawkUsesActionArt(entity)?{sheet:entity.retreat?'hawk-stunned':'hawk-flight',frame:entity.retreat?2:0}:null);
-        let dynamicY=0,dynamicAngle=0;
-        if(!reduced&&!warning&&!retreat){
-            if(entity.dive){
-                const span=(entity.startX||1)-(entity.targetX||0);
-                const p=span>0?Math.max(0,Math.min(1,((entity.startX||x)-x)/span)):.5;
-                dynamicY=Math.sin(p*Math.PI)*7;
-                dynamicAngle=(p-.5)*.16;
-            }else if(!action){
-                dynamicY=Math.sin(time*2.8+(entity.id||0)*1.5)*3.5;
-                dynamicAngle=Math.cos(time*2.8+(entity.id||0)*1.5)*.035;
-            }
-        }
-        c.save();c.translate(x,y+dynamicY+(action?.offsetY||0));
-        c.rotate(cAngle+dynamicAngle+(action?.angle||0));
+        this._hawkPresScratch ??= {action:null,offsetY:0,angle:0};
+        const presentation=hawkPresentation(entity,time,reduced,this._hawkPresScratch),action=presentation.action;
+        c.save();c.translate(x,y+presentation.offsetY);
+        c.rotate(cAngle+presentation.angle);
         if(action){
             const activeFrame=(action.blend??0)<.5?action.frame:(action.next??action.frame);
             // Required art missing? Throw explicitly; never switch to v6 mid-flight.
@@ -1571,8 +1652,8 @@ export class Renderer {
     }
 
     pickup(e, time, reduced, snow = 0, rain = 0) {
-        const c = this.c, float = reduced ? 0 : Math.sin(time * 2 + e.id) * 3;
-        const pulse = reduced ? 1 : 1 + Math.sin(time * 3.2 + e.id) * 0.07;
+        this._pickupPoseScratch ??= {float: 0, pulse: 1, angle: 0, frame: 0};
+        const c=this.c,{float,pulse,angle:pickupAngle}=pickupPose(e,time,reduced,this._pickupPoseScratch);
         c.save(); c.translate(e.x, e.y);
         c.scale(pulse, pulse);
         if (e.kind === 'fruit') {
@@ -1598,7 +1679,7 @@ export class Renderer {
             }
             c.save();
             c.translate(0, float);
-            c.rotate(reduced ? 0 : Math.sin(time * 3 + e.id) * 0.15);
+            c.rotate(pickupAngle);
             const pepSprite = getPepperSprite();
             if (pepSprite) {
                 c.drawImage(pepSprite, -24, -28, 48, 56);

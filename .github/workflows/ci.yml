@@ -39,13 +39,35 @@ jobs:
       - run: node scripts/calibrate-climate-journey.mjs
       - run: npm run build
       - run: git diff --exit-code -- Chaua-Educa-main/css/style.css
+      - run: npm run audit:release
       - run: npx playwright install --with-deps chromium
+      - name: Verify GitHub Pages under the actual repository URL prefix
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pages-preview"
+          ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pages-preview/Chaua-Educa"
+          python3 -m http.server 5502 --bind 127.0.0.1 --directory "$RUNNER_TEMP/pages-preview" > /tmp/chaua-pages-preview.log 2>&1 &
+          pages_pid=$!
+          trap 'kill "$pages_pid" 2>/dev/null' EXIT
+          npm run test:pages-path
       - name: Verify actual browser rendering and complete journeys
         run: |
           python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-http.log 2>&1 &
           chaua_server_pid=$!
-          trap 'kill "$chaua_server_pid" 2>/dev/null' EXIT
+          # Pin the comparison to the last approved preparation revision.
+          baseline_sha=f32ee403b493d5a25f86c1710223d96c0af106b1
+          git fetch --no-tags --depth=1 origin "$baseline_sha"
+          baseline_dir="$RUNNER_TEMP/prep104-baseline"
+          mkdir -p "$baseline_dir"
+          git archive "$baseline_sha" Chaua-Educa-main | tar -x -C "$baseline_dir"
+          python3 -m http.server 5503 --bind 127.0.0.1 --directory "$baseline_dir/Chaua-Educa-main" > /tmp/chaua-baseline.log 2>&1 &
+          baseline_pid=$!
+          trap 'kill "$chaua_server_pid" "$baseline_pid" 2>/dev/null' EXIT
+          BASE_GAME_URL=http://127.0.0.1:5503/ node scripts/benchmark-startup-memory.cjs
           # Fail fast on full real-browser flight before lengthy visual benchmarks.
+          node tests/browser-collision-art.cjs
+          node tests/browser-learning-flow.cjs
+          node tests/browser-attacks-weather.cjs
           node tests/browser-editorial-ui.cjs
           npm run test:journey
           node tests/browser-mobile-home-layout.cjs
@@ -90,24 +112,20 @@ jobs:
           npm run test:hud
           PERF_SECONDS=6 npm run benchmark:hotspots
           npm run benchmark:render-parts
-      - name: Verify GitHub Pages under the actual repository URL prefix
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/pages-preview"
-          ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pages-preview/Chaua-Educa"
-          python3 -m http.server 5502 --bind 127.0.0.1 --directory "$RUNNER_TEMP/pages-preview" > /tmp/chaua-pages-preview.log 2>&1 &
-          pages_pid=$!
-          trap 'kill "$pages_pid" 2>/dev/null' EXIT
-          npm run test:pages-path
       - name: Save automatic graphics visual comparisons
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: auto-visual-captures
           path: |
+            test-results/release-audit.json
+            test-results/startup-memory/
+            test-results/learning-flow/
+            test-results/collision-art/
             test-results/auto-visual/
             test-results/surface-foods/
             test-results/animal-weather/
+            test-results/attacks-weather/
             test-results/mobile-home/
             test-results/editorial-ui/
             test-results/weather-trees/

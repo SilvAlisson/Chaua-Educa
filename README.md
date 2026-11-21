@@ -1,10 +1,24 @@
 # Chaua-Educa
 
-## Versão jogável 2.5.0
+## Preparação para a Versão 2.0 · candidata 1.0.11
+
+Candidata em validação, com funcionalidades congeladas e correções da beta consolidadas. Consulte [escopo, requisitos e pendências da 1.0.11](docs/candidata-1.0.11.md). A aprovação para lançamento continua pendente.
+
+Beta disponível para sessões reais: abra **Sobre o projeto → Participar da beta** ou o mesmo botão nos Ajustes. A coleta é opcional, fica na aba e gera um arquivo para baixar. Consulte o [roteiro da 1.0.10](docs/beta-1.0.10.md). A etapa só termina após avaliar os jogadores/aparelhos reais.
+
+Antes de publicar, execute `npm run audit:release`: a auditoria verifica o grafo de módulos, recursos locais, hashes, versões, créditos e licenças, e gera um inventário em `test-results/release-audit.json`. Consulte [a validação da 1.0.9](docs/confiabilidade-1.0.9.md).
+
+No GitHub Pages, a raiz do repositório abre automaticamente `Chaua-Educa-main/`. O arquivo `index.html` da raiz deve acompanhar a branch publicada, inclusive nos forks.
 
 Abra `Chaua-Educa-main/index.html` por um servidor HTTP. Para testar localmente, rode `npm start` na raiz e abra `http://127.0.0.1:5501/`. A Cobra A2 e as spritesheets oficiais de ação são obrigatórias. Arquivos faltando impedem o início e exibem um erro explícito; os antigos parâmetros de seleção de sprites foram removidos. Consulte [a documentação da arte atual](docs/arte-runtime.md).
 
-> **Nota de manutenção:** as seções históricas abaixo registram a evolução do projeto; para arte e hitboxes atuais, use `docs/arte-runtime.md`, o código e os testes da versão 2.5.0.
+A preparação conserva os três ataques da cobra, as três investidas curvas do gavião e os efeitos climáticos do PR #77. [Relatório daquela revisão](docs/revisao-ataques-clima.md). Coleção e missões permanecem salvas.
+
+O desenvolvimento da 2.0 acontece na branch `preparacao-para-a-versao-2.0`, em incrementos 1.0.1, 1.0.2 e seguintes. A versão 2.0.0 fica reservada ao lançamento aprovado. Consulte [o acompanhamento da preparação](docs/preparacao-2.0.md). Para sincronizar o próximo número do pacote, lockfile e interface: `node scripts/set-game-version.mjs 1.0.2`.
+
+A campanha 1.0.1 conclui pelo percurso, com rotas proporcionais à velocidade de cada modo e alvo de seis minutos de voo. Os 1.000 pontos valem uma medalha opcional. A 1.0.2 revisa os contatos e suaviza o recolhimento dos botes usando as poses aprovadas. A 1.0.3 acrescenta práticas seguras dos ataques, resumos educativos por voo e dois novos selos opcionais. A 1.0.6 varia as sequências, amplia as trilhas opcionais e oferece retomada por capítulo no Amigável. A 1.0.7 relaciona descobertas aos capítulos e permite observar uma fotografia real nas pausas seguras. O placar atual usa regras `floresta-v14`; recordes anteriores continuam no Histórico.
+
+> **Nota de manutenção:** as seções históricas abaixo registram a evolução do projeto; para arte e hitboxes atuais, use `docs/arte-runtime.md`, o código e os testes da revisão atual.
 
 "Chauá-educa" is a compelling game with a noble purpose – raising awareness and making an effort to save an endangered species known as the Chauá parrot. In this engaging gaming experience, you step into the wings of a delightful parrot named Chauá. Your mission goes beyond entertainment; it's about making a difference.
 
@@ -50,7 +64,7 @@ npm run test:browser  # com o servidor ativo: teclado, toque, quizzes e interfac
 
 O teste de navegador utiliza o Chromium do sistema quando disponível. Em outra máquina, instale o navegador com `npx playwright install chromium`, ou defina `CHROMIUM_PATH`. `GAME_URL` permite mudar a origem do servidor. `SCREENSHOT_DIR` é opcional para salvar uma captura de tela da versão móvel.
 
-`scss/style.scss` é a fonte dos estilos da nova interface e `css/style.css` é o arquivo gerado. `js/engine.mjs` contém a simulação em passos de 1/120 s; `render.mjs`, a arte desenhada no canvas; `script.js`, a interface, os controles e o áudio; `questions.mjs`, o material educativo; `database.js`, os recordes. Baloo 2 e Nunito são servidas localmente, com suas licenças SIL OFL em `Fonts/`. Os créditos e as referências originais continuam disponíveis na interface.
+`scss/style.scss` é a fonte dos estilos da nova interface e `css/style.css` é o arquivo gerado. `js/engine.mjs` contém a simulação em passos de 1/120 s; `render.mjs`, a arte desenhada no canvas; `script.js`, a interface, os controles e o áudio; `questions.mjs`, o material educativo; `database.js`, os recordes. Baloo 2 e Nunito são servidas localmente em WOFF2 integral (280.912 bytes no total), com suas licenças SIL OFL em `Fonts/`. Os créditos e as referências originais continuam disponíveis na interface.
 
 ### Correções de continuidade
 

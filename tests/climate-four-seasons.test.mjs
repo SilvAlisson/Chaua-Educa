@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,VICTORY_SCORE,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
+import {Game,MEDAL_SCORE,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
 import {JOURNEY_LENGTH} from '../Chaua-Educa-main/js/journey.mjs';
 import {climateJourneyProgress,climateReferenceSeconds} from '../Chaua-Educa-main/js/climate-progress.mjs';
 import {SEASON_IDS,CLIMATE_TRANSITIONS,seasonAtProgress,seasonWeights} from '../Chaua-Educa-main/js/climate-timeline.mjs';
@@ -101,11 +101,11 @@ test('manual season selection is preserved and cannot inherit incompatible rain'
 
 test('the real game retains victory, score sources, distance cap, stage geometry and physical wind',()=>{
  const game=new Game({seed:104});game.state='playing';game.nextSpawn=Infinity;
- assert.equal(VICTORY_SCORE,1000);assert.equal(JOURNEY_LENGTH,28000);
+ assert.equal(MEDAL_SCORE,1000);assert.equal(JOURNEY_LENGTH,140000);
  assert.equal(FLIGHT.aventura.speed,275);
  const origin=game.speed;
- game.distance=16000;
- assert.ok(game.speed>origin,'physical wind must still read the original world distance');
+ game.distance=JOURNEY_LENGTH/2+2000;
+ assert.ok(game.speed>origin,'physical wind must still read route-relative world distance');
  assert.equal(journeySeason({...game,elapsed:0}).to,0);
  assert.equal(journeySeason({...game,elapsed:climateReferenceSeconds('aventura',104)*.85}).to,3);
 });

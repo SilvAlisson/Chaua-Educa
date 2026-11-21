@@ -19,7 +19,7 @@ fs.mkdirSync(path,{recursive:true});
   ]){
    const page=await browser.newPage({viewport,deviceScaleFactor:2});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    const measurements=await page.evaluate(async automaticLow=>{
     const {Renderer}=await import('/js/render.mjs');

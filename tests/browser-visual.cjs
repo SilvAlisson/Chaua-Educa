@@ -18,7 +18,7 @@ function components(pixels,width,height,select){
  const browser=await chromium.launch({executablePath,args:['--no-sandbox']});
  try{
   const page=await browser.newPage({viewport:{width:512,height:512}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+  await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
   await page.evaluate(async()=>{
    const {Renderer,drawBird}=await import('/js/render.mjs');const canvas=document.createElement('canvas');canvas.style.cssText='position:fixed;inset:0;width:512px;height:512px';document.body.replaceChildren(canvas);

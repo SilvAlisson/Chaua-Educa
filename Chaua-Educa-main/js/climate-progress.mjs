@@ -1,10 +1,9 @@
-// Median successful flight time from PR #64 calibration: four seeded Game
-// simulations per mode, all reaching the refuge. This is scripted-pilot data,
-// NOT an estimate of a human player's average completion time.
-// See test-results/climate-calibration/report.json in the CI artifacts.
+import {CAMPAIGN_TARGET_SECONDS} from './journey.mjs';
+// Planned six-minute campaign. Seasons use active flight time, never score.
+// The small per-seed variation is retained; pauses and quizzes freeze time.
 export const CLIMATE_FLIGHT_REFERENCE = Object.freeze({
- aventura:633.25,
- tranquilo:757.76
+ aventura:CAMPAIGN_TARGET_SECONDS,
+ tranquilo:CAMPAIGN_TARGET_SECONDS
 });
 
 const clamp01 = x => Math.min(1,Math.max(0,Number.isFinite(x)?x:0));

@@ -10,7 +10,7 @@ export function drawPackedSection(c,family,key,sx,sy,sw,sh,dx,dy,dw,dh){
  if(!f)return;
  const image=images.get(`runtime-${family}-${f.page}`);
  if(!image)return;
- const [ax,ay,aw,ah]=f.rect,[ox,oy]=f.offset;
+ const ax=f.rect[0],ay=f.rect[1],aw=f.rect[2],ah=f.rect[3],ox=f.offset[0],oy=f.offset[1];
  const x=Math.max(sx,ox),y=Math.max(sy,oy),right=Math.min(sx+sw,ox+aw),bottom=Math.min(sy+sh,oy+ah);
  if(right<=x||bottom<=y)return;
  c.drawImage(image,ax+x-ox,ay+y-oy,right-x,bottom-y,
@@ -19,8 +19,8 @@ export function drawPackedSection(c,family,key,sx,sy,sw,sh,dx,dy,dw,dh){
 export function drawWater(c,frame,x,y,size=7){
  const f=RUNTIME_ART.fx.frames[`water-${frame}`],im=images.get(`runtime-fx-${f.page}`);
  if(!im)return;
- const [, ,w,h]=f.rect;
- c.drawImage(im,...f.rect,x-size/2,y-size*h/w/2,size,size*h/w);
+ const w=f.rect[2],h=f.rect[3];
+ c.drawImage(im,f.rect[0],f.rect[1],w,h,x-size/2,y-size*h/w/2,size,size*h/w);
 }
 
 // Locations measured in the unchanged 512px upper-tree cells (leaf tips/cut rim).
@@ -54,12 +54,13 @@ export class TreeDrips{
     if(p){dripOrigin(wood,time,wind,p);Object.assign(p,{active:true,id,age:0,vy:0,splashAge:-1});}
    }
   }
-  for(const id of this.emitters.keys())if(!activeIds.has(id))this.emitters.delete(id);
+  this.emitters.forEach((_, id) => { if (!activeIds.has(id)) this.emitters.delete(id); });
   for(let i=0;i<this.items.length;i++){
    const p=this.items[i];if(!p.active)continue;
    if(i>=limit){p.active=false;continue;}
    p.age+=dt;
-   const wood=game.entities.find(e=>e.id===p.id&&e.kind==='wood');
+   let wood = null;
+   for(let k=0;k<game.entities.length;k++){const ent=game.entities[k];if(ent.id===p.id&&ent.kind==='wood'){wood=ent;break;}}
    if(p.splashAge>=0){
     p.splashAge+=dt;p.x-=game.speed*dt;
     if(p.splashAge>=.28)p.active=false;

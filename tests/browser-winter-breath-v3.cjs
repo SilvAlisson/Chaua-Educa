@@ -15,7 +15,7 @@ fs.mkdirSync(out,{recursive:true});
    const page=await browser.newPage({viewport,deviceScaleFactor:1});
    const errors=[];
    page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',route=>route.fulfill({body:'',contentType:'text/javascript'}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,route=>route.fulfill({body:'',contentType:'text/javascript'}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    const results=await page.evaluate(async()=>{
     const [{Renderer,drawBird},{images},{winterBreathSettings}]=await Promise.all([

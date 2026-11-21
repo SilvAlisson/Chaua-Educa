@@ -10,7 +10,7 @@ fs.mkdirSync(out,{recursive:true});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:960},deviceScaleFactor:2}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  await page.route('**/js/script.js',route=>route.fulfill({contentType:'text/javascript',body:''}));
+  await page.route(/\/js\/script\.js(?:\?.*)?$/,route=>route.fulfill({contentType:'text/javascript',body:''}));
   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
   const results=await page.evaluate(async()=>{
    const {Renderer}=await import('/js/render.mjs'),{images}=await import('/js/assets.mjs');

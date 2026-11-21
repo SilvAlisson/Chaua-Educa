@@ -1,0 +1,143 @@
+{
+  "generator": "scripts/build_precomposed_winter_art.py",
+  "source": "Game original assets; no generative redrawing",
+  "stages": 16,
+  "stageZero": "exact byte-for-byte original",
+  "stage15LivingTrees": "exact byte-for-byte approved full-snow source",
+  "intermediate": "approved snow overlay, 32-column reveal on original sheet",
+  "upperCeilingRule": "snow reveal clipped to below upper splice",
+  "size": {
+    "living": [
+      1024,
+      1024
+    ],
+    "special": [
+      512,
+      512
+    ]
+  },
+  "families": {
+    "lower": {
+      "base": "Chaua-Educa-main/assets/v7/trees-lower.webp",
+      "overlay": "Chaua-Educa-main/assets/Seasons/Winter/trees-lower-overlay-04.webp",
+      "fullSnow": "Chaua-Educa-main/assets/Seasons/Winter/trees-lower-snow-04.webp",
+      "files": [
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-00.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-01.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-02.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-03.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-04.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-05.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-06.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-07.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-08.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-09.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-10.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-11.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-12.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-13.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-14.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-lower-snow-15.webp"
+      ],
+      "hashes": [
+        "8f76c2ba71b3b6bbc69537f360d65f0c03d88f1b5d6b18a92b7ec7d578db4c3c",
+        "cab9514d032e6650fdf5ea8c6c41e144233f56572ab964cb9a8de8094dd290d0",
+        "548555d4205477db415d1579a4630cb4175bb49ab164ef5f4209d4c7364a92dd",
+        "7dce5c3163528ddfddb364f79129129d787735771c8aebcbafc73c1a3769a51b",
+        "c63beaf5c46d83d6ed65e409db5ae73270223b1d5efaef2031e22fa43f375012",
+        "82ae98074bce566c5b247b35277ebc24c3ea3929f956656c59f3958b1d18126a",
+        "0d0c0d459ef8744a8e1f9da35204328ebf45141d83d65af005164692f425e863",
+        "9233bc36d275146c80484ff7d56c6e29494930ba7d48ef4b788416b17d572f6f",
+        "3073607f749f5d30aeabf825ed6bdace75fdb9b5d6ef815d32d5219d45d343ea",
+        "63feaebca100cb363df4fbfcd5e5e8357932098231fccb8cce4e248c766ebad6",
+        "91e2fc508527e7a08079bcc6a25bf926836ce2b4dca0e555b636236403914d41",
+        "bb2101fae3e3ddd62c7b7861a39b0caac0bc934ee66bb5e5793db0c8fd21126e",
+        "11b76c81e6161df552a2f0cb7dab68875d17b3059a4000225137da60bfe869ee",
+        "9cb79310da6ad97515fc93ccce8a03d6aa551cb8dba8cc50e48efc57968eab46",
+        "e450488455c277e330aa8f29f0bc730ba4e72f15db60418b6deef10d0d8691ee",
+        "f184546d2b575fa63b270d886cc59d3f36d272bdded8b3a566b4e304962a901c"
+      ]
+    },
+    "upper": {
+      "base": "Chaua-Educa-main/assets/v7/trees-upper.webp",
+      "overlay": "Chaua-Educa-main/assets/Seasons/Winter/trees-upper-overlay-04.webp",
+      "fullSnow": "Chaua-Educa-main/assets/Seasons/Winter/trees-upper-snow-04.webp",
+      "files": [
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-00.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-01.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-02.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-03.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-04.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-05.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-06.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-07.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-08.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-09.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-10.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-11.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-12.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-13.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-14.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/trees-upper-snow-15.webp"
+      ],
+      "hashes": [
+        "c2ddd7ade481f093d7d1e043b91e665a9d3e1538cb16a87d73b7844e41fdbe24",
+        "4ca5d675160ac11fef872d68ce831aa92be9c582d2d7146dd9980573a6138cfb",
+        "aebf358e18799bc769045b2fe14e0991432031ef95e5e9062f35c96825f49e3f",
+        "b7800c40db24a9a47a46c35b0178e10c0c6639055975199d9ec6c0ea8e8a1dd9",
+        "93ae6a7a02ae50469cfb5059ba67f8ce7b7a89530cc610f1392949c75400b236",
+        "6f8ab977fb9b23a19e8dc6e18c015778db642aa9e0cc6c2751ac54aaa2cb6220",
+        "9fcc2dbc2f96ed93f6b9d3823623c6f1aa272367160b8bc5c60d9d66dbcfe3e2",
+        "d934db53be63f8bf26deb2a40d748d6de526cc79af40bc44447d7377ce0085c0",
+        "3ef9ca6bba7e216b5e9c6134a3f548a90792727262c77e110b669c07647d63ed",
+        "3ef9ca6bba7e216b5e9c6134a3f548a90792727262c77e110b669c07647d63ed",
+        "5bae2ca16dc4476e5e0dd82f7ff227446053764d0756adf93a3737caf5a99d62",
+        "8ecabaa1aaf743c92add6312e670ffb2d6e9e33decec99e2154623d2ef62b2c4",
+        "e8350d7987c330fe53ba71d2e2e744cfb91ef9dba651579b73b958a45fa4c7c5",
+        "475674ead3b84af00231e3b83a914c574ca6ffa78513d6718fa1e638545a5a06",
+        "33ecc7bbc995c366a56702fd11b493d9148bc40c36bcb800fda3714b2dc357d5",
+        "cb1aca3d2de1c10d5508891200c732046f10259b9ac516674ae70ad73806105a"
+      ]
+    },
+    "special": {
+      "base": "Chaua-Educa-main/assets/v9/tree-variants.webp",
+      "fullSnow": "Chaua-Educa-main/assets/v10/tree-variants-snow.webp",
+      "files": [
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-00.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-01.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-02.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-03.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-04.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-05.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-06.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-07.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-08.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-09.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-10.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-11.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-12.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-13.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-14.webp",
+        "Chaua-Educa-main/assets/Seasons/Winter/Precomposed/tree-variants-snow-15.webp"
+      ],
+      "hashes": [
+        "bdffd6e97ad017a757f96c04c0cbf5b813d42f90659e12dda8114f96e8a5d418",
+        "b94af6da3dfb80dc6de728daa2a6f1e8f8b1bace86226cef51daba6754f4213c",
+        "29a59bed8e156e26b757382d052bc22fbdb5ca68ea58fe9c29178b4fd9114f35",
+        "6dbf4809731a49b3f9e7d6e789e45669c362d95871c1deefd026b4ba32614e57",
+        "6e5aeb4d932d6ac3a17eb5aea50be93bfdd6d5bbfd42234472044b143578ffdd",
+        "53d700ec5d9ffed23620db7a39ce7a4e6f95a6129821b1dd7cd1b97c2debb61f",
+        "29b13bf151b7891f712553c8b6091f1b0a073fcdabb58bbf8f91cf84cfe1454a",
+        "16bc3e5c4459079eb0f8116738b7f26347043b887d8b81d6d11c2922736edd3a",
+        "f20c8a56f44299e180722738722bdf1084230b71c68aba4adb9f2e89cfe34f04",
+        "bcd2b4db1d5214c5b39e97da8757bda0924ed56bc17f173d0e5c796a932583cb",
+        "1c8c1e6b642e3a5da9b8ad7d27bc225059ce30c3c75daf8aece79f7291ab16b1",
+        "4e9a8736183249a8b00dcccea8130f23bf7a818832f8ec0f7a53a1679e1906e2",
+        "37f0d64534ac8a205d6806a09aadd9a99ab14b98798abe7883892d67480b1e9f",
+        "72f16f6704e525c9a3fb8de8c248137966631db2937b18cb7ce6696ead162a37",
+        "48cb75be8cfff755d2fecf7ad7896a1396e678bc475ff7f48825222f38de9056",
+        "ad3efa8972d19e2a01465fdcdbe9acf8d0ac7c51b3ebd5cf7aac32aa4526c6df"
+      ]
+    }
+  }
+}

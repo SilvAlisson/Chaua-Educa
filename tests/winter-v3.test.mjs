@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {images} from '../Chaua-Educa-main/js/assets.mjs';
 import {TREE_WIDTH} from '../Chaua-Educa-main/js/forest-geometry.mjs';
 import {drawLivingTrunk} from '../Chaua-Educa-main/js/tree-art.mjs';
-import {drawSnowfall,drawSnowContact,winterOverlayStages}
+import {drawSnowfall,drawSnowContact,winterOverlayStages,snowRevealHeight,clipSnowReveal}
  from '../Chaua-Educa-main/js/winter-vfx.mjs';
 import {drawSeasonParticles,journeySeason} from '../Chaua-Educa-main/js/seasons.mjs';
 import {drawForestLife} from '../Chaua-Educa-main/js/forest-life.mjs';
@@ -14,6 +14,7 @@ import {climateReferenceSeconds} from '../Chaua-Educa-main/js/climate-progress.m
 function mock(){
  const calls=[];
  const c=new Proxy({globalAlpha:1}, {get(o,k){
+  if(k==='createPattern')return ()=>({});
   if(k==='createLinearGradient'||k==='createRadialGradient')return ()=>({addColorStop(){}});
   if(k==='drawImage')return (...args)=>{calls.push({type:'image',args});};
   if(k==='arc'||k==='stroke'||k==='fill'||k==='lineTo'||k==='fillRect'||k==='quadraticCurveTo'||k==='rect'||k==='ellipse')
@@ -37,7 +38,7 @@ test('snowfall is procedural, layered, deterministic and respects reduced motion
  assert.equal(a.calls.filter(x=>x.type==='image').length,0,'snow may not depend on unrelated sprite sheets');
  const front=mock();drawSnowfall(front.c,390,844,26,.88,false,false,.45,true);
  assert.ok(front.calls.filter(x=>x.type==='arc').length>=3);
- assert.ok(front.calls.filter(x=>x.type==='arc').length<=10,'foreground flakes must be sparse');
+ assert.ok(front.calls.filter(x=>x.type==='arc').length<=18,'foreground flakes must stay within the visibility budget');
  const low=mock();drawSnowfall(low.c,390,844,26,.88,false,true,.45,false);
  assert.ok(low.calls.filter(x=>x.type==='arc').length<a.calls.filter(x=>x.type==='arc').length);
  const reduced=mock();drawSnowfall(reduced.c,390,844,26,.88,true,false,.45,false);
@@ -110,19 +111,17 @@ test('four existing transparent snow overlays crossfade progressively at every b
 test('the upper tree snow overlay touches only the exposed branch cap, never its ceiling-bound trunk strip',t=>{
  const old=new Map(images);
  t.after(()=>{images.clear();for(const [k,v] of old)images.set(k,v)});
- const original={id:'original'},stage1={id:'stage1'},stage2={id:'stage2'};
+ const original={id:'original'},stage4={id:'stage4'};
  images.set('trees-upper',original);
- images.set('trees-upper-overlay-01',stage1);
- images.set('trees-upper-overlay-02',stage2);
+ images.set('trees-upper-overlay-04',stage4);
  const oldCanvas=globalThis.OffscreenCanvas,inside=mock();inside.c.clearRect=()=>{};
  globalThis.OffscreenCanvas=class{getContext(){return inside.c}};
  t.after(()=>{globalThis.OffscreenCanvas=oldCanvas});
  const upper=mock();
  drawLivingTrunk(upper.c,{x:200,y:200,upper:true,width:TREE_WIDTH,length:900,snow:.375});
- const snowDraws=inside.calls.filter(x=>x.type==='image'&&(x.args[0]===stage1||x.args[0]===stage2));
- assert.equal(snowDraws.length,2);
- assert.equal(snowDraws[0].args[0],stage1);
- assert.equal(snowDraws[1].args[0],stage2);
+ const snowDraws=inside.calls.filter(x=>x.type==='image'&&x.args[0]===stage4);
+ assert.equal(snowDraws.length,4,'each authored cell uses solid final snow');
+ assert.ok(inside.calls.some(x=>x.type==='rect'),'coverage grows through a spatial mask');
  const composed=upper.calls.find(x=>x.type==='image'&&x.args[0]!==original);
  assert.ok(composed.args[4]>2,'the composed overlay uses the exposed cap rather than the ceiling strip');
  assert.ok(upper.calls.some(x=>x.type==='image'&&x.args[0]===original),'the authored base tree must remain');
@@ -149,4 +148,26 @@ test('upper branch crystals fall down while lower-cap crystals settle on top',()
  assert.equal(f.length,4);
  assert.ok(f.every(y=>y>=320&&y<=335),'upper tree snow must descend with gravity');
  assert.ok(s.every(y=>y<=320),'lower cap snow should not originate below its surface');
+});
+
+test('snow coverage grows downward monotonically without fading its material',()=>{
+ for(let column=0;column<32;column++){
+  assert.equal(snowRevealHeight(0,column),0);
+  assert.equal(snowRevealHeight(1,column),1);
+  let last=0;
+  for(let step=0;step<=256;step++){
+   const reach=snowRevealHeight(step/256,column);
+   assert.ok(reach>=last&&reach<=1);last=reach;
+  }
+ }
+ assert.equal(snowRevealHeight(NaN),0);
+ const {c,calls}=mock();c.globalAlpha=.8;
+ clipSnowReveal(c,10,20,512,400,.5);
+ assert.equal(c.globalAlpha,.8,'mask must not fade the snow material');
+ const rects=calls.filter(x=>x.type==='rect');
+ assert.equal(rects.length,32);
+ assert.ok(rects.every(({args:[x,y,w,h]})=>x>=10&&x<522&&y===20&&w===16&&h>0&&h<=400));
+ const crystal=mock();drawSnowContact(crystal.c,0,0,.5,1);
+ assert.ok(crystal.c.globalAlpha>=.55,'contact snow remains visible');
+ assert.ok(crystal.calls.filter(x=>x.type==='arc').every(x=>x.args[2]>=1));
 });

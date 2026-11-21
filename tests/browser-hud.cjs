@@ -17,7 +17,7 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright');
    await page.locator('#pause-button').click();
    const values=await page.evaluate(async()=>{
     const {game:g}=await import('/js/script.js');
-    g.tutorial=null;g.score=321;g.stage=1;g.distance=1234.567;g.shield=true;g.feather=4.2;g.pepper=3.4;g.stamina=.5;
+    const {journeyLength}=await import('/js/journey.mjs');g.tutorial=null;g.score=321;g.stage=1;g.distance=journeyLength(g.mode)*.321;g.shield=true;g.feather=4.2;g.pepper=3.4;g.stamina=.5;
     window.stepHud(.1);
     const text=id=>document.querySelector(id).textContent;
     return {state:g.state,score:text('#score'),stage:text('#stage-name'),destination:text('#journey-destination'),
@@ -35,7 +35,7 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright');
    assert.equal(redundant,0,'unchanged HUD must not rewrite its DOM, including fractional progress');
    for(const fraction of [0,.25,.5,1]){
     const progress=await page.evaluate(async fraction=>{
-     const {game:g}=await import('/js/script.js');g.score=1000*fraction;window.stepHud(.1);
+     const {game:g}=await import('/js/script.js');const {journeyLength}=await import('/js/journey.mjs');g.score=321;g.distance=journeyLength(g.mode)*fraction;window.stepHud(.1);
      const fill=document.querySelector('#progress-fill'),track=document.querySelector('#progress-track');
      return {ratio:fill.getBoundingClientRect().width/track.getBoundingClientRect().width,aria:track.getAttribute('aria-valuenow'),inlineWidth:fill.style.width};
     },fraction);
@@ -49,7 +49,7 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright');
      shield:document.querySelector('#shield-status').classList.contains('active'),golden:document.querySelector('#feather-status').classList.contains('golden'),
      spicy:document.querySelector('#pepper-status').classList.contains('spicy')};
    });
-   assert.deepEqual(training,{aria:'33',label:'Etapas do treino',stage:'2 · Segure para subir',feather:'Pena ×2',pepper:'Pimenta turbo',shield:false,golden:false,spicy:false});
+   assert.deepEqual(training,{aria:'16',label:'Etapas do treino',stage:'2 · Segure para subir',feather:'Pena ×2',pepper:'Pimenta turbo',shield:false,golden:false,spicy:false});
    await page.emulateMedia({reducedMotion:'no-preference'});
    assert.equal(await page.locator('#progress-fill').evaluate(node=>getComputedStyle(node).transitionProperty),'transform');
    await page.locator('#pause-dialog .back-home').click();

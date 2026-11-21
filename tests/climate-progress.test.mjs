@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,STEP,VICTORY_SCORE} from '../Chaua-Educa-main/js/engine.mjs';
+import {Game,STEP,MEDAL_SCORE} from '../Chaua-Educa-main/js/engine.mjs';
 import {JOURNEY_LENGTH} from '../Chaua-Educa-main/js/journey.mjs';
 import {CLIMATE_FLIGHT_REFERENCE,climateJourneyProgress,climateReferenceSeconds}
  from '../Chaua-Educa-main/js/climate-progress.mjs';
@@ -8,7 +8,7 @@ import {CLIMATE_FLIGHT_REFERENCE,climateJourneyProgress,climateReferenceSeconds}
 test('climate progress follows active flight seconds, not 1,000-point victory or distance cap',()=>{
  for(const mode of ['aventura','tranquilo']){
   const seed=104,duration=climateReferenceSeconds(mode,seed);
-  assert.ok(duration>500 && duration<850,'reference is not based on completed seeded flights');
+  assert.ok(duration>340 && duration<380,'reference must follow the six-minute campaign');
   assert.equal(climateJourneyProgress({elapsed:0,mode,seed}),0);
   assert.equal(climateJourneyProgress({elapsed:duration,mode,seed}),1);
   assert.equal(climateJourneyProgress({elapsed:duration*4,mode,seed}),1);
@@ -18,8 +18,8 @@ test('climate progress follows active flight seconds, not 1,000-point victory or
    assert.equal(climateJourneyProgress({elapsed:duration*.5,mode,seed,score,distance:JOURNEY_LENGTH}),halfway);
   }
  }
- assert.equal(VICTORY_SCORE,1000,'calibration must not change victory condition');
- assert.equal(JOURNEY_LENGTH,28000,'calibration must not change world geometry');
+ assert.equal(MEDAL_SCORE,1000,'the optional medal must remain worth 1,000 points');
+ assert.equal(JOURNEY_LENGTH,140000,'route geometry must use the planned campaign length');
 });
 
 test('climate tempo varies slightly between seeds without jumping backwards during one run',()=>{
@@ -40,11 +40,11 @@ test('climate tempo varies slightly between seeds without jumping backwards duri
 
 test('pauses, quizzes and frozen world distance cannot inadvertently advance the climate',()=>{
  const game=new Game({seed:104});
- game.state='playing';game.distance=JOURNEY_LENGTH;game.elapsed=360;
+ game.state='playing';game.distance=JOURNEY_LENGTH;game.elapsed=180;
  const start=climateJourneyProgress(game);
  game.pause();
  for(let i=0;i<100;i++)game.tick(STEP);
- assert.equal(game.elapsed,360);
+ assert.equal(game.elapsed,180);
  assert.equal(climateJourneyProgress(game),start);
  game.state='quiz';
  for(let i=0;i<100;i++)game.tick(STEP);
@@ -53,7 +53,7 @@ test('pauses, quizzes and frozen world distance cannot inadvertently advance the
  game.state='playing';game.nextSpawn=Infinity;
  game.entities=[];game.y=320;
  game.tick(STEP);
- assert.ok(game.elapsed>360);
+ assert.ok(game.elapsed>180);
  assert.ok(climateJourneyProgress(game)>start);
  assert.equal(game.distance,JOURNEY_LENGTH);
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,STEP,VICTORY_SCORE} from '../Chaua-Educa-main/js/engine.mjs';
+import {Game,STEP,MEDAL_SCORE} from '../Chaua-Educa-main/js/engine.mjs';
 import {ACTION_TIMINGS,parrotAction,hawkAction}
  from '../Chaua-Educa-main/js/action-states.mjs';
 import {impactPose} from '../Chaua-Educa-main/js/motion.mjs';
@@ -19,7 +19,7 @@ test('fatal contact with every obstacle holds the bird stunned until the Game Ov
  assert.ok(ACTION_TIMINGS.parrotImpact>=1.1);
  assert.ok(ACTION_TIMINGS.parrotRecoil<=.35);
  assert.equal(ACTION_TIMINGS.shieldRebound,.30);
- assert.equal(VICTORY_SCORE,1000);
+ assert.equal(MEDAL_SCORE,1000);
  for(const sample of candidates){
   const game=flight(),events=[];
   game.onEvent=e=>events.push(e.type);

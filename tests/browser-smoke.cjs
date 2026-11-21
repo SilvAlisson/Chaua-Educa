@@ -74,6 +74,18 @@ async function begin(page, name = 'Guardião da mata') {
         await page.waitForFunction(()=>document.querySelector('#stage-name').textContent.startsWith('3 ·'));
         assert.equal(await model(page,g=>g.held),true);
         await page.keyboard.up('Space');
+        await page.waitForFunction(()=>document.querySelector('#stage-name').textContent.startsWith('4 ·'));
+        await page.evaluate(async()=>{
+            const {game:g}=await import('/js/script.js');
+            for(let i=0;i<180*120&&!g.tutorial.done;i++){
+                const e=g.entities[0];let target=320;
+                if(e?.kind==='wood')target=e.snake?235:328;
+                if(e?.kind==='hawk'&&e.targetLocked)target=e.targetY>=320?145:495;
+                if(g.y>target+20&&g.vy>0&&g.flapCooldown<=0){g.press();g.release();}
+                g.tick(1/120);
+            }
+            if(!g.tutorial.done)throw Error('Safe encounter practice was not completable');
+        });
         await page.locator('#training-dialog').waitFor({state:'visible'});
         assert.equal(await model(page,g=>g.score),0);
         assert.equal(await page.evaluate(()=>localStorage.getItem('chaua-missions-v1')),null);
@@ -150,7 +162,7 @@ async function begin(page, name = 'Guardião da mata') {
         await page.locator('#restart-button').click(); await playing(page);
         assert.deepEqual(await model(page,g=>[g.score,g.feather,g.shield,g.fruits,g.correct]),[0,0,false,0,0]);
         // Victory is a separate presentation and never delays restart.
-        await model(page,g=>{g.score=1000;g.medal=true;g.distance=28000;g.entities=[];g.quizPending=false;g.refuge={x:330,y:320};g.y=320;g.vy=0;g.advanceJourney(1/120);});
+        await model(page,g=>{g.score=1000;g.medal=true;g.distance=g.mode==='tranquilo'?84000:140000;g.entities=[];g.quizPending=false;g.refuge={x:330,y:320};g.y=320;g.vy=0;g.advanceJourney(1/120);});
         await page.locator('#result-dialog').waitFor({state:'visible'});
         assert.match(await page.locator('#result-title').innerText(),/celebra/);
         assert.equal(await page.locator('#restart-button').isEnabled(),true);
@@ -158,7 +170,7 @@ async function begin(page, name = 'Guardião da mata') {
         // Local record survives reload and the old record is untouched.
         await page.reload({waitUntil:'networkidle'});
         assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua'))[0].score_val),777);
-        assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua-floresta-v10'))[0].score_val),1000);
+        assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('db-chaua-floresta-v14'))[0].score_val),1000);
         console.log('PASS desktop: keyboard, pause, shield, quiz, multiplier, defeat, victory, immediate restart, isolated ranking, persistence');
 
         const mobile = await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});

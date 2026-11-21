@@ -5,14 +5,14 @@ import path from 'node:path';
 
 const root=new URL('../',import.meta.url);
 const read=p=>fs.readFileSync(new URL(p,root),'utf8');
-const workflows=['ci.yml','generate-winter-sprites.yml','qa-diagnostics.yml','qa-extended.yml'];
+const workflows=['ci.yml','generate-winter-sprites.yml','pack-tree-art.yml','qa-diagnostics.yml','qa-extended.yml','winter-precomposed-integration.yml'];
 const workflowFiles=fs.readdirSync(new URL('.github/workflows/',root)).filter(n=>n.endsWith('.yml')||n.endsWith('.yaml')).sort();
 const workflowSource=workflows.map(n=>read('.github/workflows/'+n)).join('\n');
 const packageScripts=Object.values(JSON.parse(read('package.json')).scripts).join('\n');
 
 const directRefs=source=>new Set([...source.matchAll(/(?:\bnode(?:\s+--(?:test|check))?|\bpython(?:3)?)\s+((?:tests|scripts)\/[\w./-]+\.(?:cjs|mjs|js|py))/g)].map(match=>match[1]));
 
-test('exactly one canonical CI, one extended browser QA and manual diagnostics/art preview exist',()=>{
+test('canonical CI, extended QA and read-only diagnostic/art workflows are inventoried',()=>{
  assert.deepEqual(workflowFiles,workflows.sort());
  assert.match(read('.github/workflows/ci.yml'),/pull_request:/);
  assert.match(read('.github/workflows/ci.yml'),/branches: \[main\]/);
