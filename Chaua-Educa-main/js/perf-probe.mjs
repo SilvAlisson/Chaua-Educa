@@ -38,6 +38,7 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
     dirty:response.headers.get('X-Chaua-Git-Dirty')==='true'};
   }).catch(()=>{});
  }
+ const resultDownloads=document.querySelectorAll('[data-match-download]');
  const panel=document.createElement('div');
  panel.id='chaua-qa-panel';
  panel.style.cssText='position:fixed;z-index:99999;bottom:8px;left:8px;max-width:calc(100vw - 16px);padding:8px;border-radius:9px;background:#122d24e8;color:#fff;font:12px/1.4 system-ui;box-shadow:0 4px 14px #0006;display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
@@ -130,6 +131,7 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
   // Diagnostic data stays local; browsers may require a user gesture
   // to actually download after death, victory or interruption.
   window.__CHAUA_LAST_LOG__=lastReport;
+  for(const button of resultDownloads)button.hidden=false;
   start.disabled=false;stop.disabled=false;level.disabled=false;replay.disabled=false;
   const outcome=replayResult?(replayResult.completed?'Voo de referência concluído':'Voo de referência incompleto'):'Concluído ('+reason+')';
   label.textContent=outcome+' · '+(lastReport.summary.fps??'—')+' FPS · baixar JSON';
@@ -184,6 +186,7 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
  }
  function startCapture(){
   if(active)return;
+  for(const button of resultDownloads)button.hidden=true;
   active=true;hasPlayed=false;startTime=performance.now();previous=0;lastUI=0;nextClimate=0;
   forensics.clear();forensics.startedAt=startTime;
   forensics.deep=level.value==='deep';level.disabled=true;
@@ -210,5 +213,7 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
    replay.disabled=active;
   }
  });
- stop.addEventListener('click',()=>{if(active)finish('manual-stop',true);else if(lastReport)download(lastReport);});
+ const downloadLatest=()=>{if(active)finish('manual-stop',true);else if(lastReport)download(lastReport);};
+ stop.addEventListener('click',downloadLatest);
+ for(const button of resultDownloads)button.addEventListener('click',downloadLatest);
 }

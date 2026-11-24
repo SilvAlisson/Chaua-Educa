@@ -37,6 +37,32 @@ const root=(process.env.GAME_URL||'http://127.0.0.1:5501/').replace(/\/?$/,'/');
   assert.equal(report.samplesIncludeOnlyVisibleFocusedPlayingFrames,true);
   assert.deepEqual(errors,[]);
   await page.close();
+  for(const diagnostic of [false,true]){
+   const flight=await browser.newPage({viewport:{width:844,height:390},acceptDownloads:true});
+   const flightErrors=[];flight.on('pageerror',e=>flightErrors.push(e.message));
+   await flight.goto(root+(diagnostic?'?perf-test=1':''));
+   if(diagnostic)await flight.locator('#chaua-qa-panel').getByRole('button',{name:'Iniciar'}).click();
+   await flight.locator('#start-training:not([disabled])').waitFor();
+   await flight.locator('#inputPlayer').fill('Teste JSON');
+   await flight.locator('#btnStart').click();
+   await flight.locator('#result-dialog').waitFor({state:'visible'});
+   const button=flight.locator('#result-dialog').getByRole('button',{name:'Baixar JSON da partida'});
+   const [saved]=await Promise.all([flight.waitForEvent('download'),button.click()]);
+   const match=JSON.parse(await fs.readFile(await saved.path(),'utf8'));
+   assert.ok(match.summary.frames>0,'record real playing frames before defeat');
+   assert.equal(match.provenance.gameVersion,require('../package.json').version);
+   assert.equal(await flight.evaluate(()=>localStorage.getItem('chaua-performance-matches-v1'))!==null,!diagnostic);
+   if(!diagnostic){
+    await flight.reload();
+    await flight.locator('#open-settings').click();
+    const historyButton=flight.getByRole('button',{name:'Baixar histórico de desempenho'});
+    const [history]=await Promise.all([flight.waitForEvent('download'),historyButton.click()]);
+    const previous=JSON.parse(await fs.readFile(await history.path(),'utf8'));
+    assert.equal(previous.id,match.id,'recover the recorded match after refresh');
+   }
+   assert.deepEqual(flightErrors,[]);
+   await flight.close();
+  }
   console.log('PASS opt-in local-only physical-device diagnostics, download JSON, native frames and no regular UI');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,3 +1,4 @@
+import {MatchPerformance,exportMatchReports,MATCH_PERF_SETTING} from './match-performance.mjs';
 import {seededRandom} from './encounters.mjs';
 import {FlightCues, nativeKeyboardTarget} from './flight-accessibility.mjs';
 import {OBSERVATION_DETAILS} from './chapter-learning.mjs';
@@ -47,6 +48,10 @@ renderer.homeMobileLayout=mobileDevice;
 const quality=new VisualQuality(DB.readObject('chaua-visual-quality','auto'));
 // Deterministic seed for controlled winter A/B/C tests; normal gameplay is random.
 const diagnosticParams=new URLSearchParams(location.search);
+const diagnosticLink=diagnosticParams.get('perf-test')==='1';
+const matchPerformance=new MatchPerformance({enabled:!diagnosticLink&&DB.readObject(MATCH_PERF_SETTING,true)!==false});
+const matchDownloadButtons=document.querySelectorAll('[data-match-download]');
+
 const seedQuery=diagnosticParams.get('test-seed');
 let benchmarkFlight=null;
 const beforeBenchmarkTick=game=>benchmarkFlight.replay.beforeTick(game);
@@ -87,6 +92,7 @@ function toast(text) {
 
 export const game = new Game({ onEvent(event) {
     betaRuntime?.event(event.type);
+    matchPerformance.event(event.type,game);
     const probe=activeProbe;
     if(probe)probe.event('game:'+event.type,{
       gameSeconds:Math.round(game.elapsed*100)/100,stage:game.stage,
@@ -261,6 +267,8 @@ function start(training = false, checkpoint = null, benchmark = null) {
         else if(checkpoint){selectedMode='tranquilo';game.resumeChapter(checkpoint,DB.reviewTopics(player));}
         else game.start(selectedMode,DB.reviewTopics(player),fixedTestSeed===null?undefined:fixedTestSeed);
     }
+    matchPerformance.start(game,quality,renderer,training);
+    if(!diagnosticLink)for(const button of matchDownloadButtons)button.hidden=true;
     forestAudio.beginFlight();
     if(betaRuntime?.active)betaRuntime.attempt();
     renderer.resetFlightPresentation();
@@ -273,6 +281,7 @@ function start(training = false, checkpoint = null, benchmark = null) {
     syncUI();
 }
 function home() {
+    finishMatchPerformance('returned-to-menu');
     closeDialogs(); clearInputs(); cancelAnimationFrame(resultAnimation);
     game.reset(); flightCues.reset(); previousState = ''; clock.reset(); lastTime = 0;
     releaseFlightLandscape(app, document, screen);
@@ -643,6 +652,7 @@ function syncUI() {
             $('#answer-true').disabled = false; $('#answer-false').disabled = false;
             openDialog('#quiz-dialog');
         }
+        if (game.state === 'ended' || game.state === 'trained') finishMatchPerformance(game.state);
         if (game.state === 'ended' && !benchmarkFlight) result();
         if (game.state === 'trained') {openDialog('#training-dialog');$('#training-home').focus();}
         previousState = game.state;
@@ -709,6 +719,7 @@ function frame(time) {
         journeyRain(game, game.tutorial), journeyStorm(game, game.mode, game.tutorial),
         journeyWind(game, game.mode, game.tutorial));
     if(document.hidden){
+        matchPerformance.frame(time,game,quality,renderer,0,false);
         if(betaRuntime?.active)betaRuntime.frame(time,betaStateBefore);
         quality.sample(delta,false);
         if(probe)probe.endFrame();
@@ -734,7 +745,9 @@ function frame(time) {
     if(probe)probe.endFrame();
     if(betaRuntime?.active)betaRuntime.frame(time,betaStateBefore);
     const activeFlight=document.hasFocus()&&game.state==='playing';
-    if(quality.sample(delta,activeFlight,performance.now()-frameWorkStart))applyVisualQuality();
+    const frameWorkMs=performance.now()-frameWorkStart;
+    matchPerformance.frame(time,game,quality,renderer,frameWorkMs,activeFlight);
+    if(quality.sample(delta,activeFlight,frameWorkMs))applyVisualQuality();
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -853,9 +866,30 @@ $('#audio-volume').addEventListener('input',event=>{
     saveSetting('chaua-volume',forestAudio.volume);
 });
 
+function finishMatchPerformance(reason){
+    const report=matchPerformance.finish(reason,game,quality,renderer);
+    if(!report)return;
+    for(const button of matchDownloadButtons)button.hidden=false;
+    $('#download-match-history').disabled=false;
+}
+if(!diagnosticLink)for(const button of matchDownloadButtons){
+    button.addEventListener('click',()=>{
+        const report=matchPerformance.latest();
+        if(report)exportMatchReports([report],`chaua-partida-${report.id}.json`);
+    });
+}
+const recordingToggle=$('#auto-match-performance');
+recordingToggle.checked=matchPerformance.enabled;
+recordingToggle.disabled=diagnosticLink;
+recordingToggle.addEventListener('change',()=>matchPerformance.setEnabled(recordingToggle.checked&&!diagnosticLink));
+const historyDownload=$('#download-match-history');
+historyDownload.disabled=!matchPerformance.latest();
+historyDownload.addEventListener('click',()=>exportMatchReports(matchPerformance.all()));
+window.addEventListener('pagehide',()=>finishMatchPerformance('pagehide'));
+
 // Diagnostic tooling is opt-in and never loaded in normal gameplay.
 // All measurements remain in the device until the player downloads the JSON.
-if(diagnosticParams.get('perf-test')==='1'){
+if(diagnosticLink){
     const replayModule=diagnosticParams.get('perf-replay')==='1'?import('./perf-replay.mjs'):null;
     Promise.all([import('./perf-probe.mjs'),replayModule]).then(([{mountPerformanceProbe},reference])=>{
         const replayLaunch=reference?async startCapture=>{
