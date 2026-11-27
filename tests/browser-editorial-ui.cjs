@@ -38,7 +38,7 @@ const engine=process.env.UI_BROWSER||'chromium';
     await page.locator(dialog).evaluate(d=>d.close());
    }
    await page.locator('#btnStart').click();await page.waitForFunction(()=>document.querySelector('#app').classList.contains('in-flight'));
-   await page.evaluate(async()=>{const {game}=await import('/js/script.js');game.state='playing';game.elapsed=620;game.distance=28000;game.stage=3;game.score=942;game.fruits=177;game.correct=20;game.endCause='quiz';game.end(false,'Um novo voo começa com o que você aprendeu.');});
+   await page.evaluate(async()=>{const {game}=await import('/js/script.js');const {journeyLength}=await import('/js/journey.mjs');game.state='playing';game.elapsed=320;game.distance=journeyLength(game.mode)*.94;game.stage=3;game.score=942;game.fruits=177;game.correct=20;game.endCause='quiz';game.end(false,'Um novo voo começa com o que você aprendeu.');});
    await page.locator('#result-dialog').waitFor({state:'visible'});
    await page.locator('#result-dialog').screenshot({path:`test-results/editorial-ui/${engine}-${viewport.width}-result.png`});
    assert.ok((await page.locator('#result-mode').textContent()).includes('Voo de resistência'));

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.16
+
+- Ativa as copas nevadas pré-compostas como padrão, com 16 níveis em quatro atlas.
+- Suaviza a borda de acúmulo e distingue cobertura de intensidade do inverno no relatório.
+- Refina o movimento das pétalas, das folhas, a iluminação de verão e a chuva de tempestade.
+
+## 1.0.15
+
+- Compara cache de copas e recorte direto no mesmo voo de referência.
+- Inclui contadores de reconstruções, acertos de cache e recortes diretos no JSON.
+
+## 1.0.11 — candidata em validação
+
+- Reduz as pétalas da primavera para 3 no perfil detalhado e 1 no econômico; preserva o outono com 14/7 e mantém verão/inverno sem pétalas. Revisão de interface 1.0.11-ui2.
+
+- Consolida correções de tela cheia, casca modular, madeira podre e neve progressiva sólida da 1.0.10.1.
+- Atualiza simulações de Canvas e expectativas de geometria dos testes, assinatura do atlas da madeira podre e inventário de workflows; verificações de integridade e colisões mantidas.
+- Alinha pacote e interface e documenta congelamento de funcionalidades, requisitos, limites e retorno. Progresso e regras floresta-v14 preservados.
+- Testes da revisão exata, beta em aparelhos físicos e aprovação de lançamento são critérios distintos. Main e publicação permanecem separadas desta preparação.
+
 ## Versão jogável 1.0.0
 
 - Integra a V2 de renderização e áudio, os sprites de ação, a cobra A2 e a

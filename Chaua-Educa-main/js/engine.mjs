@@ -1,12 +1,16 @@
+import {CHAPTER_DISCOVERIES,OBSERVATION_DETAILS} from './chapter-learning.mjs';
+import {SNAKE_ATTACK_ORDER,HAWK_ATTACK_ORDER,snakeAttack} from './attack-patterns.mjs';
 import {challengeAt,challengeSpeedGain} from './challenge.mjs';
-import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect,roundedShape} from './collision.mjs';
+import {pickupHitsPlayer} from './pickup-geometry.mjs';
+import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect} from './collision.mjs';
 import {snakeA2HitsPlayer,snakeA2FruitHasClearance,placeA2Fruit,snakeA2CollisionRects,snakeA2HeadRect} from './snake-a2.mjs';
 import {livingWoodRects} from './forest-geometry.mjs';
 import { createTutorial, advanceTutorial } from './tutorial.mjs';
-import { JOURNEY, JOURNEY_LENGTH, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
+import { JOURNEY, journeyLength, ARRIVAL_SECONDS, journeyStage } from './journey.mjs';
 import { offerPower, POWER_BALANCE } from './powers.mjs';
 import { advanceHawk, advanceSnake } from './animals.mjs';
-import { planEncounter, seededRandom } from './encounters.mjs';
+import {normalizeCheckpoint} from './chapter-checkpoints.mjs';
+import { planEncounter, seededRandom, attackAt } from './encounters.mjs';
 import { FOODS } from './foods.mjs';
 import { physicsWind } from './weather.mjs';
 import { activeProbe } from './perf-hooks.mjs';
@@ -17,31 +21,54 @@ import {createSurfaceWeather,advanceSurfaceWeather} from './surface-weather.mjs'
 export const WIDTH = 960;
 export const HEIGHT = 640;
 export const STEP = 1 / 120;
+const ACTIVE_CLOCK_STATES = new Set(['playing', 'countdown', 'impact', 'arrival']);
 export const FEATHER_SECONDS = 10;
 export const CONTACT = Object.freeze({top:20, bottom:HEIGHT-25, recoveryMargin:36, grace:1.6});
-export const VICTORY_SCORE = 1000;
+export const MEDAL_SCORE = 1000;
 export const QUIZ_INTERVAL = 30;
 export const FLIGHT = Object.freeze({
     gravity: 900, fallLimit: 360, tapLift: 300,
     holdLift: 230, staminaLift: 50, flapInterval: .22, inputBuffer: .12,
-    aventura: {speed:275,gap:150,minGap:115,interval:1.48,minInterval:1.16,ramp:.0038,speedGain:65,snakeAt:16,hawkAt:30,diveAt:42,warning:1.5,snakeClearance:170,fruitMargin:34,clearance:210,actualSpeed:true,turnaround:.3,shiftRate:160,shiftLimit:60},
-    tranquilo: {speed:205,gap:220,minGap:185,interval:2.1,minInterval:1.8,ramp:.0017,speedGain:30,snakeAt:32,hawkAt:55,diveAt:78,warning:2.2},
+    aventura: {speed:275,gap:150,minGap:115,interval:1.48,minInterval:1.16,ramp:.0038,speedGain:65,snakeAt:16,hawkAt:30,warning:1.5,snakeClearance:170,fruitMargin:34,clearance:260,actualSpeed:true,turnaround:.3,shiftRate:160,shiftLimit:60},
+    tranquilo: {speed:205,gap:220,minGap:185,interval:2.1,minInterval:1.8,ramp:.0017,speedGain:30,snakeAt:32,hawkAt:55,warning:2.2},
 });
 export const STAGES = JOURNEY.map(s=>s.name);
-export const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 export class FlightClock {
     constructor(game) { this.game = game; this.accumulator = 0; }
     reset() { this.accumulator = 0; }
-    advance(seconds) {
-        if (!['playing', 'countdown', 'impact', 'arrival'].includes(this.game.state)) return this.reset();
+    advance(seconds, beforeTick = null) {
+        if (!ACTIVE_CLOCK_STATES.has(this.game.state)) return this.reset();
         this.accumulator += Math.min(.25, Math.max(0, seconds));
         while (this.accumulator + 1e-10 >= STEP) {
+            beforeTick?.(this.game);
             this.game.tick(STEP);
             this.accumulator -= STEP;
-            if (!['playing', 'countdown', 'impact', 'arrival'].includes(this.game.state)) { this.reset(); break; }
+            if (!ACTIVE_CLOCK_STATES.has(this.game.state)) { this.reset(); break; }
         }
     }
+}
+
+const FRUIT_PALETTES = Object.freeze([
+    Object.freeze(['#e0536c', '#f58ea1', '#85bb57', '#ffe894']),
+    Object.freeze(['#d4a366', '#a16e38', '#ffe596', '#7bb850']),
+    Object.freeze(['#ffb03a', '#ff7824', '#ffdc69', '#66bb46']),
+    Object.freeze(['#ff7b2b', '#ffa245', '#332219', '#ffe27d']),
+    Object.freeze(['#6ea644', '#99cf64', '#557d38', '#ffd875']),
+    Object.freeze(['#ffdf40', '#ffe875', '#c8ae32', '#6fb846']),
+    Object.freeze(['#ffcc22', '#ffe666', '#7ec850', '#ffffff'])
+]);
+const SEED_BURST_COLORS = Object.freeze(['#c87a32', '#9e4a22', '#522b13', '#d99438', '#b85e28', '#8a4218']);
+const LEAF_BURST_COLORS = Object.freeze(['#6da855', '#4c8a45', '#9abf68', '#386334']);
+const WOOD_BURST_COLORS = Object.freeze(['#3e2723', '#8d6e63', '#a1887f', '#4e342e', '#9aba67']);
+
+function hasApproachingDanger(entities, px) {
+    for (let i = 0; i < entities.length; i++) {
+        const e = entities[i];
+        if ((e.kind === 'wood' && e.x + 85 > px - 36) ||
+            (e.kind === 'hawk' && !e.harmless && e.x + 30 > px - 36)) return true;
+    }
+    return false;
 }
 
 // Only flight time advances physics, spawns, powers and warnings.
@@ -58,12 +85,14 @@ export class Game {
     snapshot() {
         if (!this._prevEntityMap) {
             Object.defineProperty(this, '_prevEntityMap', { value: new Map(), writable: true, enumerable: false });
+            Object.defineProperty(this, '_prevEntityList', { value: [], writable: true, enumerable: false });
             Object.defineProperty(this, '_prevEntityPool', { value: [], writable: true, enumerable: false });
             Object.defineProperty(this, '_previousObj', { value: {}, writable: true, enumerable: false });
         }
-        for (const item of this._prevEntityMap.values()) {
-            this._prevEntityPool.push(item);
+        for (let i = 0; i < this._prevEntityList.length; i++) {
+            this._prevEntityPool.push(this._prevEntityList[i]);
         }
+        this._prevEntityList.length = 0;
         this._prevEntityMap.clear();
         for (let i = 0; i < this.entities.length; i++) {
             const e = this.entities[i];
@@ -77,6 +106,7 @@ export class Game {
             record.snakePhaseAge = e.snake?.phaseAge;
             record.snakeWarningAge = e.snake?.warningAge;
             record.hawkRetreatTime = e.retreatTime;
+            this._prevEntityList.push(record);
             this._prevEntityMap.set(e.id, record);
         }
         const prev = this._previousObj;
@@ -96,15 +126,36 @@ export class Game {
     }
 
     visual(alpha) {
-        if (!['playing','arrival'].includes(this.state) || !this.previous) return this;
+        if ((this.state !== 'playing' && this.state !== 'arrival') || !this.previous) return this;
         const lerp = (a,b) => a + (b-a) * Math.max(0, Math.min(1, alpha));
-        const view = Object.create(this);
-        if(this.refuge&&Number.isFinite(this.previous.refugeX))view.refuge={...this.refuge,x:lerp(this.previous.refugeX,this.refuge.x)};
-        if(this.arrival)view.arrival={...this.arrival,offset:lerp(this.previous.arrivalOffset,this.arrival.offset)};
+        if (!this._visualObj) {
+            Object.defineProperty(this, '_visualObj', { value: Object.create(this), writable: true, enumerable: false });
+            Object.defineProperty(this, '_visualRefuge', { value: {}, writable: true, enumerable: false });
+            Object.defineProperty(this, '_visualArrival', { value: {}, writable: true, enumerable: false });
+        }
+        const view = this._visualObj;
+        if(this.refuge&&Number.isFinite(this.previous.refugeX)){
+            const vr=this._visualRefuge;
+            Object.assign(vr,this.refuge);
+            vr.x=lerp(this.previous.refugeX,this.refuge.x);
+            view.refuge=vr;
+        }else{
+            view.refuge=this.refuge;
+        }
+        if(this.arrival){
+            const va=this._visualArrival;
+            Object.assign(va,this.arrival);
+            va.offset=lerp(this.previous.arrivalOffset,this.arrival.offset);
+            view.arrival=va;
+        }else{
+            view.arrival=this.arrival;
+        }
         view.y = lerp(this.previous.y, this.y);
         view.angle = lerp(this.previous.angle, this.angle);
         view.flapImpulse = lerp(this.previous.flapImpulse || 0, this.flapImpulse || 0);
-        for (const key of ['distance','elapsed','sceneTime']) view[key] = lerp(this.previous[key],this[key]);
+        view.distance = lerp(this.previous.distance, this.distance);
+        view.elapsed = lerp(this.previous.elapsed, this.elapsed);
+        view.sceneTime = lerp(this.previous.sceneTime, this.sceneTime);
         view.stageAge = this.previous.stage === this.stage ? lerp(this.previous.stageAge,this.stageAge) : this.stageAge;
         // A new impulse starts a beat; only interpolate decay within that beat.
         view.wing = this.wing > this.previous.wing ? this.wing : lerp(this.previous.wing,this.wing);
@@ -115,10 +166,12 @@ export class Game {
 
         if (!this._visualEntities) {
             Object.defineProperty(this, '_visualEntities', { value: [], writable: true, enumerable: false });
-            Object.defineProperty(this, '_visualPool', { value: [], writable: true, enumerable: false });
-            Object.defineProperty(this, '_visualSnakePool', { value: [], writable: true, enumerable: false });
+            Object.defineProperty(this, '_visualEntityMap', { value: new Map(), writable: true, enumerable: false });
+            Object.defineProperty(this, '_visualSnakeMap', { value: new Map(), writable: true, enumerable: false });
         }
         const out = this._visualEntities;
+        const entityMap = this._visualEntityMap;
+        const snakeMap = this._visualSnakeMap;
         out.length = this.entities.length;
         for (let i = 0; i < this.entities.length; i++) {
             const e = this.entities[i];
@@ -127,14 +180,10 @@ export class Game {
                 out[i] = e;
                 continue;
             }
-            let entity = this._visualPool[i];
+            let entity = entityMap.get(e.id);
             if (!entity) {
                 entity = {};
-                this._visualPool[i] = entity;
-            }
-            if (entity._lastId !== e.id) {
-                for (const k in entity) if (k !== '_lastId') delete entity[k];
-                entity._lastId = e.id;
+                entityMap.set(e.id, entity);
             }
             Object.assign(entity, e);
             entity.x = lerp(old.x, e.x);
@@ -142,14 +191,10 @@ export class Game {
             if (Number.isFinite(e.tumbleAngle)) entity.tumbleAngle = lerp(old.tumbleAngle ?? 0, e.tumbleAngle);
             if (Number.isFinite(e.retreatTime)) entity.retreatTime = lerp(old.hawkRetreatTime ?? 0, e.retreatTime);
             if (e.snake) {
-                let snake = this._visualSnakePool[i];
+                let snake = snakeMap.get(e.id);
                 if (!snake) {
                     snake = {};
-                    this._visualSnakePool[i] = snake;
-                }
-                if (snake._lastId !== e.id) {
-                    for (const k in snake) if (k !== '_lastId') delete snake[k];
-                    snake._lastId = e.id;
+                    snakeMap.set(e.id, snake);
                 }
                 Object.assign(snake, e.snake);
                 snake.phaseAge = old.snakePhase === e.snake.phase ? lerp(old.snakePhaseAge ?? 0, e.snake.phaseAge ?? 0) : e.snake.phaseAge;
@@ -161,6 +206,14 @@ export class Game {
                 entity.snake = undefined;
             }
             out[i] = entity;
+        }
+        if (entityMap.size > this.entities.length) {
+            for (const id of entityMap.keys()) {
+                if (!this.previous.entities.has(id)) {
+                    entityMap.delete(id);
+                    snakeMap.delete(id);
+                }
+            }
         }
         view.entities = out;
         // 120Hz simulation vs 180/240Hz monitors: interpolate VFX as well
@@ -202,20 +255,19 @@ export class Game {
         this.encounterRandom = this.randomOverride ?? seededRandom(this.seed);
         this.powerRandom = this.randomOverride ?? seededRandom(this.seed ^ 0x85ebca6b);
         Object.assign(this, {
-            surfaceWeather:createSurfaceWeather(), tutorial:null, won:false, impactContact:null, endCause:null, stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
+            surfaceWeather:createSurfaceWeather(), chapterDiscoveries:[], chapterDiscovery:null, observationOpen:false, observedDetails:[], resumed:false, chapterEntry:false, routeHintShown:false, tutorial:null, won:false, impactContact:null, endCause:null, stageAge:0, refuge:null, arrival:null, afterCountdown:'playing', medal:false,
             scoreBreakdown:{passage:0,fruit:0,quiz:0,route:0}, routes:new Map(), powerSchedule:{nextAny:8,nextShield:14,nextFeather:24,nextPepper:36},
             mode, state: 'menu', elapsed: 0, sceneTime: 0, distance: 0, score: 0, fruits: 0, correct: 0,
             shield: false, feather: 0, pepper: 0, invincible: 0, held: false, holdAge: 0,
             flapCooldown: 0, pendingTap: 0, stamina: 1, wing: 0, flapImpulse: 0, angle: 0, y: HEIGHT * .48,
             vy: 0, countdown: 2.4, entities: [], particles: [], popups: [], collectPulse: 0, powerFade: 0, nextSpawn: 1.5,
-            sequence: 0, foodSequence:0, lastGap: 320, lastPattern: null, encounterHistory: [], question: null, questionPool: [],
+            sequence: 0, snakeSequence:0, hawkSequence:0, postHawkRecovery:false, foodSequence:0, lastGap: 320, lastPattern: null, encounterHistory: [], question: null, questionPool: [],
             answerResult: null, quizPending: false, nextQuizAt: QUIZ_INTERVAL, reviewIds: [], reason: '', stage: 0, nextId: 1, hit: null, impactRemaining: 0, shakeTime: 0, shakeDuration: 0, shakeIntensity: 0,
         });
         this.snapshot();
     }
 
     get x() { return 220 + (this.arrival?.offset || 0); }
-    get body() { return { x: this.x - 20, y: this.y - 20, w: 40, h: 40 }; }
     get speed() {
         const p = FLIGHT[this.mode];
         const gain = this.mode === 'aventura' ? challengeSpeedGain(this.elapsed) : Math.min(p.speedGain, this.elapsed * 0.45);
@@ -223,6 +275,16 @@ export class Game {
         return (p.speed + gain) * (this.pepper > 0 ? 1.35 : 1) * (1 + wind * .06);
     }
     start(mode = 'aventura', reviewIds = [], seed = Math.floor(Math.random()*4294967296)) { this.seed=seed>>>0; this.reset(mode); this.reviewIds = [...reviewIds]; this.state = 'countdown'; }
+
+    resumeChapter(value,reviewIds=[]){
+        const checkpoint=normalizeCheckpoint(value);if(!checkpoint)return false;
+        this.start('tranquilo',reviewIds,checkpoint.seed);
+        for(const key of ['distance','elapsed','stage','sequence','snakeSequence','hawkSequence','foodSequence'])this[key]=checkpoint[key];
+        this.sceneTime=this.elapsed;this.resumed=true;this.chapterEntry=true;this.postHawkRecovery=true;
+        this.y=320;this.vy=0;this.nextSpawn=2.2;this.nextQuizAt=this.elapsed+QUIZ_INTERVAL;
+        this.powerSchedule={nextAny:this.elapsed+8,nextShield:this.elapsed+14,nextFeather:this.elapsed+24,nextPepper:this.elapsed+36};
+        advanceSurfaceWeather(this,0);this.snapshot();return true;
+    }
 
     startTutorial() {
         this.start('tranquilo');this.tutorial=createTutorial(320);this.y=320;this.snapshot();
@@ -289,7 +351,7 @@ export class Game {
     addScore(value, multiplier = this.scoreMultiplier, source = 'passage') {
         this.score += value * multiplier;
         this.scoreBreakdown[source] += value * multiplier;
-        if(!this.medal && this.score>=VICTORY_SCORE){this.medal=true;this.onEvent({type:'medal'});}
+        if(!this.medal && this.score>=MEDAL_SCORE){this.medal=true;this.onEvent({type:'medal'});}
         this.onEvent({ type: 'points', value: value * multiplier });
         this.popups.push({x:this.x+28,y:this.y-30,prevY:this.y-30,
             text:`+${value*multiplier}`,gold:multiplier>=2,life:.85});
@@ -327,9 +389,13 @@ export class Game {
         if (this.state !== 'playing') return;
         const route=this.routes.get(host.route);if(route)route.failed=true;
         if(entity.kind==='boundary')for(const r of this.routes.values())r.failed=true;
-        if(this.invincible>0)return;
+        if(this.invincible>0){
+            // Grace prevents repeated damage, not contact with solid wood.
+            if(!animal && host.kind==='wood'){host.contacted=true;this.recover(host);}
+            return;
+        }
         const boundary = entity.kind === 'boundary' ? entity.side : null;
-        this.hit = boundary ? null : {id:host.id, age:0};
+        this.hit = boundary ? null : {id:host.id, age:0,attackType:entity.kind==='snake'?host.snake?.attackType:undefined};
         if (!animal && !boundary && host.kind === 'wood') {
             this.hit.side = host.hitSide;
             if (host.fragileSide === host.hitSide && host.fragileSide) {
@@ -398,7 +464,7 @@ export class Game {
     }
 
     answer(value) {
-        if (this.state !== 'quiz' || this.answerResult !== null) return;
+        if (this.state !== 'quiz' || this.answerResult !== null || this.observationOpen) return;
         const right = value === this.question.answer;
         this.answerResult = right;
         if (right) { this.correct++; this.addScore(2, this.quizMultiplier, 'quiz'); }
@@ -408,7 +474,7 @@ export class Game {
     }
 
     continueQuiz() {
-        if (this.state !== 'quiz' || this.answerResult === null) return;
+        if (this.state !== 'quiz' || this.answerResult === null || this.observationOpen) return;
         this.nextQuizAt = this.elapsed + QUIZ_INTERVAL;
         if (!this.answerResult && this.mode !== 'tranquilo') { this.endCause='quiz'; this.end(false, 'Esta resposta não estava correta. Vamos aprender e tentar de novo?'); }
         else { this.state = 'countdown'; this.countdown = 1.5; this.cancelInput(); this.snapshot(); }
@@ -427,8 +493,9 @@ export class Game {
             route.collected++;
             if(route.collected===route.total) {
                 route.awarded=true;
-                this.addScore(POWER_BALANCE.routeBonus,multiplier,'route');
-                this.onEvent({type:'route-complete',points:POWER_BALANCE.routeBonus*multiplier});
+                const bonus=route.optional?POWER_BALANCE.optionalRouteBonus:POWER_BALANCE.routeBonus;
+                this.addScore(bonus,multiplier,'route');
+                this.onEvent({type:'route-complete',points:bonus*multiplier});
             }
         }
         this.onEvent({ type: 'fruit', fruit: FOODS[entity.variety ?? 0].id });
@@ -442,13 +509,11 @@ export class Game {
     maybeOpenQuiz() {
         if (this.state !== 'playing' || !this.quizDue || this.refuge) return false;
         // Drain existing encounters before the pause; nothing dangerous remains ahead.
-        const danger = this.entities.some(e =>
-            (e.kind === 'wood' && e.x + 85 > this.x - 36) ||
-            (e.kind === 'hawk' && !e.harmless && e.x + 30 > this.x - 36));
+        const danger = hasApproachingDanger(this.entities, this.x);
         if (danger || this.y < 120 || this.y > HEIGHT - 120 || Math.abs(this.vy) > 160) return false;
         if (!this.questionPool.length) this.questionPool = QUESTIONS.map((_,i)=>i);
         const review = this.questionPool.find(i=>this.reviewIds.includes(QUESTIONS[i].id));
-        const themed=this.questionPool.filter(i=>JOURNEY[this.stage].topics.includes(QUESTIONS[i].topic));
+        const themed=this.questionPool.filter(i=>QUESTIONS[i].chapters.includes(this.stage));
         const candidates=themed.length?themed:this.questionPool;
         const index=review===undefined?this.questionPool.indexOf(candidates[Math.floor(this.random()*candidates.length)]):this.questionPool.indexOf(review);
         this.question = QUESTIONS[this.questionPool.splice(index,1)[0]];
@@ -459,21 +524,30 @@ export class Game {
         this.state = 'quiz';
         this.cancelInput();
         this.nextSpawn = Math.max(this.nextSpawn, 1.5);
+        this.chapterDiscovery=this.chapterDiscoveries.includes(this.stage)?null:CHAPTER_DISCOVERIES[this.stage];
+        if(this.chapterDiscovery){this.chapterDiscoveries.push(this.stage);this.onEvent({type:'chapter-discovery',stage:this.stage});}
         return true;
+    }
+
+    openObservation(){
+        if(this.state!=='quiz'||this.observationOpen||this.answerResult!==null)return false;
+        this.observationOpen=true;this.cancelInput();return true;
+    }
+    observeDetail(id){
+        if(this.state!=='quiz'||!this.observationOpen||!Object.hasOwn(OBSERVATION_DETAILS,id))return false;
+        if(!this.observedDetails.includes(id)){
+            this.observedDetails.push(id);this.onEvent({type:'observation',detail:id,stage:this.stage});
+        }
+        return true;
+    }
+    closeObservation(){
+        if(!this.observationOpen)return false;
+        this.observationOpen=false;return true;
     }
 
     fruitBurst(x, y, variety, multiplier = 1) {
         const probe=activeProbe,burstAt=probe?probe.begin('vfx.fruitBurst'):0;
-        const PALETTES = [
-            ['#e0536c', '#f58ea1', '#85bb57', '#ffe894'],
-            ['#d4a366', '#a16e38', '#ffe596', '#7bb850'],
-            ['#ffb03a', '#ff7824', '#ffdc69', '#66bb46'],
-            ['#ff7b2b', '#ffa245', '#332219', '#ffe27d'],
-            ['#6ea644', '#99cf64', '#557d38', '#ffd875'],
-            ['#ffdf40', '#ffe875', '#c8ae32', '#6fb846'],
-            ['#ffcc22', '#ffe666', '#7ec850', '#ffffff']
-        ];
-        const colors = PALETTES[(variety ?? 0) % PALETTES.length];
+        const colors = FRUIT_PALETTES[(variety ?? 0) % FRUIT_PALETTES.length];
         const count = 12;
         for (let i = 0; i < count; i++) {
             const a = i * Math.PI * 2 / count;
@@ -489,22 +563,23 @@ export class Game {
             });
         }
         // Dispersao de sementes pelo chaua apos comer a fruta
-        const seedColors = ['#c87a32', '#9e4a22', '#522b13', '#d99438', '#b85e28', '#8a4218'];
+        const seedColors = SEED_BURST_COLORS;
         const seedCount = 5;
+        const random = this.cosmeticRandom ?? Math.random;
         for (let s = 0; s < seedCount; s++) {
-            const seedAngle = (s * 0.45 - 0.9) + (Math.random() - 0.5) * 0.35;
+            const seedAngle = (s * 0.45 - 0.9) + (random() - 0.5) * 0.35;
             this.particle({
-                x: x + (Math.random() - 0.5) * 12,
-                y: y + (Math.random() - 0.5) * 10,
-                vx: Math.sin(seedAngle) * (30 + Math.random() * 40) - 20,
-                vy: Math.random() * 30 + 15,
-                life: 1.0 + Math.random() * 0.4,
+                x: x + (random() - 0.5) * 12,
+                y: y + (random() - 0.5) * 10,
+                vx: Math.sin(seedAngle) * (30 + random() * 40) - 20,
+                vy: random() * 30 + 15,
+                life: 1.0 + random() * 0.4,
                 maxLife: 1.4,
                 color: seedColors[s % seedColors.length],
                 spark: true, seed: true,
-                size: 6.5 + Math.random() * 1.5,
-                rotation: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 9
+                size: 6.5 + random() * 1.5,
+                rotation: random() * Math.PI * 2,
+                spin: (random() - 0.5) * 9
             });
         }
         for (let j = 0; j < 3; j++) {
@@ -530,7 +605,7 @@ export class Game {
     }
 
     leafBurst(x, y, count = 10) {
-        const colors = ['#6da855', '#4c8a45', '#9abf68', '#386334'];
+        const colors = LEAF_BURST_COLORS;
         for (let i = 0; i < count; i++) {
             const a = (i * 1.8) + (i % 2 ? 0.3 : -0.3);
             const speed = 40 + (i * 23) % 70;
@@ -563,7 +638,7 @@ export class Game {
     }
 
     woodBurst(x,y) {
-        const colors=['#3e2723','#8d6e63','#a1887f','#4e342e','#9aba67'];
+        const colors=WOOD_BURST_COLORS;
         for(let i=0;i<18;i++) {
             const a=i*2.39996;
             this.particle({x,y,vx:Math.cos(a)*(105+i*6),vy:Math.sin(a)*120-75,
@@ -578,27 +653,50 @@ export class Game {
         this.flapImpulse=Math.max(0,this.flapImpulse-dt*5.0);
         if(this.shakeTime>0){this.shakeTime=Math.max(0,this.shakeTime-dt);if(this.shakeTime===0){this.shakeDuration=0;this.shakeIntensity=0;}}
         let deadPopups=false;
-        for(const p of this.popups){
+        for(let i=0;i<this.popups.length;i++){
+            const p=this.popups[i];
             p.prevY=p.y;
             p.life-=dt;
             if(!this.reducedMotion)p.y-=24*dt;
             if(!(p.life>0))deadPopups=true;
         }
-        if(deadPopups)this.popups=this.popups.filter(p=>p.life>0);
-        for(const e of this.entities)if(e.breakFx){e.breakFx.age+=dt;if(e.breakFx.age>=.36)delete e.breakFx;}
+        if(deadPopups){
+            let write=0;
+            for(let read=0;read<this.popups.length;read++){
+                if(this.popups[read].life>0){
+                    if(write!==read)this.popups[write]=this.popups[read];
+                    write++;
+                }
+            }
+            this.popups.length=write;
+        }
+        for(let i=0;i<this.entities.length;i++){const e=this.entities[i];if(e.breakFx){e.breakFx.age+=dt;if(e.breakFx.age>=.36)e.breakFx=undefined;}}
         if(this.hit) {this.hit.age+=dt;if(this.hit.age>=.3)this.hit=null;}
         let deadParticles=false;
-        for(const p of this.particles) {
+        for(let i=0;i<this.particles.length;i++) {
+            const p=this.particles[i];
             p.prevX=p.x;p.prevY=p.y;
             if(Number.isFinite(p.rotation))p.prevRotation=p.rotation;
             p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;
             if(p.feather||p.chip||p.seed) {p.vy+=(p.chip?380:p.seed?320:210)*dt;p.rotation+=p.spin*dt;}
             if(!(p.life>0))deadParticles=true;
         }
-        if(deadParticles)this.particles=this.particles.filter(p=>p.life>0);
+        if(deadParticles){
+            let write=0;
+            for(let read=0;read<this.particles.length;read++){
+                if(this.particles[read].life>0){
+                    if(write!==read)this.particles[write]=this.particles[read];
+                    write++;
+                }
+            }
+            this.particles.length=write;
+        }
     }
 
-    woodRects(entity) { return livingWoodRects(entity,HEIGHT); }
+    woodRects(entity) {
+        if(!this._woodRectsBuffer)Object.defineProperty(this,'_woodRectsBuffer',{value:[],writable:true,enumerable:false});
+        return livingWoodRects(entity,HEIGHT,this._woodRectsBuffer);
+    }
 
     snakeRects(entity) {
         if (!entity.snake || entity.snake.retreat) return [];
@@ -610,14 +708,22 @@ export class Game {
         const n = this.sequence++;
         const profile=FLIGHT[this.mode];
         const challenge=this.mode==='aventura'?challengeAt(this.elapsed):null;
-        const soloHawk = this.elapsed > profile.hawkAt && n % (challenge?.hawkEvery??3) === 1;
+        const soloHawk = !this.chapterEntry && this.elapsed > profile.hawkAt && n % (challenge?.hawkEvery??3) === 1;
         // Reserve the first encounters: finish the preceding wood before a
         // solo hawk, and let that hawk leave before presenting another trunk.
-        const waitingForSolo = this.entities.some(e => e.kind === 'hawk' && e.solo && !e.harmless && e.x > this.x - 100);
-        if (waitingForSolo || (soloHawk && this.entities.some(e => e.kind === 'wood' && e.x + 85 > this.x - 40))) {
+        let waitingForSolo = false;
+        let woodAhead = false;
+        const px = this.x;
+        for (let i = 0; i < this.entities.length; i++) {
+            const e = this.entities[i];
+            if (!waitingForSolo && e.kind === 'hawk' && e.solo && !e.harmless && e.x > px - 100) waitingForSolo = true;
+            if (!woodAhead && e.kind === 'wood' && e.x + 85 > px - 40) woodAhead = true;
+            if (waitingForSolo && woodAhead) break;
+        }
+        if (waitingForSolo || (soloHawk && woodAhead)) {
             this.sequence--; this.nextSpawn = .4; return;
         }
-        if (n > 0 && n % (challenge?.quietEvery??6) === (challenge?.quietEvery??6)-1) {
+        if (!this.chapterEntry && n > 0 && n % (challenge?.quietEvery??6) === (challenge?.quietEvery??6)-1) {
             this.nextSpawn = 2.8;
             this.onEvent({ type: 'quiet' });
             return;
@@ -626,8 +732,16 @@ export class Game {
         const margin = this.viewWidth ? 180 : 80;
         const x = spawnWidth + margin;
         const travel = (x - this.x) / this.speed;
-        const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,stage:this.stage,random:this.encounterRandom});
-        const {gap,center}=plan;
+        const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,stage:this.stage,random:this.encounterRandom,recentPatterns:this.encounterHistory.map(e=>e.pattern)});
+        const recovery=!soloHawk&&this.postHawkRecovery;
+        if(recovery){
+            // A marked predator can send the player to either edge of the sky.
+            // Offer one central, wide passage before resuming narrow hazards.
+            plan.center=this.mode==='tranquilo'?280:320;plan.gap=Math.max(plan.gap,340);
+            plan.fruits=[{x:15,y:plan.center}];plan.optional=false;plan.variant='plain';
+            this.postHawkRecovery=false;this.chapterEntry=false;
+        }
+        let {gap,center}=plan;
         if(this.stage===2)plan.interval+=.15;
         if(this.stage===3)plan.interval+=.1;
         this.lastGap = center;
@@ -637,25 +751,34 @@ export class Game {
         const hawkAlone = soloHawk;
         let hasSnake = false, encounterGap = gap;
         if (hawkAlone) {
-            const swoop=this.elapsed>profile.diveAt&&n%2===0;
+            this.postHawkRecovery=true;
             const lane=Math.max(160,Math.min(480,this.y+(this.encounterRandom()-.5)*70));
-            // Upper approach is a true dive with the authored angled pose.
-            // Lower approach remains in the encounter variety, but becomes
-            // an ASCENDING flight using the existing wingbeat sheet; a bird
-            // climbing from the ground must not display a "MERGULHO" warning.
-            const dive=swoop&&lane>=320,ascent=swoop&&!dive;
-            const y=dive?105:ascent?535:lane;
+            // Each encounter alternates a complete curved attack. The target
+            // is marked once during warning; it never homes during the charge.
+            const attackKind=attackAt(HAWK_ATTACK_ORDER,this.hawkSequence++,this.seed,0x51f15e);
+            const dive=attackKind==='mergulho',ascent=attackKind==='rasante';
+            const y=ascent?535:105;
             this.entities.push({ id:this.nextId++,kind:'hawk',solo:true,x,y,startX:x,
-                targetX:this.x-60,startY:y,targetY:swoop?lane:y,
+                targetX:this.x-60,startY:y,targetY:lane,
                 warning:Math.max(profile.warning,travel*.25),phase:'warning',
-                age:0,dive,ascent,boost:challenge?.hawkBoost??50,w:66,h:34 });
+                age:0,dive,ascent,attackKind,attackX:this.x,targetLocked:false,gentle:this.mode==='tranquilo',lockWarning:this.mode==='tranquilo'?1.5:1.1,boost:challenge?.hawkBoost??50 });
         } else {
             const variants = ['plain', 'branch', 'plain'];
             const variant = plan.variant ?? (this.stage===1 && n%2===0?'branch':this.elapsed > 17 ? variants[n % variants.length] : 'plain');
-            hasSnake=this.elapsed>profile.snakeAt&&(n%2===0||variant==='branch');
-            encounterGap=gap+(hasSnake?(profile.snakeClearance??180):0);
+            hasSnake=!recovery&&this.elapsed>profile.snakeAt&&(n%2===0||variant==='branch');
+            const attackType=hasSnake?attackAt(SNAKE_ATTACK_ORDER,this.snakeSequence,this.seed,0xa271):null;
+            const gentle=this.mode==='tranquilo';
+            encounterGap=gap+(hasSnake?Math.max(profile.snakeClearance??180,snakeAttack({attackType}).clearance):0);
+            // Widen below the planned safe flight line. Changing the gap must
+            // not pull that line up by half the snake's extra clearance.
+            // When the lower trunk cannot fit, keep a normal passage and offer
+            // this attack at the next encounter with sufficient vertical room.
+            if(hasSnake && center-85+encounterGap>HEIGHT-35){hasSnake=false;encounterGap=gap;}
+            const top=hasSnake?center-85:center-gap/2;
+            const bottom=top+encounterGap;
+            if(hasSnake)this.snakeSequence++;
             this.encounterHistory.at(-1).gap=encounterGap;
-            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top: center - encounterGap / 2, bottom: center + encounterGap / 2, variant, scored: false, route:n, encounter:plan.id };
+            const wood = { id: this.nextId++, kind: 'wood', x, y: 0, top, bottom, variant, recovery, scored: false, route:n, encounter:plan.id };
             if (this.stage >= 1 && !hasSnake && variant === 'plain') {
                 wood.fragileSide = Math.floor(n / 2) % 2 ? 'top' : 'bottom';
                 wood.fragileKind = Math.floor(n / 4) % 2 ? 'hollow' : 'rot';
@@ -665,7 +788,7 @@ export class Game {
                 wood.decorKind = Math.floor(n / 3) % 2 ? 'moss' : 'vine';
             }
             if (hasSnake) {
-                wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false};
+                wood.snake = {kind:'snake',branch:variant==='branch',phase:'watching',retreat:false,attackType,gentle};
                 if(activeProbe)activeProbe.event('snake:spawn',{
                     gameSeconds:Math.round(this.elapsed*100)/100,id:wood.id,positionX:Math.round(x),
                     branch:variant==='branch'});
@@ -673,11 +796,18 @@ export class Game {
             this.entities.push(wood);
         }
         const fruits=hawkAlone?[{x:15,y:center}]:plan.fruits;
-        const nearbySnakes = this.entities.filter(entity => entity.kind === 'wood' && entity.snake);
+        this._nearbySnakesBuffer ??= [];
+        const nearbySnakes = this._nearbySnakesBuffer;
+        nearbySnakes.length = 0;
+        for (let i = 0; i < this.entities.length; i++) {
+            const ent = this.entities[i];
+            if (ent.kind === 'wood' && ent.snake) nearbySnakes.push(ent);
+        }
         const placedFruits=[];
-        const corridorTop = center - encounterGap / 2 + 55;
-        const corridorBottom = center + encounterGap / 2 - (hasSnake ? 218 : 55);
-        for(const [index,point] of fruits.entries()) {
+        const corridorTop = (hasSnake?center-85:center-gap/2) + 55;
+        const corridorBottom = (hasSnake?center-85:center-gap/2) + encounterGap - (hasSnake ? 218 : 55);
+        for(let fIdx=0; fIdx<fruits.length; fIdx++) {
+            const point = fruits[fIdx];
             let fy = point.y, fx=x+point.x;
             if (hasSnake) {
                 // Center the entire fruit route directly in the clear flight corridor above the snake
@@ -685,14 +815,22 @@ export class Game {
                 fy = corridorCenter + (point.y - center) * 0.35;
                 fy = Math.max(corridorTop, Math.min(fy, corridorBottom));
             }
-            for (const s of nearbySnakes) {
+            for (let sIdx = 0; sIdx < nearbySnakes.length; sIdx++) {
+                const s = nearbySnakes[sIdx];
                 if (Math.abs(fx - (s.x + 29)) < 110) {
                     const safeLimit = Math.min(corridorBottom, s.bottom - 218);
                     if (fy > safeLimit) fy = safeLimit;
                     fy = Math.max(corridorTop, fy);
                 }
             }
-            if (nearbySnakes.some(wood => !snakeA2FruitHasClearance(wood,fx,fy))) {
+            let lacksClearance = false;
+            for (let sIdx = 0; sIdx < nearbySnakes.length; sIdx++) {
+                if (!snakeA2FruitHasClearance(nearbySnakes[sIdx], fx, fy)) {
+                    lacksClearance = true;
+                    break;
+                }
+            }
+            if (lacksClearance) {
                 const probe=activeProbe,placeAt=probe?probe.begin('snake.placeFruit'):0;
                 const placed = placeA2Fruit(nearbySnakes,fx,fy,corridorTop,corridorBottom,placedFruits);
                 if(probe)probe.end('snake.placeFruit',placeAt,{nearbySnakes:nearbySnakes.length});
@@ -703,7 +841,10 @@ export class Game {
             this.entities.push({ id: this.nextId++, kind:'fruit', x:fx, y:fy,
                 variety:this.foodSequence++%FOODS.length, route:n, optional:!hawkAlone&&plan.optional });
         }
-        if(placedFruits.length>1)this.routes.set(n,{total:placedFruits.length,collected:0,awarded:false,failed:false});
+        if(placedFruits.length>1){
+            this.routes.set(n,{total:placedFruits.length,collected:0,awarded:false,failed:false,optional:!hawkAlone&&plan.optional});
+            if(plan.optional&&!this.routeHintShown){this.routeHintShown=true;this.onEvent({type:'route-offer',points:POWER_BALANCE.optionalRouteBonus});}
+        }
         const firstFruit = placedFruits[0];
         const kind=hawkAlone||!firstFruit?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,pepper:this.pepper,entities:this.entities,schedule:this.powerSchedule,opportunity:placedFruits.length>1,random:this.powerRandom});
         if(kind)this.entities.push({id:this.nextId++,kind,x:firstFruit.x-125,y:firstFruit.y});
@@ -711,8 +852,8 @@ export class Game {
     }
 
     advanceJourney(dt) {
-        if(this.score<VICTORY_SCORE)return;
-        const danger=this.entities.some(e=>(e.kind==='wood'&&e.x+85>this.x-36)||(e.kind==='hawk'&&!e.harmless&&e.x+30>this.x-36));
+        if(this.distance<journeyLength(this.mode))return;
+        const danger=hasApproachingDanger(this.entities, this.x);
         if(danger || (this.quizDue&&!this.refuge))return;
         if(!this.refuge){this.refuge={x:Math.max(this.width,this.viewWidth||this.width)+220,y:320};this.onEvent({type:'refuge'});}
         this.refuge.x=Math.max(330,this.refuge.x-this.speed*dt);
@@ -721,9 +862,19 @@ export class Game {
         }
     }
 
+    _getPlayerBody(pose) {
+        const px = this.x, py = this.y, pa = this.angle;
+        if (!this._cachedPlayerBody || this._cachedPX !== px || this._cachedPY !== py || this._cachedPA !== pa) {
+            this._cachedPX = px; this._cachedPY = py; this._cachedPA = pa;
+            pose.x = px; pose.y = py; pose.angle = pa;
+            this._cachedPlayerBody = playerShapes(px, py, pa, pose, this._playerShapesBuffer);
+        }
+        return this._cachedPlayerBody;
+    }
+
     tick(dt) {
         this.snapshot();
-        if(['playing','arrival','impact'].includes(this.state))this.sceneTime+=dt;
+        if(this.state==='playing'||this.state==='arrival'||this.state==='impact')this.sceneTime+=dt;
         if(this.state==='arrival') {
             this.arrival.age=this.reducedMotion?ARRIVAL_SECONDS:Math.min(ARRIVAL_SECONDS,this.arrival.age+dt);
             const t=this.arrival.age/ARRIVAL_SECONDS, ease=t*t*(3-2*t);
@@ -756,8 +907,8 @@ export class Game {
         this.elapsed += dt;
         advanceSurfaceWeather(this,dt);
         const speed = this.speed;
-        if(!this.tutorial)this.distance = Math.min(JOURNEY_LENGTH,this.distance+speed*dt);
-        const nextStage=journeyStage(this.distance);
+        if(!this.tutorial)this.distance = Math.min(journeyLength(this.mode),this.distance+speed*dt);
+        const nextStage=journeyStage(this.distance,this.mode);
         if(nextStage!==this.stage){this.stage=nextStage;this.stageAge=0;this.onEvent({type:'stage',stage:this.stage,message:JOURNEY[this.stage].message});}
         this.stageAge+=dt;
         const previousFeather=this.feather;
@@ -787,42 +938,54 @@ export class Game {
             }
             this.advanceEffects(dt);return;
         }
-        if (this.y < CONTACT.top || this.y > CONTACT.bottom) {
-            this.boundaryContact(this.y < CONTACT.top ? 'top' : 'bottom');
+        if(!this._playerShapesBuffer){
+            Object.defineProperty(this,'_playerShapesBuffer',{value:[],writable:true,enumerable:false});
+            Object.defineProperty(this,'_hawkShapesBuffer',{value:[],writable:true,enumerable:false});
+            Object.defineProperty(this,'_poseScratch',{value:{time:0,wing:0,flapImpulse:0,reduced:false,x:0,y:0,angle:0},writable:true,enumerable:false});
+        }
+        const boundaryX=this.x,boundaryY=this.y,boundaryAngle=this.angle;
+        const pose=this._poseScratch;
+        pose.time=this.sceneTime;pose.wing=this.wing;pose.flapImpulse=this.flapImpulse;pose.reduced=this.reducedMotion;
+        pose.x=boundaryX;pose.y=boundaryY;pose.angle=boundaryAngle;
+        const boundaryBody=playerShapes(boundaryX,boundaryY,boundaryAngle,pose,this._playerShapesBuffer);
+        let bodyTop=Infinity,bodyBottom=-Infinity;
+        for(let i=0;i<boundaryBody.length;i++){
+            const polygon=boundaryBody[i];
+            for(let j=0;j<polygon.length;j++){
+                const py=polygon[j].y;
+                if(py<bodyTop)bodyTop=py;
+                if(py>bodyBottom)bodyBottom=py;
+            }
+        }
+        if (bodyTop<CONTACT.top || bodyBottom>CONTACT.bottom) {
+            this.boundaryContact(bodyTop<CONTACT.top?'top':'bottom');
             if (this.state !== 'playing') return;
         }
         this.nextSpawn -= dt;
-        if (this.nextSpawn <= 0 && !this.quizDue && this.score<VICTORY_SCORE) {
+        if (this.nextSpawn <= 0 && !this.quizDue && this.distance<journeyLength(this.mode)) {
             const probe=activeProbe,spawnAt=probe?probe.begin('engine.spawn'):0;
             this.spawn();
             if(probe)probe.end('engine.spawn',spawnAt);
         }
 
         // Lazy evaluation of player collision polygons, automatically invalidated if recover() repositions the bird.
-        let cachedPlayerBody = null;
-        let cachedX = NaN, cachedY = NaN, cachedAngle = NaN;
-        const getPlayerBody = () => {
-            const px = this.x, py = this.y, pa = this.angle;
-            if (!cachedPlayerBody || cachedX !== px || cachedY !== py || cachedAngle !== pa) {
-                cachedX = px; cachedY = py; cachedAngle = pa;
-                cachedPlayerBody = playerShapes(px, py, pa);
-            }
-            return cachedPlayerBody;
-        };
+        this._cachedPX = boundaryX; this._cachedPY = boundaryY; this._cachedPA = boundaryAngle;
+        this._cachedPlayerBody = boundaryBody;
 
-        for (const e of this.entities) {
+        for (let i = 0; i < this.entities.length; i++) {
+            const e = this.entities[i];
             if (this.state !== 'playing') break;
             const px = this.x;
             if (e.kind === 'hawk') {
-                advanceHawk(e,dt,speed,px);
-                if (e.phase !== 'warning' && !e.harmless && Math.abs(e.x - px) < 140 && Math.abs(e.y - this.y) < 110 && shapesIntersect(getPlayerBody(),hawkShapes(e))) this.collide(e, true);
+                advanceHawk(e,dt,speed,px,this.y);
+                if (e.phase !== 'warning' && !e.harmless && Math.abs(e.x-px)<180 && Math.abs(e.y-this.y)<140 && shapesIntersect(this._getPlayerBody(pose),hawkShapes(e,this.sceneTime,this.reducedMotion,this._hawkShapesBuffer))) this.collide(e, true);
                 continue;
             }
             e.x -= speed * dt;
             if (e.kind === 'wood') {
-                advanceSnake(e,dt,px);
+                advanceSnake(e,dt,px,speed);
                 if (e.snake && !e.snake.retreat && Math.abs(e.x-px)<230) {
-                    const player=getPlayerBody();
+                    const player=this._getPlayerBody(pose);
                     const hit=snakeA2HitsPlayer(e,player,this.reducedMotion);
                     if(hit)this.collide(e.snake,true,e);
                 }
@@ -834,20 +997,52 @@ export class Game {
                             this.leafBurst(this.x, this.y > (e.top + e.bottom)/2 ? e.bottom : e.top, 3);
                         }
                     }
-                    const pBody = getPlayerBody();
-                    const woodHit = this.woodRects(e).find(rect => shapesHitRect(pBody,rect));
+                    const pBody = this._getPlayerBody(pose);
+                    const rects = this.woodRects(e);
+                    let woodHit = null;
+                    for (let ri = 0; ri < rects.length; ri++) {
+                        if (shapesHitRect(pBody, rects[ri])) {
+                            woodHit = rects[ri];
+                            break;
+                        }
+                    }
                     if (woodHit) { e.hitRect=woodHit; e.hitPart = woodHit.part; e.hitSide = woodHit.y >= e.bottom ? 'bottom' : 'top'; this.collide(e); }
                 }
                 if (this.state !== 'playing') break;
                 if (!e.scored && e.x + 85 < px - 20) { e.scored = true; if (!e.broken && !e.contacted) this.addScore(1); }
-            } else if (!e.collected && Math.abs(e.x - px) < 36 && Math.abs(e.y - this.y) < 36 && overlaps(this.body, { x: e.x - 18, y: e.y - 18, w: 36, h: 36 })) this.collect(e);
+            } else if (!e.collected && Math.abs(e.x-px)<100 && Math.abs(e.y-this.y)<90 && pickupHitsPlayer(e,this._getPlayerBody(pose),this.elapsed,this.reducedMotion)) this.collect(e);
         }
         const minBound = (this.viewLeft !== undefined ? this.viewLeft : 0) - 260;
         const maxBound = Math.max(this.width, this.viewWidth || this.width) + 800;
-        if (this.entities.some(e => !(e.x > minBound && e.x < maxBound && !e.collected && !e.finished))) {
-            this.entities = this.entities.filter(e => e.x > minBound && e.x < maxBound && !e.collected && !e.finished);
+        let deadEntities=false;
+        for(let i=0;i<this.entities.length;i++){
+            const e=this.entities[i];
+            if(!(e.x > minBound && e.x < maxBound && !e.collected && !e.finished)){deadEntities=true;break;}
         }
-        for(const id of this.routes.keys())if(!this.entities.some(e=>e.kind==='fruit'&&e.route===id))this.routes.delete(id);
+        if (deadEntities) {
+            let write=0;
+            for(let read=0;read<this.entities.length;read++){
+                const e=this.entities[read];
+                if(e.x > minBound && e.x < maxBound && !e.collected && !e.finished){
+                    if(write!==read)this.entities[write]=e;
+                    write++;
+                }
+            }
+            this.entities.length=write;
+        }
+        if (this.routes.size > 0) {
+            for (const id of this.routes.keys()) {
+                let hasFruit = false;
+                for (let k = 0; k < this.entities.length; k++) {
+                    const ent = this.entities[k];
+                    if (ent.kind === 'fruit' && ent.route === id) {
+                        hasFruit = true;
+                        break;
+                    }
+                }
+                if (!hasFruit) this.routes.delete(id);
+            }
+        }
         this.advanceEffects(dt);
         this.maybeOpenQuiz();
         if(this.state==='playing')this.advanceJourney(dt);

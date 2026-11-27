@@ -8,7 +8,7 @@ const fs=require('node:fs');
   for(const [width,height] of [[1366,638],[390,844]]){
    const page=await browser.newPage({viewport:{width,height}});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',route=>route.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,route=>route.fulfill({contentType:'text/javascript',body:''}));
    await page.goto('http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    await page.evaluate(async()=>{
     const {Renderer}=await import('/js/render.mjs');

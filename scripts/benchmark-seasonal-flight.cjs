@@ -16,7 +16,7 @@ const scenes=[['spring',.10,0],['summer',.35,1],['autumn',.56,2],['winter',.85,3
    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
    const errors=[];
    page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    const rows=await page.evaluate(async({mode,scenes})=>{
     const percentile=(a,p)=>{const v=[...a].sort((x,y)=>x-y);return v[Math.floor((v.length-1)*p)];};

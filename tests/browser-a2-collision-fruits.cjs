@@ -8,7 +8,7 @@ const assert=require('node:assert/strict');
   for(const viewport of [{width:1200,height:720},{width:390,height:844}]){
    const page=await browser.newPage({viewport,deviceScaleFactor:1});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',route=>route.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,route=>route.fulfill({contentType:'text/javascript',body:''}));
    await page.goto((process.env.GAME_URL||'http://127.0.0.1:5501/'),{waitUntil:'domcontentloaded'});
    const result=await page.evaluate(async()=>{
     const {Renderer}=await import('/js/render.mjs');

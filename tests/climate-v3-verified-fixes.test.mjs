@@ -1,3 +1,5 @@
+import {winterCapFrame,winterCapKey} from '../Chaua-Educa-main/js/precomposed-winter.mjs';
+import {canvasSpy,installCanvasMock} from './helpers/canvas.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP} from '../Chaua-Educa-main/js/engine.mjs';
@@ -41,27 +43,24 @@ test('gavião keeps the same real flight atlas across the crossing to leaving bo
   'inclined dive must continue using its established original art');
 });
 
-test('unused winter textures stop loading, but all authored overlays and shedding remain available',()=>{
+test('unused winter textures stay out of boot while overlay-04 and shedding remain available',()=>{
  for(const kind of ['lower','upper']){
   assert.equal(ASSET_PATHS[`trees-${kind}-snow`],undefined);
   for(const i of [1,2,3])assert.equal(ASSET_PATHS[`trees-${kind}-snow-0${i}`],undefined);
   assert.ok(ASSET_PATHS[`trees-${kind}-snow-04`]);
-  for(const i of [1,2,3,4])assert.ok(ASSET_PATHS[`trees-${kind}-overlay-0${i}`]);
+  for(const i of [1,2,3])assert.equal(ASSET_PATHS[`trees-${kind}-overlay-0${i}`],undefined);
+  assert.ok(ASSET_PATHS[`trees-${kind}-overlay-04`]);
  }
  assert.ok(ASSET_PATHS['runtime-fx-0'],'packed shedding remains required');
 });
 
 test('snow in variant trunks is painted on lower exposed cap once, not tiled along bark or inverted onto ceiling',t=>{
+ installCanvasMock(t);
  const previous=new Map(images);
  t.after(()=>{images.clear();for(const [k,v] of previous)images.set(k,v)});
  const base={id:'base'},snow={id:'snow'};
- images.set('tree-variants',base);images.set('tree-variants-snow',snow);
- const draws=[];
- const ctx=new Proxy({}, {get(_,key){
-  if(key==='drawImage')return (...args)=>draws.push(args);
-  if(key==='createLinearGradient')return ()=>({addColorStop(){}});
-  return ()=>{};
- },set(){return true;}});
+ images.set('tree-variants',base);images.set(winterCapKey(winterCapFrame('special',15,0)[0]),snow);
+ const {c:ctx,draws}=canvasSpy();
  drawTreeVariant(ctx,400,190,false,'rot',undefined,1,0,0);
  const lower=draws.filter(args=>args[0]===snow);
  assert.equal(lower.length,1,'do not repeat snow bark strip over the entire trunk');

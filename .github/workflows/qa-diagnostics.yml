@@ -15,6 +15,9 @@ on:
           - transitions
           - offscreen
           - action-art
+          - startup-memory
+          - seasonal-flight
+          - snake
       dpr:
         description: Device pixel ratio for the DPR flight diagnostic
         required: true
@@ -68,6 +71,7 @@ jobs:
               node scripts/benchmark-prescale-audit.cjs
               node scripts/benchmark-fragmented-composite.cjs
               node scripts/benchmark-stable-forest-stages.cjs
+              node scripts/benchmark-opaque-forest.cjs
               ;;
             transitions)
               node tests/browser-transition-fallback.cjs
@@ -83,6 +87,23 @@ jobs:
               node tests/browser-action-sprites.cjs
               node tests/browser-real-action-sprites.cjs
               node tests/browser-v2-a2-integration.cjs
+              ;;
+            startup-memory)
+              baseline_sha=f32ee403b493d5a25f86c1710223d96c0af106b1
+              git fetch --no-tags --depth=1 origin "$baseline_sha"
+              baseline_dir="$RUNNER_TEMP/prep104-baseline"
+              mkdir -p "$baseline_dir"
+              git archive "$baseline_sha" Chaua-Educa-main | tar -x -C "$baseline_dir"
+              python3 -m http.server 5503 --bind 127.0.0.1 --directory "$baseline_dir/Chaua-Educa-main" > /tmp/chaua-baseline.log 2>&1 &
+              baseline_pid=$!
+              trap 'kill "$server_pid" "$baseline_pid" 2>/dev/null || true' EXIT
+              BASE_GAME_URL=http://127.0.0.1:5503/ node scripts/benchmark-startup-memory.cjs
+              ;;
+            seasonal-flight)
+              node scripts/benchmark-seasonal-flight.cjs
+              ;;
+            snake)
+              npm run benchmark:snake-a2
               ;;
             *) echo "Unsupported suite: $QA_SUITE" >&2; exit 2 ;;
           esac

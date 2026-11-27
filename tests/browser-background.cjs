@@ -7,6 +7,7 @@ async function scene(browser,viewport,domFallback=false){
   window.frameForTest=requestAnimationFrame.bind(window);window.requestAnimationFrame=()=>0;
   if(domFallback)window.OffscreenCanvas=undefined;
  },domFallback);
+ await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
  await page.goto(root,{waitUntil:'networkidle'});
  await page.evaluate(async()=>{
   const {Renderer}=await import('/js/render.mjs'),{images}=await import('/js/assets.mjs');

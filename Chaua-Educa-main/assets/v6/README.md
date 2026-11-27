@@ -1,3 +1,5 @@
+> Referência histórica da criação dos atlases. Na publicação atual, apenas `chaua-atlas.webp` e `hawk-atlas.webp` desta pasta são usados para poses específicas. A cobra antiga foi retirada; os cinco atlases obrigatórios atuais ficam em `public/snake/`. As tabelas e os prompts abaixo documentam a origem das artes, não um manifesto de carregamento.
+
 # Animações v6
 
 Artes criadas com o gerador integrado de imagens, usando as referências originais do jogo. Dois atlases WebP sem perdas, 1536 × 1536, grade 4 × 4, células 384 × 384, com transparência e margens entre quadros. Ordem de leitura: esquerda para direita, de cima para baixo. O jogo carrega apenas os atlases; os PNGs em `art-source/characters/` preservam a saída original para nova preparação.

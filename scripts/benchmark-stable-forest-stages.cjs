@@ -17,7 +17,7 @@ const summarize=values=>{
   for(const viewport of [{width:1440,height:960},{width:390,height:844},{width:844,height:390}]){
    const page=await browser.newPage({viewport,deviceScaleFactor:2}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    const x=await page.evaluate(async()=>{
     const summarize=values=>{

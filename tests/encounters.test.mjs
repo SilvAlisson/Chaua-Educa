@@ -1,3 +1,4 @@
+import {journeyLength} from '../Chaua-Educa-main/js/journey.mjs';
 import {pilotTarget} from './helpers/pilot.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,17 +36,17 @@ test('clearings spawn no hazards or pickups and hawks remain isolated',()=>{
 test('80 four-stage routes are navigable without shields, fruit or quiz pauses',()=>{
  for(const mode of ['aventura','tranquilo'])for(let seed=0;seed<40;seed++){
   const g=new Game({seed});g.reset(mode);g.state='playing';
-  for(let i=0;i<180/STEP;i++){
+  for(let i=0;i<600/STEP;i++){
    // No pickups, shielding or quiz pauses may hide an unsafe corridor.
    g.entities=g.entities.filter(e=>e.kind==='wood'||e.kind==='hawk');
    const wood=g.entities.find(e=>e.kind==='wood'&&e.x+100>g.x);
    const target=pilotTarget(g);
-   if(g.y>target+12&&g.vy>0&&g.flapCooldown<=0){g.press();g.release();}
+   if(g.y>target+20&&g.vy>0&&g.flapCooldown<=0){g.press();g.release();}
    g.tick(STEP);
-   if(g.distance>=28000)break;
+   if(g.distance>=journeyLength(g.mode))break;
    if(g.state==='ended'){assert.equal(g.won,true,`${mode} seed ${seed}: ${g.reason}`);break;}
    assert.ok(['playing','arrival'].includes(g.state),`${mode} seed ${seed} at ${g.elapsed}: ${g.reason}`);
   }
-  assert.equal(g.distance,28000);assert.equal(g.shield,false);assert.equal(g.fruits,0);assert.equal(g.invincible,0);
+  assert.equal(g.distance,journeyLength(g.mode));assert.equal(g.shield,false);assert.equal(g.fruits,0);assert.equal(g.invincible,0);
  }
 });

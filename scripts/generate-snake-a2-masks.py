@@ -14,7 +14,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 ASSET_ROOT = ROOT / 'Chaua-Educa-main/public/snake'
 OUTPUT = ROOT / 'Chaua-Educa-main/js/snake-a2-masks.mjs'
-ASSETS = {'idle': 'base/idle.webp', 'attack': 'attack/attack.webp', 'stunned': 'reactions/stunned.webp'}
+ASSETS = {'idle': 'base/idle.webp', 'attack': 'attack/attack.webp', 'stunned': 'reactions/stunned.webp', 'high':'attack/high.webp', 'sweep':'attack/sweep.webp'}
 CELL = 384
 MASK_CELL = 12
 SIDE = CELL // MASK_CELL
@@ -51,8 +51,8 @@ def generate():
         sources[key] = hashlib.sha256(path.read_bytes()).hexdigest()
         with Image.open(path) as im:
             chunks[key] = mask_frames(im)
-    # Share one dictionary of exact 32-bit rows across the 24 animation poses.
-    # Index bytes (0..255) represent each row; this is lossless and synchronous
+    # Share one dictionary of exact 32-bit rows across the 40 animation poses.
+    # Little-endian uint16 indices represent each row; this is lossless and synchronous
     # to decode in modern browsers without canvas readbacks or decompression APIs.
     unique_rows, row_index = [], {}
     sequence = bytearray()
@@ -64,8 +64,8 @@ def generate():
                 if row not in row_index:
                     row_index[row] = len(unique_rows)
                     unique_rows.append(row)
-                sequence.append(row_index[row])
-    assert len(unique_rows) <= 256 and len(sequence) == 24 * 32
+                sequence.extend(row_index[row].to_bytes(2,'little'))
+    assert len(unique_rows) <= 65536 and len(sequence) == len(ASSETS) * 8 * 32 * 2
     dictionary = b''.join(unique_rows).hex()
     indices = base64.b64encode(sequence).decode('ascii')
     lines = [
@@ -84,11 +84,11 @@ def generate():
         '  const rowIndices = atob(FRAME_ROWS_B64);',
         '  const masks = {};',
         '  let next = 0;',
-        "  for (const key of ['idle','attack','stunned']) {",
+        f"  for (const key of {list({'idle':1,'attack':1,'stunned':1,'high':1,'sweep':1})!r}) {{",
         '    masks[key] = Array.from({length:8}, () => {',
         '      const cells = new Uint8Array(1024);',
         '      for (let row=0; row<32; row++) {',
-        '        const index = rowIndices.charCodeAt(next++);',
+        '        const index = rowIndices.charCodeAt(next++) | (rowIndices.charCodeAt(next++)<<8);',
         '        const offset = index*8;',
         '        for (let k=0; k<4; k++) {',
         '          const bits = parseInt(ROWS_HEX.slice(offset+k*2,offset+k*2+2),16);',

@@ -5,14 +5,14 @@ import path from 'node:path';
 
 const root=new URL('../',import.meta.url);
 const read=p=>fs.readFileSync(new URL(p,root),'utf8');
-const workflows=['ci.yml','generate-winter-sprites.yml','qa-diagnostics.yml','qa-extended.yml'];
+const workflows=['ci.yml','generate-winter-sprites.yml','pack-tree-art.yml','qa-diagnostics.yml','qa-extended.yml'];
 const workflowFiles=fs.readdirSync(new URL('.github/workflows/',root)).filter(n=>n.endsWith('.yml')||n.endsWith('.yaml')).sort();
 const workflowSource=workflows.map(n=>read('.github/workflows/'+n)).join('\n');
 const packageScripts=Object.values(JSON.parse(read('package.json')).scripts).join('\n');
 
 const directRefs=source=>new Set([...source.matchAll(/(?:\bnode(?:\s+--(?:test|check))?|\bpython(?:3)?)\s+((?:tests|scripts)\/[\w./-]+\.(?:cjs|mjs|js|py))/g)].map(match=>match[1]));
 
-test('exactly one canonical CI, one extended browser QA and manual diagnostics/art preview exist',()=>{
+test('canonical CI, extended QA and read-only diagnostic/art workflows are inventoried',()=>{
  assert.deepEqual(workflowFiles,workflows.sort());
  assert.match(read('.github/workflows/ci.yml'),/pull_request:/);
  assert.match(read('.github/workflows/ci.yml'),/branches: \[main\]/);
@@ -62,7 +62,7 @@ test('critical physics, browser, render and climate checks still run in required
   'npm test', 'verify-current-spritesheets.cjs', 'browser-required-action-assets.cjs',
   'npm run test:snake-raster-parity', 'browser-season-parity.cjs',
   'browser-climate-v3.cjs','browser-a2-collision-fruits.cjs',
-  'browser-mobile-orientation.cjs', 'npm run test:journey'
+  'browser-mobile-orientation.cjs', 'npm run test:journey', 'browser-precomposed-winter.cjs'
  ]) assert.ok(ci.includes(marker),`Missing required CI check: ${marker}`);
 });
 
@@ -82,6 +82,7 @@ test('final polish removes no-op border measurements and private-path screenshot
    `Obsolete art-mode URL remains in ${script}`);
  }
  const ci=read('.github/workflows/ci.yml');
- for(const p of ['test-results/reference-art/','test-results/snake-strike/','test-results/render-parts/'])
-  assert.ok(ci.includes(p),`Official visual QA artifact not uploaded: ${p}`);
+ assert.ok(ci.includes('name: browser-${{ matrix.suite }}'),'Browser suites need unique artifact names');
+ assert.match(ci,/path: test-results\//,'Browser evidence must be uploaded');
+ assert.doesNotMatch(ci,/\b(?:benchmark:|scripts\/(?:benchmark-|diagnose-render-cost))/,'Benchmarks belong to manual diagnostics');
 });

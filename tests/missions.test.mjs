@@ -26,7 +26,7 @@ test('wrong answers count as learning; the same question never counts twice',()=
  assert.equal(p.questions.length,4);assert.ok(completedMissions(p).some(m=>m.id==='learner'));
  assert.deepEqual(advanceProgress(p,{type:'incorrect',questionId:'unknown'}),p);
 });
-test('all six missions have attainable goals, saturate and unlock final title',()=>{
+test('the original six missions keep their goals and previously earned title',()=>{
  let p=normalizeProgress(null);
  for(let i=0;i<20;i++)p=advanceProgress(p,{type:'fruit',fruit:['Goiaba','Manga','Caju'][i%3]});
  for(const q of QUESTIONS.slice(0,4))p=advanceProgress(p,{type:'correct',questionId:q.id});

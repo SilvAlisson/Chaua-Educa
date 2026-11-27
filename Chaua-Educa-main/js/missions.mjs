@@ -7,6 +7,8 @@ export const MISSIONS = Object.freeze([
  {id:'learner',title:'Aprender é descobrir',description:'Responda a 4 perguntas diferentes. Errar também conta.',target:4,metric:'questions'},
  {id:'explorer',title:'Além das copas',description:'Alcance o trecho Mata fragmentada em um voo.',target:2,metric:'stage'},
  {id:'trail',title:'Caminhos da mata',description:'Complete 3 trilhas de alimentos sem contato, em qualquer número de voos.',target:3,metric:'routes'},
+ {id:'field-notes',title:'Caderno de sabores',description:'Registre os 12 alimentos diferentes apresentados no jogo.',target:12,metric:'currentFoods'},
+ {id:'lifelong-learner',title:'Mais perguntas, mais descobertas',description:'Responda a 12 perguntas diferentes. A explicação também ensina quando você erra.',target:12,metric:'questions'},
  {id:'flock',title:'De volta ao bando',description:'Conclua a jornada até o refúgio uma vez.',target:1,metric:'arrivals'},
 ]);
 const count=(value,max)=>Number.isFinite(value)?Math.max(0,Math.min(max,Math.floor(value))):0;
@@ -19,13 +21,13 @@ export function normalizeProgress(value) {
   questions:unique(p.questions,QUESTIONS.map(q=>q.id)),stage:count(p.stage,3),routes:count(p.routes,3),arrivals:count(p.arrivals,1)};
 }
 export function missionValue(mission,progress){
- const value=progress[mission.metric];
+ const value=mission.metric==='currentFoods'?progress.varieties.filter(id=>FOODS.some(f=>f.id===id)):progress[mission.metric];
  return Math.min(mission.target,Array.isArray(value)?value.length:value);
 }
 export function completedMissions(progress){return MISSIONS.filter(m=>missionValue(m,progress)>=m.target);}
 export function progressTitle(progress){
  const n=completedMissions(progress).length;
- return n>=6?'Companheiro da floresta':n>=4?'Explorador da mata':n>=2?'Asas curiosas':'Primeiras descobertas';
+ return n===MISSIONS.length?'Guardião de descobertas':n>=6?'Companheiro da floresta':n>=4?'Explorador da mata':n>=2?'Asas curiosas':'Primeiras descobertas';
 }
 export function advanceProgress(previous,event) {
  const p=normalizeProgress(previous);

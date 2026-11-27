@@ -1,10 +1,11 @@
+import {CHAPTER_DISCOVERIES,OBSERVATION_DETAILS} from './chapter-learning.mjs';
 import { QUESTIONS, SOURCES, CONTENT_REVIEWED } from './questions.mjs';
 import {FOODS} from './foods.mjs';
 import {JOURNAL_PHOTOS,PHOTO_CREDIT,JOURNAL_FACTS,CONSERVATION_SOURCES} from './journal-content.mjs';
 
 export const ENTRIES = [
  {id:'chaua',title:'Conheça o chauá',category:'Ave',text:'Amazona rhodocorytha é o nome científico do papagaio-chauá. Ele vive na Mata Atlântica, no leste do Brasil.',source:'salve',hint:'Disponível desde o início.'},
- {id:'habitat',title:'Uma floresta para viver',category:'Habitat',text:'A perda e a fragmentação da floresta ameaçam o chauá. Conservar os ambientes naturais é parte de sua proteção.',source:'icmbio',hint:'Chegue às Árvores antigas ou descubra uma pergunta sobre habitat.'},
+ {id:'habitat',title:'Uma floresta para viver',category:'Habitat',text:'A perda e a fragmentação da floresta ameaçam o chauá. Conservar os ambientes naturais é parte de sua proteção.',source:'panReport',hint:'Chegue às Árvores antigas ou descubra uma pergunta sobre habitat.'},
  {id:'alimentos',title:'Além dos coletáveis',category:'Alimentação',text:'Há registros de chauás comendo pétalas de ipê. Os alimentos do jogo representam recursos citados para a espécie, incluindo frutos, sementes, brotos e pétalas. Não são uma dieta completa para aves reais. Comer uma semente não garante que ela seja dispersa ou germine.',source:'inma',hint:'Recolha um alimento.'},
  {id:'arvores',title:'Chauás revelam ipês',category:'Árvores e pesquisa',text:'Em Linhares (ES), acompanhar chauás ajudou a localizar Handroanthus riodocensis, um ipê raro. Aves e árvores podem ser estudadas em conjunto. O pouso no refúgio do jogo é uma representação, não uma descrição de ninho.',source:'inma',hint:'Chegue às Árvores antigas ou descubra uma pergunta sobre a pesquisa.'},
  {id:'fauna',title:'Animais, não vilões',category:'Fauna do jogo',text:'Cobras e gaviões são desafios nesta aventura. Os desenhos não identificam espécies, e suas investidas não comprovam predação do chauá na natureza. Você não precisa atingir animais para desbloquear descobertas.',source:'game',hint:'Disponível desde o início.'},
@@ -13,6 +14,8 @@ export const ENTRIES = [
 ];
 export const INITIAL_ENTRIES = ['chaua','fauna','fantasia'];
 export function discoveriesFor(event) {
+ if(event.type==='chapter-discovery')return Number.isInteger(event.stage)&&CHAPTER_DISCOVERIES[event.stage]?[CHAPTER_DISCOVERIES[event.stage].entry]:[];
+ if(event.type==='observation')return Object.hasOwn(OBSERVATION_DETAILS,event.detail)?[OBSERVATION_DETAILS[event.detail].entry]:[];
  if(event.type==='fruit')return ['alimentos'];
  if(event.type==='stage')return event.stage===1?['habitat','arvores']:event.stage>=2?['conservacao']:[];
  if(['correct','incorrect'].includes(event.type)) {
@@ -35,10 +38,10 @@ export function journalIllustration(id){
  return art;
 }
 export function renderCollection(container,unlocked,{foods=[],foodContainer,detailContainer}={}){
- let previousFocus=null;
+ let previousFocus=null,previousScroll=0;const buttons=new Map();
  const openDetail=(entry,button)=>{
   if(!detailContainer)return;
-  previousFocus=button;detailContainer.closest('.journal-shell').classList.add('is-reading');
+  previousFocus=button;const scrollBody=detailContainer.closest('.panel-body')||detailContainer.closest('dialog');previousScroll=scrollBody.scrollTop;detailContainer.closest('.journal-shell').classList.add('is-reading');
   const back=document.createElement('button');back.type='button';back.className='journal-back';back.textContent='← Voltar às descobertas';
   const title=document.createElement('h3');title.id='journal-detail-title';title.textContent=entry.title;
   const category=document.createElement('span');category.className='journal-category';category.textContent=entry.category;
@@ -49,8 +52,8 @@ export function renderCollection(container,unlocked,{foods=[],foodContainer,deta
   }
   const note=document.createElement('p');note.className='journal-footnote';note.textContent=entry.source==='game'?'Esta ficha descreve elementos da aventura.':`Conteúdo revisado em ${CONTENT_REVIEWED.split('-').reverse().join('/')}.`;
   content.append(note);detailContainer.replaceChildren(back,journalIllustration(entry.id),content);detailContainer.hidden=false;container.hidden=true;if(foodContainer)foodContainer.hidden=true;
-  detailContainer.closest('dialog').scrollTop=0;back.focus({preventScroll:true});
-  back.addEventListener('click',()=>{detailContainer.closest('.journal-shell').classList.remove('is-reading');detailContainer.hidden=true;container.hidden=false;previousFocus?.focus({preventScroll:true});});
+  scrollBody.scrollTop=0;back.focus({preventScroll:true});
+  back.addEventListener('click',()=>{detailContainer.closest('.journal-shell').classList.remove('is-reading');detailContainer.hidden=true;container.hidden=false;scrollBody.scrollTop=previousScroll;previousFocus?.focus({preventScroll:true});});
  };
  container.replaceChildren(...ENTRIES.map(entry=>{
   const discovered=unlocked.includes(entry.id),card=document.createElement('article');card.className='journal-card';card.classList.toggle('is-locked',!discovered);
@@ -61,6 +64,7 @@ export function renderCollection(container,unlocked,{foods=[],foodContainer,deta
   const title=document.createElement('h3');title.textContent=entry.title;
   const text=document.createElement('p');text.textContent=discovered?entry.text.slice(0,135)+(entry.text.length>135?'…':''):entry.hint;
   const button=document.createElement('button');button.type='button';button.className='journal-open';button.textContent=discovered?'Ler descoberta →':'Continue explorando';button.disabled=!discovered;
+  buttons.set(entry.id,button);
   if(discovered)button.addEventListener('click',()=>openDetail(entry,button));
   copy.append(category,title,text,button);card.append(art,copy);return card;
  }));
@@ -70,4 +74,5 @@ export function renderCollection(container,unlocked,{foods=[],foodContainer,deta
   const title=document.createElement('h3');title.textContent=f.name;const text=document.createElement('p');text.textContent=found?f.description:'Recolha este item durante o voo para registrar sua descoberta.';
   const state=document.createElement('span');state.className='journal-category';state.textContent=found?'Registrado':'Ainda não coletado';const copy=document.createElement('div');const source=document.createElement('a');source.href=f.source;source.target='_blank';source.rel='noopener noreferrer';source.textContent='Fonte sobre este alimento ↗';copy.append(state,title,text,source);card.append(number,copy);return card;
  }));
+ return {openEntry(id){const entry=ENTRIES.find(e=>e.id===id);if(!entry||!unlocked.includes(id)||!detailContainer)return false;openDetail(entry,buttons.get(id));return true;}};
 }

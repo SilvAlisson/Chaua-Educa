@@ -41,3 +41,26 @@ test('upcoming seasonal frame is prepared before the transition starts',t=>{
  assert.ok(cache.frames.has(1));assert.equal(cache.frames.size,2);assert.equal(cache.pending,null);
  const next=cache.frames.get(1);cache.prepare(atlas,1366,638,1,at(.22));assert.equal(cache.frames.get(1),next);
 });
+
+test('dense falling leaves belong to autumn; spring petals are sparse and summer/winter have none',t=>{
+ const previous=getWeatherMode();t.after(()=>setWeatherMode(previous));
+ const atlas={naturalWidth:256,naturalHeight:256};
+ const draw=(mode,low=false,reduced=false)=>{
+  setWeatherMode(mode);
+  const calls=[];
+  const c=new Proxy({},{get:(_,key)=>key==='drawImage'?(...args)=>calls.push(args):()=>{},set:()=>true});
+  drawSeasonParticles(c,atlas,1366,768,25,at(.1),reduced,low);
+  return calls;
+ };
+ for(const low of [false,true]){
+  const spring=draw('spring',low),autumn=draw('autumn',low);
+  assert.equal(spring.length,low?1:3);
+  assert.equal(autumn.length,low?7:14,'keep the approved autumn density');
+  assert.ok(spring.length<autumn.length/3,'spring must look substantially calmer');
+  assert.ok(spring.every(args=>args[2]===0),'spring keeps its petal frames');
+  assert.ok(autumn.every(args=>args[2]===128),'autumn keeps its red-leaf frames');
+  for(const mode of ['summer','winter'])assert.equal(draw(mode,low).length,0);
+  assert.equal(draw('spring',low,true).length,0);
+  assert.equal(draw('autumn',low,true).length,0);
+ }
+});

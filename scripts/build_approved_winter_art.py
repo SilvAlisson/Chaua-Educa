@@ -113,7 +113,8 @@ def main():
         else:
             save(complete,folder/f'trees-{kind}-snow-04.webp')
             for stage in range(1,5):
-                save(overlay_stage(over,stage),folder/f'trees-{kind}-overlay-0{stage}.webp')
+                overlay_folder=folder if stage==4 else SRC
+                save(overlay_stage(over,stage),overlay_folder/f'trees-{kind}-overlay-0{stage}.webp')
     background=Image.open(SRC/'seasons-original.jpg').convert('RGB')
     if background.size!=(2048,1143):raise ValueError('Season JPEG must be 2048x1143')
     original=Image.open(ROOT/'v10/season-backgrounds.webp')

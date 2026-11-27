@@ -1,3 +1,4 @@
+import {journeyLength} from '../Chaua-Educa-main/js/journey.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,STEP,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
@@ -7,13 +8,25 @@ import {planEncounter} from '../Chaua-Educa-main/js/encounters.mjs';
 import {pilotTarget} from './helpers/pilot.mjs';
 import DB from '../Chaua-Educa-main/js/database.js';
 
-test('actual portrait viewport exposes at least 1.65s of predator reaction distance',()=>{
-    for(const [w,h]of [[320,568],[390,844],[430,932],[768,1024],[844,390]]){
-        const v=flightViewport(w,h),visible=v.w/v.scale;
-        assert.ok(Math.abs(visible-v.worldWidth)<1e-8);
-        const seconds=(v.worldLeft+visible-220-50)/350;
-        assert.ok(seconds>=1.65,`${w}×${h}: only ${seconds}s`);
-    }
+test('marked predator routes provide at least 1.65s to evade across real speed and turbo budgets',async()=>{
+ const {advanceHawk}=await import('../Chaua-Educa-main/js/animals.mjs');
+ const {hawkShapes,playerShapes,shapesIntersect}=await import('../Chaua-Educa-main/js/collision.mjs');
+ for(const [w,h]of [[320,568],[390,844],[430,932],[768,1024],[844,390]])
+ for(const mode of ['aventura','tranquilo'])for(const elapsed of [80,180,350,720])for(const pepper of [0,6])for(let pattern=0;pattern<3;pattern++){
+  const v=flightViewport(w,h),g=new Game({seed:104});g.reset(mode);
+  g.state='playing';g.elapsed=elapsed;g.distance=journeyLength(mode)*Math.min(1,elapsed/360);
+  g.y=320;g.pepper=pepper;g.sequence=1;g.hawkSequence=pattern;
+  g.viewWidth=Math.max(960,v.worldLeft+v.worldWidth);g.spawn();
+  const hawk=g.entities.find(e=>e.kind==='hawk');assert.ok(hawk);
+  let t=0,marked=null,hit=null;const player=playerShapes(g.x,g.y);
+  for(;t<20;t+=STEP){
+   advanceHawk(hawk,STEP,g.speed,g.x,g.y);
+   if(hawk.targetLocked&&marked===null)marked=t;
+   if(hawk.warning<=0&&Math.abs(hawk.x-g.x)<180&&shapesIntersect(player,hawkShapes(hawk))){hit=t;break;}
+  }
+  assert.notEqual(marked,null);assert.notEqual(hit,null,'the marked route must be a real contact threat');
+  assert.ok(hit-marked>=1.65,`${w}×${h}/${mode}/${elapsed}/turbo=${pepper}: ${hit-marked}s`);
+ }
 });
 test('safe areas of arbitrary sizes use the same layout rules without test-specific branches',()=>{
     for(const top of [0,12,23,24,25,47]){
@@ -38,11 +51,15 @@ test('snake head collider follows the actual source crop on trunks and branches'
     assert.ok(branch.x<wood.x&&branch.y<wood.bottom+30);
 });
 test('branch encounter really spawns branch art, a branch collider and its snake',()=>{
-    const g=new Game({seed:104});g.elapsed=40;g.sequence=2;
     let found=false;
-    for(let i=0;i<70;i++){
-        g.entities=[];g.spawn();const wood=g.entities.find(e=>e.kind==='wood'&&e.variant==='branch');
-        if(wood){found=true;assert.ok(wood.snake?.branch);assert.ok(g.woodRects(wood).some(r=>r.x<wood.x));}
+    // Pattern probabilities changed in v14: verify actual branch encounters
+    // across fixed seeds rather than requiring one historical RNG trace.
+    for(let seed=0;seed<8;seed++){
+        const g=new Game({seed});g.elapsed=40;g.sequence=2;
+        for(let i=0;i<70;i++){
+            g.entities=[];g.spawn();const wood=g.entities.find(e=>e.kind==='wood'&&e.variant==='branch'&&e.snake);
+            if(wood){found=true;assert.ok(wood.snake?.branch);assert.ok(g.woodRects(wood).some(r=>r.x<wood.x));}
+        }
     }
     assert.ok(found,'previous branch pattern never set variant=branch');
 });
@@ -57,28 +74,30 @@ test('friendly mode has measurably wider gaps and slower encounter cadence throu
     assert.ok(FLIGHT.tranquilo.warning>FLIGHT.aventura.warning);
     assert.ok(FLIGHT.tranquilo.hawkAt>FLIGHT.aventura.hawkAt);
 });
-test('announced hawk lanes are real hazards and never retarget after spawning',()=>{
+test('announced hawk snapshots the lane once with time to evade and never homes after lock',()=>{
     const g=new Game({random:()=>.5});g.state='playing';g.y=320;g.elapsed=60;g.sequence=13;g.spawn();
-    const hawk=g.entities.find(e=>e.kind==='hawk');assert.equal(hawk.startY,320);
-    const lane=[hawk.startY,hawk.targetY,hawk.targetX];g.y=190;
-    for(let i=0;i<60;i++) {g.y=190;g.vy=0;g.nextSpawn=Infinity;g.tick(STEP);}
-    assert.deepEqual([hawk.startY,hawk.targetY,hawk.targetX],lane);
+    const hawk=g.entities.find(e=>e.kind==='hawk');assert.equal(hawk.startY,105);
+    g.nextSpawn=Infinity;
+    while(!hawk.targetLocked){g.y=190;g.vy=0;g.tick(STEP);}
+    assert.ok(hawk.warning>=1.08);assert.ok(Math.abs(hawk.targetY-190)<.1);
+    for(let i=0;i<120;i++){g.y=450;g.vy=0;g.tick(STEP);}
+    assert.ok(Math.abs(hawk.targetY-190)<.1);assert.equal(hawk.attackX,220);
 });
 test('both difficulties remain playable with 120ms reaction and 30Hz decisions, without powers',()=>{
     for(const mode of ['aventura','tranquilo'])for(let seed=0;seed<12;seed++){
         const g=new Game({seed});g.reset(mode);g.state='playing';g.visibleRight=850;let nextDecision=0,pending=null;
-        for(let i=0;i<200/STEP;i++){
+        for(let i=0;i<600/STEP;i++){
             g.entities=g.entities.filter(e=>e.kind==='wood'||e.kind==='hawk');
             if(g.elapsed>=nextDecision&&g.state==='playing'){
                 nextDecision=g.elapsed+1/30;
                 const target=pilotTarget(g),predict=g.y+g.vy*.12+450*.12**2;
-                if(pending===null&&predict>target+10&&g.vy>0)pending=g.elapsed+.12;
+                if(pending===null&&predict>target+12&&g.vy>0)pending=g.elapsed+.12;
             }
             if(pending!==null&&g.elapsed>=pending){g.press();g.release();pending=null;}
             g.tick(STEP);
-            if(g.state==='ended'||g.distance>=28000)break;
+            if(g.state==='ended'||g.distance>=journeyLength(g.mode))break;
         }
-        assert.equal(g.distance,28000,`${mode} seed ${seed}: ${g.reason}, ${g.elapsed.toFixed(1)}s`);
+        assert.equal(g.distance,journeyLength(g.mode),`${mode} seed ${seed}: ${g.reason}, ${g.elapsed.toFixed(1)}s`);
         assert.equal(g.fruits,0);assert.equal(g.shield,false);
     }
 });

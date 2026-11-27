@@ -28,6 +28,21 @@ jobs:
           python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-cross-browser.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null' EXIT
+          LEARNING_BROWSER=firefox node tests/browser-learning-flow.cjs
+          LEARNING_BROWSER=webkit node tests/browser-learning-flow.cjs
+          node tests/browser-accessibility-108.cjs
+          ACCESS_BROWSER=firefox node tests/browser-accessibility-108.cjs
+          ACCESS_BROWSER=webkit node tests/browser-accessibility-108.cjs
+          node tests/browser-learning-107.cjs
+          LEARNING_BROWSER=firefox node tests/browser-learning-107.cjs
+          LEARNING_BROWSER=webkit node tests/browser-learning-107.cjs
+          node tests/browser-gameplay-106.cjs
+          GAMEPLAY_BROWSER=firefox node tests/browser-gameplay-106.cjs
+          GAMEPLAY_BROWSER=webkit node tests/browser-gameplay-106.cjs
+          node tests/browser-visual-polish.cjs
+          POLISH_BROWSER=firefox node tests/browser-visual-polish.cjs
+          POLISH_BROWSER=webkit node tests/browser-visual-polish.cjs
+          WEATHER_BROWSER=webkit node tests/browser-attacks-weather.cjs
           UI_BROWSER=webkit node tests/browser-editorial-ui.cjs
           MOBILE_BROWSER=firefox node tests/browser-mobile-home-layout.cjs
           MOBILE_BROWSER=webkit node tests/browser-mobile-home-layout.cjs
@@ -42,10 +57,189 @@ jobs:
         with:
           name: extended-browser-qa
           path: |
+            test-results/learning-flow/
             test-results/action-sprites/
             test-results/v2-cross-browser/
             test-results/animal-weather/
+            test-results/attacks-weather/
+            test-results/visual-polish/
+            test-results/gameplay-106/
+            test-results/learning-107/
+            test-results/accessibility-108/
             test-results/mobile-home/
             test-results/editorial-ui/
           if-no-files-found: ignore
           retention-days: 7
+
+  responsive-panels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify responsive panels on desktop and phones
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-panels.log 2>&1 &
+          panels_pid=$!
+          trap 'kill "$panels_pid" 2>/dev/null' EXIT
+          node tests/browser-responsive-panels.cjs
+          PANEL_BROWSER=firefox node tests/browser-responsive-panels.cjs
+          PANEL_BROWSER=webkit node tests/browser-responsive-panels.cjs
+      - name: Save responsive panel screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: responsive-panels
+          path: test-results/responsive-panels/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  reliability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run audit:release
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify loading recovery and durable progress
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-reliability.log 2>&1 &
+          reliability_pid=$!
+          trap 'kill "$reliability_pid" 2>/dev/null' EXIT
+          node tests/browser-reliability-109.cjs
+          RELIABILITY_BROWSER=firefox node tests/browser-reliability-109.cjs
+          RELIABILITY_BROWSER=webkit node tests/browser-reliability-109.cjs
+      - name: Save reliability evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: reliability-109
+          path: |
+            test-results/reliability-109/
+            test-results/release-audit.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  three-screen-refinement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify home, pause, result and launch rotation
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-refinement.log 2>&1 &
+          refinement_pid=$!
+          trap 'kill "$refinement_pid" 2>/dev/null' EXIT
+          node tests/browser-three-screen-refinement.cjs
+          REFINEMENT_BROWSER=firefox node tests/browser-three-screen-refinement.cjs
+          REFINEMENT_BROWSER=webkit node tests/browser-three-screen-refinement.cjs
+          node tests/browser-polish-1091.cjs
+          REFINEMENT_BROWSER=firefox node tests/browser-polish-1091.cjs
+          REFINEMENT_BROWSER=webkit node tests/browser-polish-1091.cjs
+      - name: Save three-screen screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: three-screen-refinement
+          path: test-results/three-screen-refinement/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  beta-session:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify optional beta sessions and local reports
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-beta.log 2>&1 &
+          beta_pid=$!
+          trap 'kill "$beta_pid" 2>/dev/null' EXIT
+          node tests/browser-beta-110.cjs
+          BETA_BROWSER=firefox node tests/browser-beta-110.cjs
+          BETA_BROWSER=webkit node tests/browser-beta-110.cjs
+      - name: Save simulated beta evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: beta-110-simulated
+          path: test-results/beta-110/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  fullscreen-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify actual fullscreen pause and recovery
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-fullscreen.log 2>&1 &
+          native_pid=$!
+          trap 'kill "$native_pid" 2>/dev/null' EXIT
+          xvfb-run -a -s "-screen 0 1600x1000x24" node tests/browser-fullscreen-native-1101.cjs
+      - name: Save native fullscreen evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: fullscreen-native
+          path: test-results/fullscreen-native/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  modular-trees:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Check modular bark, new rotten art and frozen weather
+        run: |
+          python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main > /tmp/chaua-modular-trees.log 2>&1 &
+          tree_server_pid=$!
+          trap 'kill "$tree_server_pid" 2>/dev/null' EXIT
+          node tests/browser-climate-winter-v3.cjs
+          node tests/browser-modular-trees-1101.cjs
+          TREE_BROWSER=firefox node tests/browser-modular-trees-1101.cjs
+          TREE_BROWSER=webkit node tests/browser-modular-trees-1101.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: modular-trees
+          path: |
+            test-results/modular-trees/
+            test-results/climate-winter-v3/
+          if-no-files-found: ignore

@@ -2,14 +2,17 @@
 
 Esta página documenta o pipeline de qualidade atual. Experimentos anteriores continuam recuperáveis no histórico do Git, mas não devem executar a cada atualização.
 
-## Os quatro workflows oficiais
+## Workflows
 
 | Arquivo | Gatilho | Cobertura |
 | --- | --- | --- |
-| `ci.yml` | Pull requests, push na `main`, manual | Testes unitários, Chromium, física/colisão A2, máscara-pixel, arte real, quatro estações, responsividade e jornadas |
+| `ci.yml` | Pull requests, push na `main`, manual | Validação do código e quatro suítes Chromium em paralelo: jogabilidade/Pages, personagens, clima e gráficos. Inclui o voo de referência de inverno. |
 | `qa-extended.yml` | Pull requests e manual | Firefox, WebKit, Chromium e spritesheets reais do Chauá e gavião |
-| `qa-diagnostics.yml` | Somente manual | Renderização, voo longo, resolução/DPR, floresta, transições, culling e arte |
+| `qa-diagnostics.yml` | Somente manual | Benchmarks de renderização, memória inicial, voo sazonal, cobra, resolução/DPR, floresta e transições |
+| `pack-tree-art.yml` | PRs com mudanças nas artes de árvore e manual | Empacotamento e verificação de fidelidade das artes |
 | `generate-winter-sprites.yml` | Somente manual | Reprodução oficial da arte em runner descartável; publica artefato, **nunca faz push** |
+
+O check `test` reúne o resultado da validação do código e das quatro suítes Chromium. O pacote com o código-fonte do commit é gerado somente na execução manual de **Validate game**. As verificações do Teste C fazem parte da suíte de clima.
 
 Os 26 workflows de experimentos ligados a branches históricas foram substituídos por ferramentas manuais reutilizáveis. Benchmarks válidos permanecem no diretório `scripts/`, não duplicados em dezenas de workflows.
 
@@ -17,7 +20,7 @@ Os 26 workflows de experimentos ligados a branches históricas foram substituíd
 
 - `npm ci` instala a versão fixada das dependências.
 - `npm test` executa todos os testes `tests/*.test.mjs`, incluindo a auditoria do próprio pipeline.
-- `node scripts/verify-current-spritesheets.cjs` verifica integridade das sete spritesheets obrigatórias.
+- `node scripts/verify-current-spritesheets.cjs` verifica integridade das nove spritesheets obrigatórias.
 - Para navegador, instale os browsers do Playwright, inicie `python3 -m http.server 5501 --bind 127.0.0.1 --directory Chaua-Educa-main` e rode as entradas da CI.
 - Para medir desempenho, abra GitHub Actions → **Manual performance diagnostics** → **Run workflow**, escolha o cenário e consulte os artefatos.
 
@@ -57,7 +60,7 @@ PERF_SECONDS=6 npm run benchmark:hotspots
 npm run benchmark:render-parts
 ```
 
-Capturas de referência verificadas pelo CI principal também são anexadas ao artifact `auto-visual-captures`, nas pastas `reference-art/`, `snake-strike/` e `render-parts/`. O CI estendido anexa comparações de Firefox/WebKit.
+Cada suíte Chromium anexa suas capturas em `browser-<suíte>`. Os benchmarks guardam seus resultados nos artefatos do workflow manual. O CI estendido anexa comparações de Firefox/WebKit.
 
 Antes de declarar 60 FPS constantes, executar sessões reais na resolução nativa do notebook e em celular, com clima e cenários ativos. Medir p95/p99, quadros acima de 33,3/50 ms e validar nitidez, responsividade e colisões. Benchmarks de máquinas virtuais são apenas diagnósticos.
 

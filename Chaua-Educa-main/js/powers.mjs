@@ -1,4 +1,4 @@
-export const POWER_BALANCE = Object.freeze({ minimumOfferGap: 9, shieldGap: 28, featherGap: 30, pepperGap: 36, routeBonus: 2 });
+export const POWER_BALANCE = Object.freeze({ minimumOfferGap: 9, shieldGap: 28, featherGap: 30, pepperGap: 36, routeBonus: 2, optionalRouteBonus: 4 });
 export function offerPower({ elapsed, shield, feather, pepper = 0, entities, schedule, opportunity, random }) {
     if (elapsed < schedule.nextAny || entities.some(e => !e.collected && ['shield', 'feather', 'pepper'].includes(e.kind))) return null;
     let kind = null;

@@ -8,7 +8,7 @@ const {chromium}=require('playwright');
   for(const viewport of [{width:1440,height:960},{width:390,height:844},{width:844,height:390}]){
    const page=await browser.newPage({viewport,deviceScaleFactor:2}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/js/script.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
    if(process.env.PROFILE_BASELINE_PATH)await page.route('**/js/render-baseline.mjs',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync(process.env.PROFILE_BASELINE_PATH,'utf8')}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    const result=await page.evaluate(async baseline=>{
@@ -56,10 +56,10 @@ const {chromium}=require('playwright');
     let commands=[];const context=r.c;
     const serial=value=>value&&typeof value==='object'?value.constructor.name:value;
     const record=(key,args)=>{
-     // Context-bound gradients are now cached. Their constructor frequency
+     // Context-bound gradients and bark patterns are cached. Constructor frequency
      // is an allocation detail, not logical geometry; compare their actual
      // fillStyle/draw commands instead (and still compare all preset pixels).
-     if(key==='createLinearGradient'||key==='createRadialGradient')return;
+     if(key==='createLinearGradient'||key==='createRadialGradient'||key==='createPattern')return;
      // Seasonal surfaces are blitted in physical pixels under the identity
      // transform. Check their pixel snapping, then compare logical placement.
      if(key==='drawImage' && [...r.seasonalBackdrop.frames.values()].includes(args[0])){

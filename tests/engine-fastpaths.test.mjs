@@ -1,6 +1,7 @@
+import {pickupHitsPlayer} from '../Chaua-Educa-main/js/pickup-geometry.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,STEP,overlaps} from '../Chaua-Educa-main/js/engine.mjs';
+import {Game,STEP} from '../Chaua-Educa-main/js/engine.mjs';
 import {playerShapes,hawkShapes,shapesIntersect,shapesHitRect} from '../Chaua-Educa-main/js/collision.mjs';
 import {livingWoodRects} from '../Chaua-Educa-main/js/forest-geometry.mjs';
 
@@ -11,7 +12,7 @@ test('hawk broad phase never skips an exact collision',()=>{
    for(let dx=-160;dx<=160;dx+=5)for(let dy=-130;dy<=130;dy+=5){
     const hawk={x:220+dx,y:320+dy,dive,startX:1050,startY:dive?105:320,targetX:160,targetY:dive?500:320};
     if(shapesIntersect(player,hawkShapes(hawk)))
-     assert.ok(Math.abs(dx)<140&&Math.abs(dy)<110,
+     assert.ok(Math.abs(dx)<180&&Math.abs(dy)<140,
        'hawk collision culled at '+JSON.stringify({angle,dive,dx,dy}));
    }
   }
@@ -33,11 +34,13 @@ test('wood broad phase never skips an exact hit across branch variants',()=>{
   }
  }
 });
-test('pickup early rejection matches original overlap boundary',()=>{
- for(let dx=-40;dx<=40;dx+=.5)for(let dy=-40;dy<=40;dy+=.5){
-  const old=overlaps({x:202,y:302,w:36,h:36},{x:220+dx-18,y:320+dy-18,w:36,h:36});
-  const fast=Math.abs(dx)<36&&Math.abs(dy)<36&&old;
-  assert.equal(fast,old,'pickup at '+dx+','+dy);
+test('pickup broad phase never skips any current food or power silhouette',()=>{
+ const body=playerShapes(220,320,.28,{time:1,wing:.3,flapImpulse:.7});
+ for(const kind of ['fruit','pepper','feather','shield'])for(let variety=0;variety<(kind==='fruit'?12:1);variety++)for(const time of [0,.18,.42,1]){
+  for(let dx=-120;dx<=120;dx+=20)for(let dy=-100;dy<=100;dy+=20){
+   const e={id:0,kind,variety,x:220+dx,y:320+dy};
+   if(pickupHitsPlayer(e,body,time))assert.ok(Math.abs(dx)<100&&Math.abs(dy)<90,JSON.stringify(e));
+  }
  }
 });
 test('invalid and expired effects are removed without filtering unchanged arrays',()=>{

@@ -13,7 +13,7 @@ fs.mkdirSync(out,{recursive:true});
    const page=await browser.newPage({viewport,deviceScaleFactor:2});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    // Avoid the live game loop so every capture uses identical time and state.
-   await page.route('**/js/script.js',route=>route.fulfill({contentType:'text/javascript',body:''}));
+   await page.route(/\/js\/script\.js(?:\?.*)?$/,route=>route.fulfill({contentType:'text/javascript',body:''}));
    await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
    await page.evaluate(async()=>{
     const {Renderer}=await import('/js/render.mjs');

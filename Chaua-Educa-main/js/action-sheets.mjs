@@ -1,3 +1,6 @@
+import {loadImage} from './image-loader.mjs';
+import {activeProbe} from './perf-hooks.mjs';
+
 // Required production action atlases. Unsupported states deliberately use their
 // separately authored v6 poses; missing action assets must never silently swap art.
 export const ACTION_SHEET_DEFS=Object.freeze({
@@ -6,34 +9,53 @@ export const ACTION_SHEET_DEFS=Object.freeze({
  'hawk-flight': {path:'../public/hawk/fly/flight.webp',columns:4,rows:2,cell:320},
  'hawk-stunned': {path:'../public/hawk/animations/stunned.webp',columns:3,rows:2,cell:320},
 });
+
+const FIRST_DRAW_KEYS=Object.freeze(Object.fromEntries(
+ Object.keys(ACTION_SHEET_DEFS).map(key=>[key,`action:${key}`])
+));
 const sheets=new Map();
 let pending=null;
+
 export function preloadActionSheets(){
  if(typeof Image==='undefined')return Promise.resolve([]);
  if(pending)return pending;
  pending=Promise.all(Object.entries(ACTION_SHEET_DEFS).map(async ([key,info])=>{
-  const image=new Image();
   const src=new URL(info.path,import.meta.url).href;
-  await new Promise((resolve,reject)=>{
-   image.onload=resolve;
-   image.onerror=()=>reject(new Error(`Required action atlas unavailable: ${key} (${src})`));
-   image.src=src;
-  });
-  if(image.naturalWidth!==info.columns*info.cell||image.naturalHeight!==info.rows*info.cell)
-   throw new Error(`Required action atlas has incorrect dimensions: ${key}`);
-  if(image.decode)await image.decode();
-  sheets.set(key,image);
-  return key;
- }));
+  const image=await loadImage(src,{width:info.columns*info.cell,height:info.rows*info.cell,
+   errorMessage:`Required action atlas unavailable: ${key} (${src})`});
+  return [key,image];
+ })).then(entries=>{for(const [key,image] of entries)sheets.set(key,image);return entries.map(([key])=>key);})
+ .catch(error=>{pending=null;throw error;});
  return pending;
 }
+
 export function hasActionSheet(key){return sheets.has(key);}
+
 export function drawActionSheet(c,key,index,x,y,width,height=width){
  const img=sheets.get(key),def=ACTION_SHEET_DEFS[key];
  if(!img||!def)throw new Error(`Required action atlas is not ready: ${key}`);
  const count=def.rows*def.columns;
  const i=Math.min(count-1,Math.max(0,Number.isFinite(index)?Math.floor(index):0));
  const sx=(i%def.columns)*def.cell,sy=Math.floor(i/def.columns)*def.cell;
+
+ const probe=activeProbe;
+ const frame=probe?.currentFrame;
+ // Asset warmup runs outside the measured gameplay frame.
+ if(!probe?.deep||!frame||probe.game?.state!=='playing'){
+  c.drawImage(img,sx,sy,def.cell,def.cell,x,y,width,height);
+  return true;
+ }
+
+ const asset=FIRST_DRAW_KEYS[key];
+ if(probe.firstDraws.has(asset)){
+  c.drawImage(img,sx,sy,def.cell,def.cell,x,y,width,height);
+  return true;
+ }
+
+ const operation='action.firstDrawCpu';
+ const drawAt=probe.begin(operation);
  c.drawImage(img,sx,sy,def.cell,def.cell,x,y,width,height);
+ const drawCpuMs=probe.end(operation,drawAt,{sheet:key});
+ probe.firstDraw(asset,drawCpuMs,{sheet:key});
  return true;
 }

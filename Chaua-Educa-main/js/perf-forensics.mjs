@@ -27,7 +27,7 @@ export class ForensicRecorder {
   this.stutterFrames=new Map();
   this.stutterOperations=new Map();
   this.stutterEvents=new Map();
-  this.firstDraws=new Set();this.currentFrame=null;this.observers=[];
+  this.firstDraws=new Set();this.firstDrawEvents=[];this.currentFrame=null;this.observers=[];
  }
  event(name,details={}){
   pushBounded(this.events,{atMs:round(this.now()),name,...details},MAX_EVENTS);
@@ -59,6 +59,11 @@ export class ForensicRecorder {
   pushBounded(this.frames,f,MAX_FRAMES);
   this.currentFrame=null;
  }
+ discardStutter(frame){
+  this.stutterFrames.delete(frame);
+  this.stutterOperations.delete(frame);
+  this.stutterEvents.delete(frame);
+ }
  rememberStutter(frame){
   // Save nearby measured CPU work NOW, before a long flight evicts older frames.
   if(this.stutterFrames.size>=160){
@@ -70,10 +75,21 @@ export class ForensicRecorder {
   while(this.stutterOperations.size>160)this.stutterOperations.delete(this.stutterOperations.keys().next().value);
   while(this.stutterEvents.size>160)this.stutterEvents.delete(this.stutterEvents.keys().next().value);
  }
- firstDraw(name,durationMs){
-  if(this.firstDraws.has(name))return;
+ firstDraw(name,durationMs,details={}){
+  if(this.firstDraws.has(name))return false;
   this.firstDraws.add(name);
-  this.event('first-draw',{asset:name,drawCpuMs:round(durationMs)});
+  const elapsed=this.game?.elapsed;
+  const entry={
+   ...details,
+   atMs:round(this.now()),name:'first-draw',
+   asset:name,
+   drawCpuMs:round(finite(durationMs)),
+   rafTimestamp:this.currentFrame?.rafTimestamp??null,
+   flightSeconds:Number.isFinite(elapsed)?Math.round(elapsed*1000)/1000:null
+  };
+  this.firstDrawEvents.push(entry);
+  pushBounded(this.events,entry,MAX_EVENTS);
+  return true;
  }
  longFrame(entry){
   if(!entry||!Number.isFinite(entry.startTime))return;
@@ -118,8 +134,8 @@ export class ForensicRecorder {
  stopBrowserObservers(){for(const o of this.observers){try{o.takeRecords?.().forEach(e=>{if(e.entryType==='long-animation-frame')this.longFrame(e);else if(e.entryType==='longtask')this.longTask(e);});}catch{}o.disconnect();}this.observers=[];}
  correlate(stutters){
   return stutters.map(s=>{
-   const end=this.startedAt+s.atSeconds*1000;
-   const begin=end-s.frameMs;
+   const end=s.rafTimestamp??(this.startedAt+s.atSeconds*1000);
+   const begin=s.previousRafTimestamp??(end-s.frameMs);
    const captured=this.stutterFrames.get(s.frame)||[];
    const frames=captured.length?captured:this.frames.filter(x=>overlaps(x.atMs,x.atMs+x.cpuMs,begin-40,end+40)).slice(-6);
    const operations=(this.stutterOperations.get(s.frame)||this.operations).filter(x=>overlaps(x.atMs-x.ms,x.atMs,begin-35,end+35))
@@ -155,6 +171,7 @@ export class ForensicRecorder {
    }])),
    measuredOperationSamples:this.operations,
    gameEvents:this.events,
+   firstDrawEvents:this.firstDrawEvents,
    detailedRecentFrames:this.frames,
    longAnimationFrames:this.longFrames,
    longTasks:this.longTasks,

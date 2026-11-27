@@ -6,8 +6,8 @@ import {climateJourneyProgress} from './climate-progress.mjs';
 export const SEASON_IDS=Object.freeze({spring:0,summer:1,autumn:2,winter:3});
 
 // Calibrated around successful flight times, not points or capped world distance.
-// The full winter scene is reached at 74% of reference flight time, leaving
-// a visible winter even for the fastest (523s) successful seeded run.
+// Full winter arrives at 74% of the six-minute reference, leaving time for
+// progressive surface accumulation before the refuge.
 export const CLIMATE_TRANSITIONS=Object.freeze([
  Object.freeze({start:.20,end:.27,from:0,to:1}),
  Object.freeze({start:.43,end:.50,from:1,to:2}),
@@ -16,22 +16,25 @@ export const CLIMATE_TRANSITIONS=Object.freeze([
 const unit=x=>Math.max(0,Math.min(1,Number.isFinite(x)?x:0));
 const smooth=x=>{const t=unit(x);return t*t*(3-2*t);};
 
-export function seasonAtProgress(progress){
+export function seasonAtProgress(progress, out = null){
  const p=unit(progress);
+ let from=3, to=3, mix=1;
  for(const step of CLIMATE_TRANSITIONS){
-  if(p<step.start) return {from:step.from,to:step.from,mix:1};
-  if(p<step.end) return {from:step.from,to:step.to,mix:smooth((p-step.start)/(step.end-step.start))};
+  if(p<step.start){from=step.from;to=step.from;mix=1;break;}
+  if(p<step.end-1e-12){from=step.from;to=step.to;mix=smooth((p-step.start)/(step.end-step.start));break;}
  }
- return {from:3,to:3,mix:1};
+ if(out){out.from=from;out.to=to;out.mix=mix;return out;}
+ return {from,to,mix};
 }
 
-export function seasonWeights(state){
- const weights=[0,0,0,0];
+export function seasonWeights(state, out = null){
+ const weights=out||[0,0,0,0];
+ weights[0]=0;weights[1]=0;weights[2]=0;weights[3]=0;
  weights[state.from]+=1-state.mix;
  weights[state.to]+=state.mix;
  return weights;
 }
 
-export function seasonFromFlight(game){
- return seasonAtProgress(climateJourneyProgress(game));
+export function seasonFromFlight(game, out = null){
+ return seasonAtProgress(climateJourneyProgress(game), out);
 }

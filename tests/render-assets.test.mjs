@@ -1,3 +1,4 @@
+import {WINTER_CAP_ART} from '../Chaua-Educa-main/js/winter-cap-data.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -21,7 +22,7 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  globalThis.Image=class {
   naturalWidth=627;naturalHeight=627;complete=true;
   set src(value){this.url=value;
-   const page=Object.values(RUNTIME_ART).flatMap(d=>d.pages).find(p=>value.endsWith(p.path.replace('../','')));
+   const page=Object.values(RUNTIME_ART).flatMap(d=>d.pages).find(p=>value.endsWith(p.path.replace('../','')))||WINTER_CAP_ART.pages.find(p=>value.endsWith(p.file));
    if(page){this.naturalWidth=page.width;this.naturalHeight=page.height;}
    if(value.includes('/public/snake/')){this.naturalWidth=1536;this.naturalHeight=768;}
    else if(value.includes('/public/parrot/fly/')){this.naturalWidth=1024;this.naturalHeight=512;}
@@ -32,6 +33,7 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  };
  const calls=[];
  const ctx=new Proxy({}, {get(target,key){
+  if(key==='createPattern')return (image,repetition)=>({image,repetition});
   if(key==='drawImage')return (img,...args)=>{assert.ok(args.every(Number.isFinite));calls.push(img.url ?? "cached-surface");};
   if(key==='createLinearGradient'||key==='createRadialGradient')return ()=>({addColorStop(){}});
   return target[key]??(()=>{});

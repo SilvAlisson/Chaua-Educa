@@ -1,3 +1,4 @@
+import {JOURNEY_LENGTH} from '../Chaua-Educa-main/js/journey.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, STEP } from '../Chaua-Educa-main/js/engine.mjs';
@@ -132,7 +133,7 @@ test('simultaneous fatal hazards stop scoring and emit one loss',()=>{
 });
 
 test('stage palette starts smoothly and the recoiling hawk leaves without tumbling',async()=>{
-    const g=new Game();g.state='playing';g.distance=6999.9;g.stageAge=40;g.y=300;g.nextSpawn=Infinity;
+    const g=new Game();g.state='playing';g.distance=JOURNEY_LENGTH/4-.1;g.stageAge=40;g.y=300;g.nextSpawn=Infinity;
     g.tick(STEP);assert.equal(g.stage,1);assert.ok(g.visual(.1).stageAge<STEP*2);
     const {advanceHawk}=await import('../Chaua-Educa-main/js/animals.mjs');
     const hawk={x:400,y:300,retreat:true,dazed:true,fallVy:0};

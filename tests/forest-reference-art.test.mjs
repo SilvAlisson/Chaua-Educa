@@ -1,3 +1,4 @@
+import {canvasSpy,installCanvasMock} from './helpers/canvas.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {FOREST_ART} from '../Chaua-Educa-main/js/forest-art-data.mjs';
@@ -16,18 +17,23 @@ test('new reference art loads through the shared cache with four upper/lower var
  assert.equal(SPRITES.snake,undefined,'Do not register the retired snake');
  assert.equal(FOREST_ART.snake,undefined);
 });
-test('all authored tree variants extend continuously without stretching the illustrated cap',()=>{
+test('all authored tree variants extend continuously without stretching the illustrated cap',t=>{
+ installCanvasMock(t);
+ const backup=new Map(images);t.after(()=>{images.clear();for(const [k,v] of backup)images.set(k,v)});
  for(const upper of [true,false])for(let variant=0;variant<4;variant++){
-  const calls=[];images.set(`trees-${upper?'upper':'lower'}`,{});
-  drawLivingTrunk({drawImage:(...a)=>calls.push(a)},{x:500,y:upper?180:420,upper,width:110,length:900,variant});
-  assert.equal(calls.length,2);assert.ok(calls.flatMap(a=>a.slice(1)).every(Number.isFinite));
-  const [,sx,sy,sw,sh,dx,dy,dw,dh]=calls[1];assert.ok(Math.abs(sw/sh-dw/dh)<1e-8,'authored art must keep its aspect ratio');
-  const ext=calls[0];assert.equal(ext[4],1);assert.equal(ext[7],110);assert.ok(ext[8]>0);
+  const {c,draws:calls,fills,patterns}=canvasSpy();images.set(`trees-${upper?'upper':'lower'}`,{});
+  drawLivingTrunk(c,{x:500,y:upper?180:420,upper,width:110,length:900,variant});
+  assert.equal(calls.length,1);assert.equal(fills.length,1);assert.equal(patterns.length,1);assert.ok(calls.flatMap(a=>a.slice(1)).every(Number.isFinite));
+  const [,sx,sy,sw,sh,dx,dy,dw,dh]=calls[0];assert.ok(Math.abs(sw/sh-dw/dh)<1e-8,'authored art must keep its aspect ratio');
+  assert.ok(fills[0][3]>0);
+  assert.equal(patterns[0].image.height,192,'repeat a complete reflected 96px bark band, never a scanline');
  }
 });
-test('refuge branch uses a measured wood contact, not an unrelated rectangle',()=>{
- images.set('trees-lower',{});const calls=[];drawRefugeTree({drawImage:(...a)=>calls.push(a)},{x:330},357);
- const f=FOREST_ART.lower[3],a=calls[1],scale=a[7]/a[3];
+test('refuge branch uses a measured wood contact, not an unrelated rectangle',t=>{
+ installCanvasMock(t);
+ const backup=new Map(images);t.after(()=>{images.clear();for(const [k,v] of backup)images.set(k,v)});
+ images.set('trees-lower',{});const {c,draws:calls}=canvasSpy();drawRefugeTree(c,{x:330},357);
+ const f=FOREST_ART.lower[3],a=calls[0],scale=a[7]/a[3];
  const x=a[5]+(f.perch[0]-f.content[0])*scale,y=a[6]+(f.perch[1]-f.content[1])*scale;
  assert.ok(Math.abs(x-337)<1e-8);assert.ok(Math.abs(y-353)<1e-8);
 });

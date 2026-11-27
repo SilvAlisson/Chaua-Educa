@@ -1,13 +1,14 @@
-export const CONTENT_REVIEWED = "2026-11-13";
+export const CONTENT_REVIEWED = "2026-11-15";
 export const SOURCES = {
+  panReport:{label:'ICMBio · Relatório PAN Chauá/Papagaios (2021)',url:'https://www.gov.br/icmbio/pt-br/assuntos/biodiversidade/pan/pan-papagaios/2-ciclo/produtos/2021-pan-papagaios-pan-chaua-relatorio-final-website.pdf'},
   inma: {label: "INMA · Chauá e ipê do Rio Doce (2025)", url: "https://www.gov.br/inma/pt-br/assuntos/noticias/papagaio-ameacado-ajuda-cientistas-a-descobrir-nova-populacao-de-ipe-raro-no-rio-doce"},
   game: {label: "Chauá Educa · elementos fictícios e regras do jogo", url: "#collection-dialog"},
   zoo: {
     label: "Fundação Jardim Zoológico de Brasília · Papagaio-chauá",
-    url: "https://www.zoo.df.gov.br/papagaio-chaua-amazona-rhodocorytha",
+    url: "https://zoo.df.gov.br/papagaio-chaua",
   },
   icmbio: {
-    label: "ICMBio · Plano de Ação Nacional dos Papagaios",
+    label: "ICMBio · PAN Papagaios, ciclo finalizado (2017–2022)",
     url: "https://www.gov.br/icmbio/pt-br/assuntos/biodiversidade/pan/pan-papagaios/pan-papagaios/",
   },
 };
@@ -18,7 +19,7 @@ export const QUESTIONS = [
     "text": "O papagaio-chauá vive na Mata Atlântica.",
     "answer": true,
     "explanation": "A Mata Atlântica é o habitat do chauá. Proteger essa floresta ajuda a conservar a espécie.",
-    "source": "zoo",
+    "source": "panReport",
     "entry": "habitat"
   },
   {
@@ -27,7 +28,7 @@ export const QUESTIONS = [
     "text": "O Pantanal é o habitat característico do papagaio-chauá.",
     "answer": false,
     "explanation": "O chauá é uma espécie da Mata Atlântica, e não uma ave característica do Pantanal.",
-    "source": "zoo",
+    "source": "panReport",
     "entry": "habitat"
   },
   {
@@ -63,7 +64,7 @@ export const QUESTIONS = [
     "text": "A destruição e a fragmentação das florestas não afetam o chauá.",
     "answer": false,
     "explanation": "A perda e a fragmentação do habitat estão entre as ameaças ao chauá.",
-    "source": "icmbio",
+    "source": "panReport",
     "entry": "conservacao"
   },
   {
@@ -80,7 +81,7 @@ export const QUESTIONS = [
     "topic": "Diversidade",
     "text": "Todos os papagaios brasileiros pertencem à mesma espécie.",
     "answer": false,
-    "explanation": "O PAN Papagaios contempla diferentes espécies, incluindo o chauá e o papagaio-de-peito-roxo.",
+    "explanation": "O PAN Papagaios reuniu ações para espécies diferentes, como o chauá e o papagaio-de-peito-roxo.",
     "source": "icmbio",
     "entry": "chaua"
   },
@@ -107,16 +108,16 @@ export const QUESTIONS = [
     "topic": "Pesquisa",
     "text": "Acompanhar chauás ajudou cientistas a localizar árvores raras.",
     "answer": true,
-    "explanation": "O monitoramento revelou ipês Handroanthus riodocensis.",
+    "explanation": "Observar a alimentação e os pousos das aves ajudou a localizar Handroanthus riodocensis, um ipê raro.",
     "source": "inma",
     "entry": "arvores"
   },
   {
     "id": "ipe-especie",
     "topic": "Diversidade",
-    "text": "Todos os ipês-amarelos pertencem à mesma espécie.",
+    "text": "Handroanthus riodocensis é o nome científico do chauá.",
     "answer": false,
-    "explanation": "Handroanthus riodocensis é uma espécie específica de ipê-amarelo.",
+    "explanation": "Esse nome identifica o ipê estudado. O nome científico do chauá é Amazona rhodocorytha.",
     "source": "inma",
     "entry": "arvores"
   },
@@ -132,7 +133,7 @@ export const QUESTIONS = [
   {
     "id": "plantas-isoladas",
     "topic": "Pesquisa",
-    "text": "Estudar aves nunca ajuda a conhecer melhor as plantas.",
+    "text": "Na pesquisa de Linhares, observar as aves não ajudou a encontrar os ipês.",
     "answer": false,
     "explanation": "O estudo do chauá ajudou a encontrar ipês raros.",
     "source": "inma",
@@ -159,9 +160,9 @@ export const QUESTIONS = [
   {
     "id": "educacao",
     "topic": "Conservação",
-    "text": "A educação ambiental participa das estratégias de conservação dos papagaios.",
+    "text": "A educação ambiental faz parte das estratégias para conservar papagaios.",
     "answer": true,
-    "explanation": "Sensibilizar a sociedade é uma das frentes descritas pelo ICMBio.",
+    "explanation": "O ICMBio incluiu sensibilização e educação para a conservação entre as frentes do PAN Papagaios.",
     "source": "icmbio",
     "entry": "conservacao"
   },
@@ -186,9 +187,9 @@ export const QUESTIONS = [
   {
     "id": "plano-unico",
     "topic": "Conservação",
-    "text": "Um plano de conservação só pode contemplar uma espécie de papagaio.",
+    "text": "O PAN Papagaios reuniu ações apenas para a espécie chauá.",
     "answer": false,
-    "explanation": "O PAN Papagaios reuniu ações para várias espécies.",
+    "explanation": "O PAN Papagaios incluiu o chauá e outras espécies; seu segundo ciclo ocorreu de 2017 a 2022.",
     "source": "icmbio",
     "entry": "conservacao"
   },
@@ -231,4 +232,5 @@ export const QUESTIONS = [
 ];
 
 const ENTRY_BY_TOPIC = {Habitat:"habitat", Distribuição:"chaua", "Conheça o chauá":"chaua", Conservação:"conservacao", Diversidade:"chaua"};
-for (const question of QUESTIONS) { question.entry ??= ENTRY_BY_TOPIC[question.topic]; question.reviewed = CONTENT_REVIEWED; }
+const CHAPTERS_BY_TOPIC={Habitat:[1,2],Distribuição:[3],'Conheça o chauá':[0],Conservação:[2,3],Diversidade:[0,1],Alimentação:[0],Pesquisa:[1],'Jogo e natureza':[0,1,2,3]};
+for (const question of QUESTIONS) { question.chapters=[...CHAPTERS_BY_TOPIC[question.topic]]; question.entry ??= ENTRY_BY_TOPIC[question.topic]; question.reviewed = CONTENT_REVIEWED; }
