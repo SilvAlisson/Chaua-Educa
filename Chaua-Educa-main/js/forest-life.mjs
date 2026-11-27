@@ -1,3 +1,4 @@
+import {createArtSurface} from './art-surface.mjs';
 import {winterAmount, summerSunAmount} from './living-motion.mjs';
 
 // Renders living forest atmosphere:
@@ -13,7 +14,7 @@ let forestSprites=null;
 function getForestSprites(){
  if(forestSprites)return forestSprites;
  if(typeof document==='undefined')return null;
- const sun=document.createElement('canvas');
+ const sun=createArtSurface();
  sun.width=128;sun.height=128;
  const sc=sun.getContext('2d');
  if(!sc)return null;
@@ -23,7 +24,7 @@ function getForestSprites(){
  sg.addColorStop(.55,'#fde68a66');
  sg.addColorStop(1,'#f59e0b00');
  sc.fillStyle=sg;sc.fillRect(0,0,128,128);
- const mist=document.createElement('canvas');
+ const mist=createArtSurface();
  mist.width=1;mist.height=128;
  const mc=mist.getContext('2d');
  if(!mc)return null;

@@ -10,7 +10,12 @@ fs.mkdirSync(out,{recursive:true});
    const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
-   await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
+   // Static art probes jump between snow levels without a flight clock.
+   const artUrl=new URL(process.env.GAME_URL||'http://127.0.0.1:5501/');
+   artUrl.searchParams.set('perf-test','1');
+   artUrl.searchParams.set('perf-ab','pixi-webgl-winter');
+   artUrl.searchParams.set('perf-winter','eager');
+   await page.goto(artUrl.toString(),{waitUntil:'networkidle'});
    await page.evaluate(async()=>{
     const [{Renderer},{Game},{setWeatherMode}]=await Promise.all([
      import('/js/render.mjs'),import('/js/engine.mjs'),import('/js/weather.mjs')

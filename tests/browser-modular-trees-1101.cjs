@@ -5,7 +5,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),pw=req
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.route(/\/js\/script\.js(?:\?.*)?$/,r=>r.fulfill({contentType:'text/javascript',body:''}));
-  await page.goto(process.env.GAME_URL||'http://127.0.0.1:5501/',{waitUntil:'networkidle'});
+  // Static art probes jump between snow levels without a flight clock.
+   const artUrl=new URL(process.env.GAME_URL||'http://127.0.0.1:5501/');
+   artUrl.searchParams.set('perf-test','1');
+   artUrl.searchParams.set('perf-ab','pixi-webgl-winter');
+   artUrl.searchParams.set('perf-winter','eager');
+   await page.goto(artUrl.toString(),{waitUntil:'networkidle'});
   const result=await page.evaluate(async()=>{
    const {loadAssets,images}=await import('/js/assets.mjs');await loadAssets();
    const {drawLivingTrunk,drawTreeVariant,prepareTreeWeather}=await import('/js/tree-art.mjs');

@@ -1,3 +1,4 @@
+import {PERF_AB_VARIANT} from './perf-ab.mjs';
 const CAN_YIELD_TASK = typeof window !== 'undefined' && typeof document !== 'undefined'
  && typeof OffscreenCanvas !== 'undefined' && typeof requestAnimationFrame === 'function'
  && typeof performance !== 'undefined';
@@ -93,7 +94,8 @@ export function loadImage(url,{width,height,errorMessage=`Não foi possível car
    try {
     if(typeof image.decode==='function')await image.decode();
     if(settled)return;
-    if(representation==='bitmap'&&typeof createImageBitmap==='function'){
+    const nativeTexture=PERF_AB_VARIANT==='pixi-webgl-winter';
+    if((representation==='bitmap'||nativeTexture)&&typeof createImageBitmap==='function'){
      const bitmap=await tryImageBitmap(image);
      if(settled){bitmap?.close();return;}
      if(bitmap){
@@ -101,7 +103,7 @@ export function loadImage(url,{width,height,errorMessage=`Não foi possível car
       bitmap.close();
      }
     }
-    if(representation==='image'){finish(null,image);return;}
+    if(representation==='image'||nativeTexture){finish(null,image);return;}
     if(!CAN_YIELD_TASK){finish(null,rasterizeLoadedImage(image));return;}
     // Download & decode succeeded; cancel network timeout before waiting in rasterQueue.
     clearTimeout(timer);

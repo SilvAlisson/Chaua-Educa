@@ -113,7 +113,7 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
   climateTimeline.push({reason,seconds:round(game.elapsed||0),distance:Math.round(game.distance||0),
    weather:getWeatherMode(),from:SEASON_NAMES[season.from],to:SEASON_NAMES[season.to],
    mix:round(season.mix,3),cold:round(winterAmount(game),3),
-   snow:round(snow,3),snowStage,expectedSnowPage:winterCapFrame('lower',snowStage,0)?.[0]??null});
+   snow:round(snow,3),snowStage,expectedSnowPage:PRECOMPOSED_SNOW_COMPACT_STAGES?(snowStage||null):(winterCapFrame('lower',snowStage,0)?.[0]??null)});
  };
  const logBackdrop=(event,details={})=>{
   addTransition({type:'seasonal-backdrop-'+event,
@@ -221,7 +221,8 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
     switches:stageCacheSwitches,
     prefetchEvents:stagePrefetchEvents
    },
-   experiments:{perfAB:PERF_AB_VARIANT,
+   experiments:{perfAB:PERF_AB_VARIANT,flightBackend:renderer.flightBackend??'canvas2d',
+    backendError:renderer.flightBackendError??null,
     winterCapRepresentations:PRECOMPOSED_SNOW_COMPACT_STAGES
      ?(WINTER_CAP_ART.stagePages||[]).filter(Boolean).map(page=>{
       const asset=images.get(winterStageKey(page.stage));
@@ -233,8 +234,14 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
      }),
     snakeWarmupEnabled:!!renderer.snakeWarmupEnabled,
     snakeSheetsWarmed:renderer.snakeWarmupIndex||0,
-    seasonalSliceRows:renderer.seasonalBackdrop?.sliceRows??null,
-    seasonalBudgetMs:renderer.seasonalBackdrop?.budgetMs??null,
+    seasonalBackdrop:renderer.seasonalBackdropMode,
+    wetFruit:renderer.wetFruitMode,
+    winterLoadingMode:renderer.winterStageStream?'streamed':'eager',
+    winterLoading:renderer.winterStageStream?.report()??null,
+    assetStartupMs:renderer.assetStartupMs??null,
+    sceneGraph:renderer.c.sceneGraphReport?.()??null,
+    seasonalSliceRows:renderer.seasonalBackdropMode==='cached-strips'?renderer.seasonalBackdrop?.sliceRows??null:null,
+    seasonalBudgetMs:renderer.seasonalBackdropMode==='cached-strips'?renderer.seasonalBackdrop?.budgetMs??null:null,
     ignoredLongLightWorkGaps:quality.ignoredSchedulingGaps??0},
    // Causality is NEVER inferred merely from proximity. Long Animation Frames
    // and measured operation timings are provided as separate evidence.
@@ -304,7 +311,7 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
    forensics.event('snow-threshold-crossing',details);
    lastSnowActive=snowActive;
   }
-  const expectedSnowPage=winterCapFrame('lower',snowStage,0)?.[0]??null;
+  const expectedSnowPage=PRECOMPOSED_SNOW_COMPACT_STAGES?(snowStage||null):(winterCapFrame('lower',snowStage,0)?.[0]??null);
   if(expectedSnowPage!==lastExpectedSnowPage){
    const details={atSeconds:round((wallNow-startTime)/1000,3),seconds:round(game.elapsed||0),
     from:lastExpectedSnowPage,to:expectedSnowPage,snowStage,replayStep:getReplay?.()?.step??null};
@@ -422,7 +429,7 @@ export function mountPerformanceProbe({game,quality,renderer,replayLaunch=null,g
   try{
    await replayLaunch(startCapture);
   }catch(error){
-   label.textContent='Não foi possível iniciar o voo de referência.';
+   label.textContent='Falha ao iniciar o voo de referência: '+error.message;
    console.error(error);
   }finally{
    replay.disabled=active;

@@ -1,3 +1,4 @@
+import {createArtSurface} from './art-surface.mjs';
 import {PERF_AB_VARIANT} from './perf-ab.mjs';
 
 // Winter VFX are procedural and use the original character/tree art intact.
@@ -11,7 +12,7 @@ let snowSpriteSheet=null;
 function getSnowSpriteSheet(){
  if(snowSpriteSheet)return snowSpriteSheet;
  if(typeof document==='undefined')return null;
- const canvas=document.createElement('canvas');
+ const canvas=createArtSurface();
  canvas.width=48;canvas.height=16;
  const sc=canvas.getContext('2d');
  if(!sc)return null;
@@ -58,8 +59,9 @@ export function drawSnowfall(c,w,h,time,intensity,reduced=false,low=false,wind=0
  if(amount<=.012||reduced||w<=0||h<=0||PERF_AB_VARIANT==='snow-flakes-off')return;
  const layers=foreground?(low?FOREGROUND_LAYERS_LOW:FOREGROUND_LAYERS_NORMAL):
   (low?BACKGROUND_LAYERS_LOW:BACKGROUND_LAYERS_NORMAL);
- const sprites=typeof c.drawImage==='function'?getSnowSpriteSheet():null;
- const needClip=!sprites||!isFullSurfaceViewport(c,w,h);
+ const sheet=typeof c.drawImage==='function'?getSnowSpriteSheet():null;
+ const sprites=PERF_AB_VARIANT==='compact-batched-flakes'?null:sheet;
+ const needClip=!sheet||!isFullSurfaceViewport(c,w,h);
  c.save();
  if(needClip){c.beginPath();c.rect(0,0,w,h);c.clip();}
  for(const {depth,count} of layers){
@@ -134,7 +136,7 @@ export function snowRevealHeight(intensity,column=0){
 const revealPaths=new Map(),REVEAL_PATH_LIMIT=192;
 export function clipSnowReveal(c,x,y,width,height,intensity){
  const columns=32;
- if(typeof Path2D!=='undefined'&&PERF_AB_VARIANT!=='legacy-snow-clips'){
+ if(!c.gpu&&typeof Path2D!=='undefined'&&PERF_AB_VARIANT!=='legacy-snow-clips'){
   const step=Math.round(clamp01(intensity)*256);
   const key=`${x}:${y}:${width}:${height}:${step}`;
   let path=revealPaths.get(key);

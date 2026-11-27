@@ -17,7 +17,8 @@ function previousClear(previous, cx, cy) {
  }
  return true;
 }
-import {loadImage} from './image-loader.mjs';
+import {loadCatalogAsset} from './assets.mjs';
+import {SNAKE_A2_GRID,SNAKE_SHEET_DEFS} from './asset-manifest.mjs';
 import {SNAKE_ATTACK_ART} from './snake-attack-art.mjs';
 import {snakeAttack} from './attack-patterns.mjs';
 import {SNAKE_TIMING} from './animals.mjs';
@@ -26,15 +27,8 @@ import {shapesHitRect} from './collision.mjs';
 import {SNAKE_A2_MASKS} from './snake-a2-masks.mjs';
 
 // Official snake implementation: no legacy art or query-string toggle.
-export const SNAKE_A2_GRID=Object.freeze({columns:4,rows:2,cell:384,anchorX:192,anchorY:352});
-const PATHS=Object.freeze({
- idle:'../public/snake/base/idle.webp',
- attack:'../public/snake/attack/attack.webp',
- stunned:'../public/snake/reactions/stunned.webp',
- high:'../public/snake/attack/high.webp',
- sweep:'../public/snake/attack/sweep.webp'
-});
-export const SNAKE_SHEET_KEYS=Object.freeze(Object.keys(PATHS));
+export {SNAKE_A2_GRID};
+export const SNAKE_SHEET_KEYS=Object.freeze(Object.keys(SNAKE_SHEET_DEFS));
 export const snakeA2ArtScale=pose=>SNAKE_ATTACK_ART[pose?.key]?.scale??1;
 export function snakePlacement(wood){return {x:wood.x+29,y:wood.bottom+20,factor:.52,facing:1};}
 const images=new Map();
@@ -255,12 +249,8 @@ export function preloadSnakeA2(){
  if(typeof Image==='undefined')return Promise.resolve();
  if(loading)return loading;
  prepareScaledFootprint('high');prepareScaledFootprint('sweep');
- loading=Promise.all(Object.entries(PATHS).map(async([key,path])=>{
-  const url=new URL(path,import.meta.url).href;
-  const image=await loadImage(url,{width:SNAKE_A2_GRID.columns*SNAKE_A2_GRID.cell,height:SNAKE_A2_GRID.rows*SNAKE_A2_GRID.cell,
-   errorMessage:`Não foi possível carregar a cobra A2 (${key}): ${url}`});
-  return [key,image];
- })).then(entries=>{for(const [key,image] of entries)images.set(key,image);})
+ loading=Promise.all(SNAKE_SHEET_KEYS.map(async key=>[key,await loadCatalogAsset('snake:'+key,'canvas','Não foi possível carregar a cobra A2 ('+key+')')]))
+ .then(entries=>{for(const [key,image] of entries)images.set(key,image);})
  .catch(error=>{loading=null;throw error;});
  return loading;
 }
@@ -289,8 +279,8 @@ export function drawSnakeA2(c,s,factor,reduced=false){
  factor*=snakeA2ArtScale(pose);
  const image=images.get(pose.key);
  if(!image)throw new Error(`Sprite A2 ausente: ${pose.key}`);
- const {columns,cell,anchorX,anchorY}=SNAKE_A2_GRID;
- const sx=pose.frame%columns*cell,sy=Math.floor(pose.frame/columns)*cell;
+ const {cell,anchorX,anchorY}=SNAKE_A2_GRID;
+ const [sx,sy]=SNAKE_SHEET_DEFS[pose.key].frames[pose.frame].rect;
  // The generated A2 sheet mixes directions: idle and windup already
  // face the incoming Chauá (left), whereas peak strike poses face right.
  // Mirror ONLY the right-facing poses; a global flip made the snake turn

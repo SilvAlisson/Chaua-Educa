@@ -3,12 +3,13 @@ import {readFileSync,existsSync,readdirSync,statSync,writeFileSync,mkdirSync} fr
 import {resolve,relative,dirname,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
-import {ASSET_PATHS} from '../Chaua-Educa-main/js/assets.mjs';
+import {ASSET_CATALOG} from '../Chaua-Educa-main/js/asset-manifest.mjs';
 import {ACTION_SHEET_DEFS} from '../Chaua-Educa-main/js/action-sheets.mjs';
 import {RUNTIME_ART} from '../Chaua-Educa-main/js/runtime-art-data.mjs';
 import {JOURNAL_PHOTOS,CONSERVATION_SOURCES} from '../Chaua-Educa-main/js/journal-content.mjs';
 import {SOURCES} from '../Chaua-Educa-main/js/questions.mjs';
 import {GAME_VERSION} from '../Chaua-Educa-main/js/version.mjs';
+import {GLYPH_URL} from '../Chaua-Educa-main/js/pixi-glyphs.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),app=resolve(root,'Chaua-Educa-main'),js=resolve(app,'js');
 const files=new Set(),modules=new Set(),externals=new Set(),errors=[];
 const fail=m=>errors.push(m),read=p=>readFileSync(p,'utf8'),hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
@@ -32,7 +33,25 @@ for(const m of html.matchAll(/\b(?:src|href)="([^"]+)"/g)){
 }
 for(const m of html.matchAll(/\b(?:for|aria-labelledby|aria-controls)="([^"]+)"/g))for(const id of m[1].split(/\s+/))if(!ids.has(id)&&!dynamicIds.has(id))fail(`Missing control/label: ${id}`);
 for(const m of read(cssPath).matchAll(/url\(['"]?([^)'"\s]+)['"]?\)/g))if(!m[1].startsWith('data:'))requireFile(resolve(dirname(cssPath),m[1]),'CSS URL');
-for(const p of Object.values(ASSET_PATHS))requireFile(resolve(js,p),'ASSET_PATHS');
+for(const [id,asset] of Object.entries(ASSET_CATALOG)){
+ const path=resolve(js,asset.path);
+ requireFile(path,'asset catalog');
+ if(existsSync(path)){
+  const bytes=readFileSync(path);
+  const type=bytes.toString('ascii',12,16);
+  let dimensions;
+  if(type==='VP8X'&&bytes.length>=30)dimensions=[1+bytes.readUIntLE(24,3),1+bytes.readUIntLE(27,3)];
+  if(type==='VP8 '&&bytes.length>=30)dimensions=[bytes.readUInt16LE(26)&0x3fff,bytes.readUInt16LE(28)&0x3fff];
+  if(type==='VP8L'&&bytes.length>=25){const bits=bytes.readUInt32LE(21);dimensions=[1+(bits&0x3fff),1+((bits>>>14)&0x3fff)];}
+  if(dimensions?.[0]!==asset.width||dimensions?.[1]!==asset.height)fail('Asset dimensions differ from catalog: '+id);
+ }
+ for(const {rect:[x,y,w,h],anchor} of asset.frames){
+  if(![x,y,w,h].every(Number.isInteger)||x<0||y<0||w<=0||h<=0||x+w>asset.width||y+h>asset.height)
+   fail('Frame outside atlas: '+id);
+  if(anchor&&!anchor.every(Number.isFinite))fail('Invalid frame anchor: '+id);
+ }
+}
+requireFile(fileURLToPath(GLYPH_URL),'Pixi glyph atlas');
 const winterArtDir=resolve(app,'assets/Seasons/Winter/Precomposed');
 const winterManifest=JSON.parse(read(resolve(winterArtDir,'manifest.json')));
 if(winterManifest.stages!==16)fail('Invalid winter stage count');

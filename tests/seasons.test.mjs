@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {journeySeason,SeasonalBackdrop,drawSeasonParticles} from '../Chaua-Educa-main/js/seasons.mjs';
+import {journeySeason,SeasonalBackdrop,drawDirectSeasonalBackdrop,drawSeasonParticles} from '../Chaua-Educa-main/js/seasons.mjs';
 import {climateReferenceSeconds} from '../Chaua-Educa-main/js/climate-progress.mjs';
 import {getWeatherMode,setWeatherMode} from '../Chaua-Educa-main/js/weather.mjs';
 const at=(p,mode='aventura',seed=104)=>({mode,seed,elapsed:climateReferenceSeconds(mode,seed)*p,distance:28000});
@@ -12,6 +12,26 @@ test('one calibrated season timeline has authored, non-reversing transitions',t=
   assert.deepEqual(journeySeason(at(end)),{from:to,to,mix:1});
  }
  assert.throws(()=>journeySeason(19000),/requires the current Game/);
+});
+test('direct atlas backdrop covers the viewport at both drift extremes without changing the crossfade',t=>{
+ const previous=getWeatherMode();t.after(()=>setWeatherMode(previous));setWeatherMode('auto');
+ const atlas={naturalWidth:1672,naturalHeight:941};
+ const game=at(.235);
+ for(const [width,height,dpr] of [[834,375,2],[390,844,1],[834,375,1.37]]){
+  let frame;
+  const scene={drawSeasonalAtlas(...args){frame=args;}};
+  const draw=(time,reduced)=>drawDirectSeasonalBackdrop(scene,atlas,width,height,dpr,time,game,reduced);
+  for(const direction of [-1,1]){
+   draw(direction*Math.PI/.07,false);
+   const [texture,state,x,y,w,h]=frame;
+   assert.equal(texture,atlas);
+   assert.deepEqual([state.from,state.to],[0,1]);
+   assert.ok(Math.abs(state.mix-.5)<1e-8);
+   assert.ok(x<=0&&y<=0&&x+w>=Math.round(width*dpr)&&y+h>=Math.round(height*dpr));
+  }
+  draw(0,true);const still=frame;
+  draw(300,true);assert.deepEqual(frame,still);
+ }
 });
 test('reduced motion disables seasonal particles',()=>{
  drawSeasonParticles(new Proxy({},{get(){throw Error('must not draw');}}),{},800,600,10,at(.4),true,false);

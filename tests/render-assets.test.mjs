@@ -1,9 +1,8 @@
-import {WINTER_CAP_ART} from '../Chaua-Educa-main/js/winter-cap-data.mjs';
+import {ASSET_CATALOG} from '../Chaua-Educa-main/js/asset-manifest.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {ASSET_PATHS, images} from '../Chaua-Educa-main/js/assets.mjs';
-import {RUNTIME_ART} from '../Chaua-Educa-main/js/runtime-art-data.mjs';
+import {ASSET_PATHS, STARTUP_ASSET_KEYS, images} from '../Chaua-Educa-main/js/assets.mjs';
 import {Renderer} from '../Chaua-Educa-main/js/render.mjs';
 import {Game} from '../Chaua-Educa-main/js/engine.mjs';
 
@@ -22,7 +21,7 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  globalThis.Image=class {
   naturalWidth=627;naturalHeight=627;complete=true;
   set src(value){this.url=value;
-   const page=Object.values(RUNTIME_ART).flatMap(d=>d.pages).find(p=>value.endsWith(p.path.replace('../','')))||WINTER_CAP_ART.pages.find(p=>value.endsWith(p.file));
+   const page=Object.values(ASSET_CATALOG).find(p=>value.endsWith(p.path.slice(2)));
    if(page){this.naturalWidth=page.width;this.naturalHeight=page.height;}
    if(value.includes('/public/snake/')){this.naturalWidth=1536;this.naturalHeight=768;}
    else if(value.includes('/public/parrot/fly/')){this.naturalWidth=1024;this.naturalHeight=512;}
@@ -66,7 +65,7 @@ test('render paths draw authored art for home, flight, obstacles, enemies and po
  assert.ok(calls.some(url=>url.endsWith('/tree-variants.webp')));
  assert.ok(calls.some(url=>url.endsWith('/parrot/fly/flight.webp')), 'official parrot flight must render');
  assert.ok(calls.some(url=>url.endsWith('/hawk/fly/flight.webp')), 'official hawk flight must render');
- assert.equal(images.size,Object.keys(ASSET_PATHS).length);
+ assert.equal(images.size,STARTUP_ASSET_KEYS.length);
 });
 test('snake collision follows lower trunk and clears after shield retreat',()=>{
  const g=new Game(),e={x:400,top:180,bottom:450,snake:{retreat:false}};

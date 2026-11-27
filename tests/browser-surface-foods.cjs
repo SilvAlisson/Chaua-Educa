@@ -7,7 +7,12 @@ const root=process.env.GAME_URL||'http://127.0.0.1:5501/';
  try{
   const page=await browser.newPage({viewport:{width:1366,height:768}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(root,{waitUntil:'networkidle'});await page.locator('#start-training:not([disabled])').waitFor();
+  // Static art probes jump between snow levels without a flight clock.
+   const artUrl=new URL(root);
+   artUrl.searchParams.set('perf-test','1');
+   artUrl.searchParams.set('perf-ab','pixi-webgl-winter');
+   artUrl.searchParams.set('perf-winter','eager');
+   await page.goto(artUrl.toString(),{waitUntil:'networkidle'});await page.locator('#start-training:not([disabled])').waitFor();
   const result=await page.evaluate(async()=>{
    const {FOODS}=await import('/js/foods.mjs'),{drawFood}=await import('/js/food-art.mjs');
    const {drawLivingTrunk}=await import('/js/tree-art.mjs');

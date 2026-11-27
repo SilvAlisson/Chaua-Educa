@@ -1,3 +1,4 @@
+import {createArtSurface} from './art-surface.mjs';
 import {WINTER_CAP_ART} from './winter-cap-data.mjs';
 import {TREE_WIDTH} from './forest-geometry.mjs';
 import {FOREST_ART} from './forest-art-data.mjs';
@@ -15,8 +16,11 @@ const WINTER_CAP_STAGE_ASSETS=Object.freeze(
  (WINTER_CAP_ART.stagePages||[]).map((p,stage)=>p?`winter-cap:stage-${stage}`:null)
 );
 const COMPACT_STAGE_PACKED_SCRATCH=[0,0,0,0,0];
-function resolveWinterCapArt(kind,stage,variant){
+function resolveWinterCapArt(c,kind,stage,variant){
  if(PRECOMPOSED_SNOW_COMPACT_STAGES){
+  // Stage 15 for living trunks is supplied by the full-snow source atlas.
+  if(stage===WINTER_CAP_ART.stages-1&&kind!=='special')return null;
+  if(stage>0&&Number.isInteger(c.winterDisplayStage))stage=c.winterDisplayStage;
   const f=winterStageFrame(kind,stage,variant);
   if(!f)return null;
   COMPACT_STAGE_PACKED_SCRATCH[0]=stage;
@@ -166,9 +170,7 @@ function winterStageCache(stage,sourceImage,expectedPage,warmup=false){
  if(!band||!sourceImage||(expectedPage!==undefined&&band.page!==expectedPage))return null;
  let buf=activeWinterStageBuffer;
  if(!buf){
-  const surface=typeof OffscreenCanvas!=='undefined'
-   ?new OffscreenCanvas(stageBands.maxWidth,stageBands.maxHeight)
-   :typeof document!=='undefined'?document.createElement('canvas'):null;
+  const surface=createArtSurface();
   if(!surface)return null;
   surface.width=stageBands.maxWidth;
   surface.height=stageBands.maxHeight;
@@ -231,6 +233,7 @@ function drawWinterCap(c,image,packed,dx,dy,dw,dh,kind,stage,variant){
  let source=image,sy=packed[2],usedStageCache=false,usedCompactStage=false;
  if(PRECOMPOSED_SNOW_COMPACT_STAGES){
   usedCompactStage=true;
+  stage=packed[0];
   if(lastCompactStage!==stage){
    lastCompactStage=stage;
    winterStageCacheMetrics.copies++;
@@ -313,7 +316,7 @@ function barkTile(image,key,sx,sy,width,height,reverse){
  let entries=barkTiles.get(image);
  if(!entries){entries=new Map();barkTiles.set(image,entries);}
  if(entries.has(key))return entries.get(key);
- const canvas=typeof document!=='undefined'?document.createElement('canvas'):new OffscreenCanvas(Math.ceil(width),height*2);
+ const canvas=createArtSurface();
  canvas.width=Math.ceil(width);canvas.height=height*2;
  const c=canvas.getContext('2d');
  for(let row=0;row<2;row++){
@@ -345,7 +348,7 @@ function livingBark(image,kind,index,f){
 const wetVariantCaps=new WeakMap();
 function wetVariantCap(image){
  let canvas=wetVariantCaps.get(image);if(canvas)return canvas;
- canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(256,256):document.createElement('canvas');
+ canvas=createArtSurface();
  canvas.width=256;canvas.height=256;
  const c=canvas.getContext('2d');
  drawPackedSection(c,'wet','variants-0',0,0,256,256,0,0,256,256,{recordFirstDraw:false});
@@ -367,7 +370,7 @@ function cachedLivingSnowOverlay(kind, variantIdx, overlay, sx, sy, cx, sourceOf
  const key = `${kind}:${variantIdx}`;
  let entry = snowCapBuffers.get(key);
  if (!entry || entry.w !== cw || entry.h !== sourceHeight) {
-  const surface = entry?.surface ?? new OffscreenCanvas(cw, sourceHeight);
+  const surface = entry?.surface ?? createArtSurface(cw, sourceHeight);
   surface.width = cw; surface.height = sourceHeight;
   const oc = surface.getContext('2d');
   if (!oc) return null;
@@ -395,7 +398,7 @@ function cachedVariantSnowOverlay(index, snowImage, sx, sy, splice, snow) {
  const step = Math.round(Math.min(1, Math.max(0, snow)) * 256);
  let entry = variantSnowCapBuffers.get(index);
  if (!entry || entry.h !== splice) {
-  const surface = entry?.surface ?? new OffscreenCanvas(TREE_CELL, splice);
+  const surface = entry?.surface ?? createArtSurface(TREE_CELL, splice);
   surface.width = TREE_CELL; surface.height = splice;
   const oc = surface.getContext('2d');
   if (!oc) return null;
@@ -424,13 +427,13 @@ export function drawLivingTrunk(c, {x, y, upper = false, width = TREE_WIDTH, len
  const precomposedLevel=PRECOMPOSED_SNOW_ACTIVE?precomposedSnowStage(treeSnow):0;
  maybePrefetchFirstWinterStage(treeSnow,precomposedLevel);
 
- const fullSnow = treeSnow >= 1 - 1e-6;
+ const fullSnow = treeSnow >= 1 - 1e-6 || (precomposedLevel>0&&c.winterDisplayStage===WINTER_CAP_ART.stages-1);
  const snowImg4 = fullSnow ? images.get(`trees-${kind}-snow-04`) : null;
  const image = snowImg4 || images.get(`trees-${kind}`);
  if (!image) return;
 
  const variantIdx=((variant % 4) + 4) % 4;
- const capArt=resolveWinterCapArt(kind,precomposedLevel,variantIdx);
+ const capArt=resolveWinterCapArt(c,kind,precomposedLevel,variantIdx);
  const packed=capArt?.packed??null;
  const capImage=capArt?.image??null;
  const f = FOREST_ART[kind][variantIdx], s = width / (f.core[1] - f.core[0]);
@@ -524,7 +527,7 @@ export function drawTreeVariant(c, x, y, upper, kind, breakAge, snow = 0, rain =
  const precomposedLevel=PRECOMPOSED_SNOW_ACTIVE&&!upper&&breakAge===undefined?precomposedSnowStage(snow):0;
  if(!upper&&breakAge===undefined)maybePrefetchFirstWinterStage(snow,precomposedLevel);
  const index = TREE_VARIANT_INDEX[kind] ?? -1;
- const capArt=resolveWinterCapArt('special',precomposedLevel,index);
+ const capArt=resolveWinterCapArt(c,'special',precomposedLevel,index);
  const packed=capArt?.packed??null;
  const preparedVariant=capArt?.image??null;
  if (!image || index < 0) return;
@@ -786,7 +789,7 @@ function snowOverlay(kind,amount){
  if(!image)return null;
  let buffer=snowMixBuffers.get(kind);
  if(!buffer){
-  const canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(1024,1024):typeof document!=='undefined'?document.createElement('canvas'):null;
+  const canvas=createArtSurface();
   // Without a canvas, skip partial cover rather than show full winter at entry.
   if(!canvas)return amount>=1?image:null;
   canvas.width=1024;canvas.height=1024;buffer={canvas,c:canvas.getContext('2d'),amount:-1,image};snowMixBuffers.set(kind,buffer);

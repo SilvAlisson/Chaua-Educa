@@ -1,3 +1,4 @@
+import {createArtSurface} from './art-surface.mjs';
 import { JOURNEY,journeyReferenceDistance } from './journey.mjs';
 import {lightningStrikeAt} from './lightning.mjs';
 import { smoothstep } from './motion.mjs';
@@ -132,7 +133,7 @@ function getWeatherGradientStrips(){
     if(weatherStripCache)return weatherStripCache;
     if(typeof document==='undefined')return null;
     const make=(stops)=>{
-        const canvas=document.createElement('canvas');
+        const canvas=createArtSurface();
         canvas.width=1;canvas.height=256;
         const sc=canvas.getContext('2d');
         if(!sc)return null;
@@ -191,7 +192,7 @@ export function lightningFlashStrength(time, storm=1, reduced=false) {
 }
 
 let lightningBoltCache=null;
-function getLightningBoltSprite(strikeIndex,width,height){
+function getLightningBoltSprite(strikeIndex,width,height,consumer){
  if(typeof document==='undefined')return null;
  if(lightningBoltCache&&lightningBoltCache.index===strikeIndex&&lightningBoltCache.w===width&&lightningBoltCache.h===height){
   return lightningBoltCache.canvas;
@@ -200,7 +201,7 @@ function getLightningBoltSprite(strikeIndex,width,height){
  const maxX=Math.ceil(Math.max(width*0.46,width*0.62)+78);
  const maxY=Math.ceil(height*0.78+16);
  const bw=Math.max(32,maxX-minX),bh=Math.max(32,maxY);
- const canvas=lightningBoltCache?.canvas??document.createElement('canvas');
+ const canvas=lightningBoltCache?.canvas??createArtSurface();
  canvas.width=bw;canvas.height=bh;
  const lc=canvas.getContext('2d');
  if(!lc)return null;
@@ -223,6 +224,7 @@ function getLightningBoltSprite(strikeIndex,width,height){
  lc.lineTo(startX+(targetX-startX)*.5+65,targetY*.78);
  lc.stroke();
  lc.restore();
+ consumer?.refreshImage?.(canvas);
  lightningBoltCache={index:strikeIndex,w:width,h:height,x:minX,bw,bh,canvas};
  return canvas;
 }
@@ -243,7 +245,7 @@ export function drawLightning(context, width, height, time, storm, reduced) {
     // 2. Visible jagged electric lightning bolt tearing through the sky
     if (!reduced && flash > 0.25) {
         const boltSprite = typeof context.drawImage === 'function'
-            ? getLightningBoltSprite(strike.index, width, height) : null;
+            ? getLightningBoltSprite(strike.index, width, height, context) : null;
         if (boltSprite) {
             context.globalAlpha = Math.min(1, flash * 1.1);
             context.drawImage(boltSprite, lightningBoltCache.x, 0, lightningBoltCache.bw, lightningBoltCache.bh);
@@ -334,8 +336,7 @@ function getRainDropSheet(tiltStep) {
  const cellW = Math.max(16, maxX - minX);
  const cellH = 30;
  const ox = -minX, oy = 4;
- const surface = typeof document !== 'undefined' ? document.createElement('canvas') :
-  new OffscreenCanvas(cellW * 3 * RAIN_DROP_SCALE, cellH * 3 * RAIN_DROP_SCALE);
+ const surface = createArtSurface();
  surface.width = cellW * 3 * RAIN_DROP_SCALE;
  surface.height = cellH * 3 * RAIN_DROP_SCALE;
  const oc = surface.getContext('2d');
@@ -388,7 +389,7 @@ function getWeatherVfxSprites(){
  if(weatherVfxSprites)return weatherVfxSprites;
  if(typeof document==='undefined')return null;
  // Ripples (4 quantized radii inside 24x16 cells -> 96x16) and surface impacts (4 inside 16x12 -> 64x12).
- const ripples=document.createElement('canvas');
+ const ripples=createArtSurface();
  ripples.width=96;ripples.height=16;
  const rc=ripples.getContext('2d');
  if(!rc)return null;
@@ -399,7 +400,7 @@ function getWeatherVfxSprites(){
   rc.ellipse(q*24+12,8,(1.7+phase*6)*1.2,(.6+phase*2.3)*1.2,0,0,Math.PI*2);
   rc.stroke();
  }
- const impacts=document.createElement('canvas');
+ const impacts=createArtSurface();
  impacts.width=64;impacts.height=12;
  const ic=impacts.getContext('2d');
  if(!ic)return null;
@@ -411,7 +412,7 @@ function getWeatherVfxSprites(){
   ic.fill();
  }
  // Wind gust Bezier curve pre-baked at 2x (row 0: dark outline, row 1: crisp highlight).
- const gusts=document.createElement('canvas');
+ const gusts=createArtSurface();
  gusts.width=320;gusts.height=160;
  const gc=gusts.getContext('2d');
  if(!gc)return null;

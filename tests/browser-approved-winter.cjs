@@ -4,7 +4,7 @@ const {chromium}=require('playwright');
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
  try{
   const page=await browser.newPage({viewport:{width:1100,height:800}});
-  await page.goto((process.env.GAME_URL||'http://127.0.0.1:5501/')+'?clima=winter',{waitUntil:'networkidle'});
+  await page.goto((process.env.GAME_URL||'http://127.0.0.1:5501/')+'?clima=winter&perf-test=1&perf-ab=direct-snow',{waitUntil:'networkidle'});
   const results=await page.evaluate(async()=>{
    const {images,loadAssets}=await import('/js/assets.mjs');await loadAssets();
    const pixels=key=>{
