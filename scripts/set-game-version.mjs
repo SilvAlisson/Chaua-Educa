@@ -18,7 +18,7 @@ console.log(`Versão do pacote, lockfile e jogo: ${version}`);
 // One revision for the stylesheet, entry and complete browser module graph.
 // Import maps preserve a single module instance for relative and absolute imports.
 const {readdirSync}=await import('node:fs');
-const modules=readdirSync(new URL('Chaua-Educa-main/js/',root)).filter(file=>/\.(mjs|js)$/.test(file)).sort();
+const modules=readdirSync(new URL('Chaua-Educa-main/js/',root),{recursive:true}).filter(file=>/\.(mjs|js)$/.test(file)).sort();
 const imports=Object.fromEntries(modules.map(file=>[`./js/${file}`,`./js/${file}?v=${revision}`]));
 const htmlPath=new URL('Chaua-Educa-main/index.html',root);
 let html=readFileSync(htmlPath,'utf8').replace(/\s*<meta name="chaua-build"[^>]*>/,'').replace(/\s*<script type="importmap" id="chaua-modules">[\s\S]*?<\/script>/,'');

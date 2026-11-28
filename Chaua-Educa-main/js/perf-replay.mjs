@@ -1,7 +1,7 @@
 // A recorded reference route through the real winter flight. Tick indexes
 // advance only while playing, so the recording is independent of RAF cadence.
 export const WINTER_REPLAY = Object.freeze({
- id:'winter-aventura-v1',mode:'aventura',seed:3169729328,steps:4949,score:115,worldWidth:960,
+ id:'winter-aventura-v2',mode:'aventura',seed:3169729328,steps:4949,score:99,worldWidth:960,
  taps:Object.freeze([
   41,120,199,278,357,436,515,593,673,751,831,910,989,1068,1147,1226,
   1304,1384,1463,1542,1621,1700,1791,1872,1937,2011,2091,2166,2248,2327,

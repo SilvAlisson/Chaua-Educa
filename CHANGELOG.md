@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+- Consolida o PixiJS/WebGL, o fundo sazonal direto do atlas, o brilho das frutas sob chuva, o carregamento progressivo da neve e a cena persistente.
+- Faz frutas e poderes entrarem pela borda direita. Se faltar espaço para o poder antes da trilha, ele entra depois da última fruta.
+- Atualiza o voo de referência do inverno para identificar a nova posição dos itens nos relatórios.
+
 ## 1.0.16
 
 - Ativa as copas nevadas pré-compostas como padrão, com 16 níveis em quatro atlas.

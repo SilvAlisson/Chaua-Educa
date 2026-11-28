@@ -163,13 +163,13 @@ function scaledFruitClearance(kind,place,x,y,radius){
  return true;
 }
 
-export function placeA2Fruit(snakes,x,y,minimumY,maximumY,previous=[]){
+export function placeA2Fruit(snakes,x,y,minimumY,maximumY,previous=[],minimumX=-Infinity){
  if(minimumY>maximumY)return null;
  const probe=activeProbe;
  let candidates=0;
  const fits=(cx,cy)=>{
   candidates++;
-  return cy>=minimumY&&cy<=maximumY&&
+  return cx>=minimumX&&cy>=minimumY&&cy<=maximumY&&
    snakesClear(snakes,cx,cy)&&
    previousClear(previous,cx,cy);
  };

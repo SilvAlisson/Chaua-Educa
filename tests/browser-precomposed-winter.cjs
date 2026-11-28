@@ -138,7 +138,7 @@ const assert=require('node:assert/strict');
   assert.equal(report.replay.steps,4949);
   assert.ok(report.climateTimeline.some(item=>item.snow>0&&item.snow<1&&item.snowStage>0));
   assert.deepEqual(report.snowCaps,{rebuilds:0,hits:0,directDraws:0});
-  assert.equal(report.match.score,115);
+  assert.equal(report.match.score,99);
   assert.equal(report.experiments.perfAB,'precomposed-snow');
   assert.equal(report.provenance.gitCommit,commit);
   assert.equal(report.provenance.gitCommitSource,'build');

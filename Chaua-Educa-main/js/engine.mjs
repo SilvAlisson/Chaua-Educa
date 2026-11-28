@@ -731,6 +731,9 @@ export class Game {
         const spawnWidth = Math.max(this.width, this.viewWidth || this.width);
         const margin = this.viewWidth ? 180 : 80;
         const x = spawnWidth + margin;
+        // The widest pickup glow reaches 42 units before scaling. Leave
+        // room for its pulse, the first simulation step and camera shake.
+        const pickupEntryX = spawnWidth + 56 + this.shakeIntensity;
         const travel = (x - this.x) / this.speed;
         const plan=planEncounter({sequence:n,elapsed:this.elapsed,lastCenter:this.lastGap,lastPattern:this.lastPattern,profile,speed:this.speed,stage:this.stage,random:this.encounterRandom,recentPatterns:this.encounterHistory.map(e=>e.pattern)});
         const recovery=!soloHawk&&this.postHawkRecovery;
@@ -808,7 +811,7 @@ export class Game {
         const corridorBottom = (hasSnake?center-85:center-gap/2) + encounterGap - (hasSnake ? 218 : 55);
         for(let fIdx=0; fIdx<fruits.length; fIdx++) {
             const point = fruits[fIdx];
-            let fy = point.y, fx=x+point.x;
+            let fy = point.y, fx=Math.max(pickupEntryX,x+point.x);
             if (hasSnake) {
                 // Center the entire fruit route directly in the clear flight corridor above the snake
                 const corridorCenter = (corridorTop + corridorBottom) / 2;
@@ -832,7 +835,7 @@ export class Game {
             }
             if (lacksClearance) {
                 const probe=activeProbe,placeAt=probe?probe.begin('snake.placeFruit'):0;
-                const placed = placeA2Fruit(nearbySnakes,fx,fy,corridorTop,corridorBottom,placedFruits);
+                const placed = placeA2Fruit(nearbySnakes,fx,fy,corridorTop,corridorBottom,placedFruits,pickupEntryX);
                 if(probe)probe.end('snake.placeFruit',placeAt,{nearbySnakes:nearbySnakes.length});
                 if (!placed) continue;
                 fx=placed.x;fy=placed.y;
@@ -847,7 +850,18 @@ export class Game {
         }
         const firstFruit = placedFruits[0];
         const kind=hawkAlone||!firstFruit?null:offerPower({elapsed:this.elapsed,shield:this.shield,feather:this.feather,pepper:this.pepper,entities:this.entities,schedule:this.powerSchedule,opportunity:placedFruits.length>1,random:this.powerRandom});
-        if(kind)this.entities.push({id:this.nextId++,kind,x:firstFruit.x-125,y:firstFruit.y});
+        // Powers normally lead the fruit route. If that slot is already on
+        // screen, put the power behind the route with the same separation.
+        if(kind){
+            let leftmost=firstFruit, rightmost=firstFruit;
+            for(const fruit of placedFruits){
+                if(fruit.x<leftmost.x)leftmost=fruit;
+                if(fruit.x>rightmost.x)rightmost=fruit;
+            }
+            const leading=leftmost.x-125>=pickupEntryX;
+            const anchor=leading?leftmost:rightmost;
+            this.entities.push({id:this.nextId++,kind,x:anchor.x+(leading?-125:125),y:anchor.y});
+        }
         this.nextSpawn = plan.interval;
     }
 

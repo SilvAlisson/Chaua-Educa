@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {Game,STEP,FLIGHT} from '../Chaua-Educa-main/js/engine.mjs';
 import {offerPower,POWER_BALANCE} from '../Chaua-Educa-main/js/powers.mjs';
 import DB from '../Chaua-Educa-main/js/database.js';
+import {flightViewport} from '../Chaua-Educa-main/js/viewport.mjs';
 function options(){return {elapsed:30,shield:false,feather:0,entities:[],schedule:{nextAny:0,nextShield:0,nextFeather:18},opportunity:true,random:()=>.5};}
 function route(){const g=new Game();g.state='playing';g.routes.set(1,{total:3,collected:0,awarded:false,failed:false});const fruit=Array.from({length:3},(_,i)=>({id:i,kind:'fruit',variety:0,route:1,x:220+i*100,y:320}));g.entities=fruit;return {g,fruit};}
 test('power offers respect spacing, existing shields, pending pickups and fruit opportunities',()=>{
@@ -27,10 +28,38 @@ test('unused trail bookkeeping is bounded and power schedules freeze during paus
  const {g}=route();g.entities=[];g.nextSpawn=Infinity;g.tick(STEP);assert.equal(g.routes.size,0);
  g.powerSchedule={nextAny:45,nextShield:50,nextFeather:55};g.pause();const before=JSON.stringify(g.powerSchedule);for(let i=0;i<240;i++)g.tick(STEP);assert.equal(JSON.stringify(g.powerSchedule),before);
 });
-test('feather offers lead a multi-fruit opportunity and stay within safe gap margins',()=>{
- const g=new Game({random:()=>.999});g.elapsed=40;g.sequence=3;g.spawn();const feather=g.entities.find(e=>e.kind==='feather');const fruits=g.entities.filter(e=>e.kind==='fruit');
- assert.ok(feather);assert.ok(fruits.length>1);assert.equal(fruits[0].x-feather.x,125);assert.equal(feather.y,fruits[0].y);
- const wood=g.entities.find(e=>e.kind==='wood');assert.ok(feather.y>=wood.top+(FLIGHT.aventura.fruitMargin??48)&&feather.y<=wood.bottom-(FLIGHT.aventura.fruitMargin??48));
+test('powers lead from outside the viewport when the route has room',()=>{
+ const g=new Game({random:()=>.999});
+ g.viewWidth=1280;g.elapsed=15;g.spawn();
+ const shield=g.entities.find(e=>e.kind==='shield');
+ const fruit=g.entities.find(e=>e.kind==='fruit');
+ assert.ok(shield.x-48>g.viewWidth);
+ assert.equal(fruit.x-shield.x,125);
+ assert.equal(shield.y,fruit.y);
+});
+test('an early fruit route and its feather enter from beyond the visible right edge',()=>{
+ for(const [width,height] of [[390,844],[834,375],[1920,800]]){
+  const view=flightViewport(width,height);
+  const right=view.worldLeft+view.worldWidth;
+  const g=new Game({random:()=>.999});
+  g.viewWidth=Math.max(g.width,Math.ceil(right));
+  g.elapsed=40;g.sequence=3;g.state='playing';
+  g.nextSpawn=0;g.nextQuizAt=Infinity;
+  g.tick(STEP);
+  const feather=g.entities.find(e=>e.kind==='feather');
+  const fruits=g.entities.filter(e=>e.kind==='fruit');
+  const wood=g.entities.find(e=>e.kind==='wood');
+  assert.ok(feather);
+  assert.ok(fruits.length>1);
+  assert.equal(feather.x-fruits.at(-1).x,125);
+  assert.equal(feather.y,fruits.at(-1).y);
+  assert.ok(feather.y>=wood.top+FLIGHT.aventura.fruitMargin&&feather.y<=wood.bottom-FLIGHT.aventura.fruitMargin);
+  for(const pickup of [...fruits,feather])assert.ok(pickup.x-48>right);
+  g.nextSpawn=Infinity;
+  const initialX=feather.x;
+  g.tick(STEP);
+  assert.ok(feather.x<initialX);
+ }
 });
 test('new balance scores stay separate while previous forest records remain readable',()=>{
  const original=JSON.stringify([{playerName:'Ana',score_val:200,mode:'aventura'}]);const data=new Map([['db-chaua-floresta-v2',original]]);
